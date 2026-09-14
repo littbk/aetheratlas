@@ -1,0 +1,20 @@
+# Local browser profiles and generated validation artifacts
+.browser-*/
+*-preview.png
+validation-results.json
+
+# Local exports and one-off migration script
+/mapa.png
+/upgrade.py
+
+# Python caches and local environment
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+
+# Operating system metadata
+.DS_Store
+Thumbs.db
+desktop.ini
