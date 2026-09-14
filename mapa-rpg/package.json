@@ -1,0 +1,8 @@
+{
+  "name": "atlas-do-reino",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "dependencies": { "@vercel/blob": "^1.0.0" }
+}
