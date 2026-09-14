@@ -10,7 +10,7 @@ export function json(data, status = 200, headers = {}) {
 
 export function cookie(request, name) {
   const entry = (request.headers.get('cookie') || '').split(';').map(v => v.trim()).find(v => v.startsWith(`${name}=`));
-  return entry ? decodeURIComponent(entry.slice(name.length + 1)) : '';
+  try { return entry ? decodeURIComponent(entry.slice(name.length + 1)) : ''; } catch { return ''; }
 }
 
 export function sessionValid(request) {
@@ -29,5 +29,7 @@ export function newSession() {
 }
 
 export function adminOnly(request) {
+  const origin = request.headers.get('origin');
+  if (origin && origin !== new URL(request.url).origin) return json({ error: 'Origem não permitida.' }, 403);
   return sessionValid(request) ? null : json({ error: 'Sessão de administrador necessária.' }, 401);
 }

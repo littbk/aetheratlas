@@ -3,6 +3,17 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "engines": { "node": ">=20" },
-  "dependencies": { "@vercel/blob": "^1.0.0" }
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@vercel/blob": "2.8.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
 }

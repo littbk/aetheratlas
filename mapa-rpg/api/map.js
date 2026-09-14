@@ -1,42 +1,34 @@
-import { get, put } from '@vercel/blob';
-import { adminOnly, json } from './_auth.js';
+import { get } from '@vercel/blob';
+import { adminOnly, json } from '../lib/auth.js';
+import { currentMap, publicMap, saveMap, storageOptions } from '../lib/storage.js';
+import { validateProject, MAX_PROJECT_BYTES, projectPathPattern } from '../schema.js';
 
-const metadataPath = 'atlas-do-reino/current.json';
-const imageTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
-
-async function current() {
-  try {
-    const result = await get(metadataPath, { access: 'public' });
-    if (!result) return null;
-    const map = await result.json();
-    return map.imageUrl ? map : null;
-  } catch { return null; }
+export async function GET() {
+  try { return json({ map: publicMap(await currentMap()) }); }
+  catch { return json({ error: 'Não foi possível carregar o mapa. Tente novamente.' }, 503); }
 }
 
-export default async function handler(request) {
-  if (request.method === 'GET') return json({ map: await current() }, 200, { 'Cache-Control': 'no-store' });
+export async function DELETE(request) {
   const denied = adminOnly(request);
   if (denied) return denied;
-  if (request.method === 'DELETE') {
-    await put(metadataPath, JSON.stringify({}), { access: 'public', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' });
-    return json({ ok: true });
-  }
-  if (request.method !== 'POST') return json({ error: 'Método não permitido.' }, 405);
-  const form = await request.formData();
-  const image = form.get('image');
-  const title = String(form.get('title') || 'Mapa do Reino').trim().slice(0, 90);
-  const note = String(form.get('note') || '').trim().slice(0, 240);
-  if (!(image instanceof File) || !image.size) return json({ error: 'Escolha uma imagem do mapa.' }, 400);
-  if (!imageTypes.has(image.type) || image.size > 4 * 1024 * 1024) return json({ error: 'Use PNG, JPG ou WebP de até 4 MB.' }, 400);
-  const extension = image.type === 'image/png' ? 'png' : image.type === 'image/webp' ? 'webp' : 'jpg';
-  const imageBlob = await put(`atlas-do-reino/mapas/${crypto.randomUUID()}.${extension}`, image, { access: 'public', contentType: image.type });
-  const project = form.get('project');
-  let projectUrl = '';
-  if (project instanceof File && project.size && project.size <= 4 * 1024 * 1024 && (project.type === 'application/json' || project.name.endsWith('.json'))) {
-    const saved = await put(`atlas-do-reino/projetos/${crypto.randomUUID()}.json`, project, { access: 'private', contentType: 'application/json' });
-    projectUrl = saved.url;
-  }
-  const map = { title, note, imageUrl: imageBlob.url, projectUrl, updatedAt: new Date().toISOString() };
-  await put(metadataPath, JSON.stringify(map), { access: 'public', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' });
-  return json({ ok: true, map });
+  try { await saveMap({}); return json({ ok: true }); }
+  catch { return json({ error: 'Não foi possível remover a publicação.' }, 503); }
+}
+
+export async function POST(request) {
+  const denied = adminOnly(request);
+  if (denied) return denied;
+  const data = await request.json().catch(() => null);
+  if (!data || !projectPathPattern.test(data.projectPath)) return json({ error: 'Projeto inválido.' }, 400);
+  try {
+    const file = await get(data.projectPath, { ...storageOptions(), useCache: false });
+    if (!file || file.blob.size > MAX_PROJECT_BYTES) return json({ error: 'Projeto ausente ou maior que 80 MB.' }, 400);
+    let project;
+    try { project = validateProject(await new Response(file.stream).json()); }
+    catch (error) { return json({ error: error.message || 'JSON inválido.' }, 400); }
+    const map = { projectPath: data.projectPath, title: String(data.title || project.title || 'Mapa do Reino').trim().slice(0,90),
+      note: String(data.note || '').trim().slice(0,240), updatedAt: new Date().toISOString() };
+    await saveMap(map);
+    return json({ ok: true, map: publicMap(map) });
+  } catch { return json({ error: 'Não foi possível publicar o mapa. Tente novamente.' }, 503); }
 }

@@ -2,20 +2,35 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0d1b24"><title>Atlas do Reino</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#0d1b24"><title>Atlas do Reino · Mapa da campanha</title>
+  <link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/viewer.css">
 </head>
 <body>
   <header><a class="brand" href="/"><span>✦</span><div>ATLAS <b>DO REINO</b><small>MAPA DA CAMPANHA</small></div></a><div class="header-actions"><button id="help" class="ghost">Como explorar</button><button id="adminOpen" class="admin-button">Administração</button></div></header>
   <main>
-    <section id="empty" class="empty" hidden><p class="eyebrow">O MUNDO AINDA ESTÁ SENDO DESCOBERTO</p><h1>Nenhum mapa foi publicado.</h1><p>O mestre da campanha publicará o primeiro mapa em breve.</p></section>
-    <section id="viewer" class="viewer" aria-label="Visualização do mapa" hidden>
-      <div id="stage" class="stage"><img id="mapImage" draggable="false" alt=""><div class="vignette"></div><div class="compass" aria-hidden="true">N<span>✦</span>S</div><div class="map-name"><p id="mapTitle"></p><small id="mapNote"></small></div><div class="controls" aria-label="Controles do mapa"><button id="rotateLeft" aria-label="Girar à esquerda">↶</button><button id="reset" aria-label="Restaurar visão">⌖</button><button id="rotateRight" aria-label="Girar à direita">↷</button><button id="zoomOut" aria-label="Afastar">−</button><output id="zoomRead">100%</output><button id="zoomIn" aria-label="Aproximar">+</button></div><p class="gesture">Arraste para mover · Role ou faça pinça para ampliar · Use ↶ ↷ para girar</p></div>
-      <footer><span id="updated"></span><span>EXPLORE O MUNDO</span></footer>
+    <section id="empty" class="empty"><p class="eyebrow">SEU PRÓXIMO DESTINO</p><h1 id="emptyTitle">Carregando o mundo…</h1><p id="emptyNote">Preparando o mapa da campanha.</p><button id="retry" hidden>Tentar novamente</button></section>
+    <section id="viewer" class="viewer" aria-label="Visualização do mapa 3D" hidden>
+      <div id="stage" class="stage">
+        <canvas id="mapCanvas" aria-label="Mapa interativo 3D" tabindex="0"></canvas>
+        <div class="vignette"></div><div class="compass" aria-hidden="true">N<span>✦</span>S</div>
+        <div class="map-name"><p id="mapTitle"></p><small id="mapNote"></small></div>
+        <div class="view-mode" role="group" aria-label="Modo de câmera"><button id="modePan" class="active">Mover</button><button id="modeOrbit">Orbitar</button><button id="viewTop">Planta</button><button id="view3d">Relevo 3D</button></div>
+        <div class="camera-settings"><label>Perspectiva <input id="tilt" type="range" min="0" max="65" value="38"></label><output id="tiltRead">38°</output><button id="fullscreen" aria-label="Tela cheia">⛶</button></div>
+        <div class="controls" aria-label="Controles do mapa"><button id="rotateLeft" aria-label="Girar à esquerda">↶</button><button id="reset" aria-label="Enquadrar mapa">⌖</button><button id="rotateRight" aria-label="Girar à direita">↷</button><button id="zoomOut" aria-label="Afastar">−</button><output id="zoomRead">100%</output><button id="zoomIn" aria-label="Aproximar">+</button></div>
+        <p class="gesture">Arraste para mover · Botão direito para orbitar · Dois dedos para mover, ampliar e girar</p>
+      </div>
+      <footer><span id="updated"></span><span id="viewStatus">SOMENTE VISUALIZAÇÃO</span></footer>
     </section>
   </main>
-  <dialog id="guide"><button class="close" data-close="guide" aria-label="Fechar">×</button><p class="eyebrow">GUIA DO VIAJANTE</p><h2>Explore livremente.</h2><p>Arraste o mapa para mover a visão. Use a roda do mouse, os botões + e −, ou pinça com dois dedos para aproximar. Os botões ↶ e ↷ mudam a orientação do mapa.</p></dialog>
-  <dialog id="adminDialog"><button class="close" data-close="adminDialog" aria-label="Fechar">×</button><section id="loginPanel"><p class="eyebrow">ÁREA RESTRITA</p><h2>Entrar como mestre</h2><form id="loginForm"><label>Senha de administrador<input id="password" type="password" autocomplete="current-password" required></label><button class="primary">Entrar</button></form></section><section id="publishPanel" hidden><div class="admin-heading"><div><p class="eyebrow">ÁREA DO MESTRE</p><h2>Publicar mapa</h2></div><button id="logout" class="ghost">Sair</button></div><form id="publishForm"><label>Nome do mapa<input name="title" maxlength="90" placeholder="Ex.: Terras de Aurélia" required></label><label>Descrição breve <span>opcional</span><textarea name="note" maxlength="240" placeholder="Ex.: Região explorada pela companhia"></textarea></label><label class="file-label">Imagem exportada do editor <span>PNG, JPG ou WebP · até 4 MB</span><input name="image" type="file" accept="image/png,image/jpeg,image/webp" required></label><label class="file-label">Projeto do editor <span>opcional · JSON privado, para seu arquivo</span><input name="project" type="file" accept="application/json,.json"></label><button class="primary" id="publish">Publicar para jogadores</button><p id="adminStatus" role="status"></p></form><button id="removeMap" class="danger">Remover mapa público</button></section></dialog>
-  <script src="app.js"></script>
-</body>
-</html>
+  <dialog id="guide"><button class="close" data-close="guide" aria-label="Fechar">×</button><p class="eyebrow">GUIA DO VIAJANTE</p><h2>Explore o mapa completo.</h2><p>Arraste para mover ou escolha Orbitar para girar a câmera e mudar sua inclinação. No computador, o botão direito também orbita. Use a roda do mouse ou os botões + e − para aproximar.</p><p>No celular, dois dedos movem, ampliam e giram. Ajuste Perspectiva para observar o relevo ou use Planta para olhar de cima. Suas mudanças de câmera são pessoais e não alteram o mapa publicado.</p></dialog>
+  <dialog id="adminDialog"><button class="close" data-close="adminDialog" aria-label="Fechar">×</button>
+    <section id="loginPanel"><p class="eyebrow">ÁREA RESTRITA</p><h2>Entrar como mestre</h2><form id="loginForm"><label>Senha de administrador<input id="password" type="password" autocomplete="current-password" required></label><button class="primary">Entrar</button><p id="loginStatus" role="status"></p></form></section>
+    <section id="publishPanel" hidden><div class="admin-heading"><div><p class="eyebrow">ÁREA DO MESTRE</p><h2>Publicar mapa 3D</h2></div><button id="logout" class="ghost">Sair</button></div>
+      <form id="publishForm"><label>Nome do mapa<input name="title" maxlength="90" placeholder="Usar o nome salvo no projeto"></label><label>Descrição breve <span>opcional</span><textarea name="note" maxlength="240" placeholder="Ex.: Região explorada pela companhia"></textarea></label>
+      <label class="file-label">Projeto completo do Aether Atlas<span>No editor, clique em Salvar projeto. Envie o arquivo .json de até 80 MB.</span><input name="project" type="file" accept="application/json,.json" required></label>
+      <button class="primary" id="publish">Publicar para jogadores</button><p id="adminStatus" role="status"></p></form>
+      <button id="removeMap" class="danger">Retirar mapa da visualização</button>
+    </section>
+  </dialog>
+  <script src="/renderer/terrain.js"></script><script src="/renderer/scene.js"></script><script src="/renderer/paths.js"></script><script src="/renderer/billboards.js"></script><script type="module" src="/app.js"></script>
+</body></html>
