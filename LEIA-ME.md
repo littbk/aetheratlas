@@ -16,9 +16,9 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 - **Terreno**, **Elevar**, **Rebaixar**, **Suavizar** e **Platô** modificam os biomas e a altitude da camada selecionada.
 - **Túnel**: toque ou clique na entrada e depois na saída. Ajuste a largura pelo pincel e a profundidade no painel de túneis. Escape cancela a primeira entrada.
 - Túneis são representados por portais conectados e uma rota subterrânea tracejada; a profundidade é uma anotação. O editor não simula escavação volumétrica ou navegação no interior. Desmarque **Mostrar rotas subterrâneas** para exibir apenas os portais.
-- Casas, vilas, castelos, pontes, cavernas e outros marcadores podem ser inseridos em qualquer camada editável. A pintura nova fica acima do relevo da própria camada.
-- **Rio**, **Caminho** e **Cor livre** desenham traços contínuos. Preencha o nome para inserir **Texto** ou legendas de marcadores.
-- **Borracha** remove pintura e relevo da camada; tocar na rota de um túnel com a borracha remove essa conexão inteira.
+- Casas, vilas, castelos, pontes, cavernas e outros marcadores podem ser inseridos em qualquer camada editável. Construções, marcadores e textos são objetos separados, ancorados na altitude do terreno. Seus desenhos planos ficam de frente para a câmera, com tamanho legível e legendas horizontais.
+- **Rio** e **Caminho** guardam trajetos contínuos com curvas suaves; as margens são desenhadas antes do preenchimento para evitar anéis nas junções. **Cor livre** continua sendo pintura raster. Preencha o nome para inserir **Texto** ou legendas de marcadores.
+- **Borracha** remove um objeto ao tocar no ícone ou legenda, recorta trechos de rios e estradas e remove pintura e relevo da camada; tocar na rota de um túnel com a borracha remove essa conexão inteira.
 - Camadas aceitam visibilidade, bloqueio, reordenação e opacidade. Camadas superiores podem cobrir as inferiores.
 - Ctrl+Z desfaz e Ctrl+Y refaz. O histórico guarda até 12 operações e reduz esse número conforme o tamanho do projeto para limitar a memória das cópias.
 
@@ -31,13 +31,13 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 
 ## Salvar e exportar
 
-- **Salvar projeto** baixa um JSON com camadas, pintura, altitude, túneis e orientação da câmera. **Abrir** restaura o arquivo. Projetos anteriores das versões 1 e 2 continuam aceitos.
-- Não há salvamento automático. Salve antes de fechar a aba. Os projetos novos usam a versão 3 e requerem este editor atualizado.
-- **Exportar PNG** gera o mapa de cima em 1600 × 1100 pixels, respeitando camadas e opacidade, independentemente da câmera.
-- **Exportar esta vista**, no painel da câmera, gera a perspectiva atual, sem os controles da interface. A imagem usa a resolução do visor, com densidade de pixels limitada a 2.
+- **Salvar projeto** baixa um JSON com camadas, pintura, altitude, objetos, trajetos, túneis e orientação da câmera. **Abrir** restaura o arquivo. Projetos anteriores das versões 1, 2 e 3 continuam aceitos.
+- Não há salvamento automático. Salve antes de fechar a aba. Os projetos novos usam a versão 4 e requerem este editor atualizado.
+- **Exportar planta (PNG)**, no painel da câmera, gera o mapa de cima em 1600 × 1100 pixels, respeitando camadas e opacidade, independentemente da câmera.
+- **Exportar imagem**, no topo, salva a perspectiva, rotação, zoom e enquadramento atuais, incluindo os ícones e textos voltados à câmera, sem controles nem indicadores temporários. **Exportar esta vista**, no painel da câmera, faz a mesma exportação. A imagem usa a resolução do visor, com densidade de pixels limitada a 2.
 - **Exportar mapa de altura** gera 400 × 275 pixels: preto = −500 m e branco = 3.000 m. Áreas sem altitude definida ficam transparentes.
 
-O mapa é um campo de alturas com até 16 camadas. Textos e construções individuais são incorporados à pintura; para reposicioná-los, desfaça e reinsira. O exemplo e os materiais são originais, desenhados por código.
+O mapa é um campo de alturas com até 16 camadas. Novos textos e construções são objetos independentes; para reposicioná-los, desfaça e reinsira. Elementos de projetos antigos que já foram gravados na imagem continuam rasterizados: um PNG não contém as posições e os textos originais para separá-los automaticamente. O exemplo e os materiais são originais, desenhados por código.
 
 ## Validação
 
