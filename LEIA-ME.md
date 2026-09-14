@@ -39,7 +39,23 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 
 O mapa é um campo de alturas com até 16 camadas. Novos textos e construções são objetos independentes; para reposicioná-los, desfaça e reinsira. Elementos de projetos antigos que já foram gravados na imagem continuam rasterizados: um PNG não contém as posições e os textos originais para separá-los automaticamente. O exemplo e os materiais são originais, desenhados por código.
 
-## Validação
+## Publicidade no rodapé
+
+O editor web está preparado para **Google AdSense**. **AdMob** exige um aplicativo Android/iOS com o Google Mobile Ads SDK; esta pasta não contém um projeto nativo.
+
+A faixa fica abaixo de todo o editor, fora do canvas e das imagens exportadas. Reserva 728 × 90 px para o anúncio no desktop e 320 × 50 px em telas de até 860 px, além do rótulo e das margens. Os painéis móveis e as notificações respeitam esse espaço.
+
+- Abrindo `index.html` localmente, a prévia aparece automaticamente, sem carregar scripts do Google. Para removê-la, altere `previewLocal` para `false` em `ads-config.js`.
+- Em uma hospedagem, use `?ads=preview` na URL para conferir apenas o layout. Sem essa opção, o script da conta `ca-pub-7384003784715607` carrega de forma assíncrona e solicita o bloco **AetherAtlas**, `1897479487`.
+- A integração já está ativada em `ads-config.js`, com `client`, `slot` e `enabled: true`. Cadastre e obtenha aprovação do domínio no AdSense para receber anúncios. Para desativar toda a integração, use `enabled: false`. IDs do AdMob com `/` ou `~` não servem para esta integração.
+- Publique todos os arquivos juntos, incluindo `ads.txt` na raiz do domínio (`https://seu-dominio/ads.txt`); ele já contém seu ID de editor. Se a hospedagem já tiver esse arquivo, acrescente a linha sem apagar os outros registros. Siga as instruções da sua conta para privacidade e consentimento (incluindo uma CMP certificada nas regiões em que o Google a exige); essas configurações dependem do domínio, da conta e do público e ainda não foram realizadas.
+- Mantenha os anúncios automáticos desligados na conta se quiser apenas esta faixa. O código insere uma única unidade, sem atualização periódica. Bloqueio do script ou resposta sem anúncio recolhem a faixa.
+
+Valide o anúncio real no domínio aprovado. A prévia local não comprova aprovação, preenchimento nem receita; não clique nos próprios anúncios durante os testes.
+
+Referências: [AdSense e AdMob](https://support.google.com/adsense/answer/9234653?hl=pt-BR), [dimensões responsivas](https://support.google.com/adsense/answer/9183363?hl=pt-BR), [publicar ads.txt](https://support.google.com/adsense/answer/12171612?hl=pt-BR).
+
+## Validação do editor
 
 `validate_browser.py` verifica o editor com Chrome headless e DevTools: câmera, escultura, construções, túneis, desfazer/refazer, exportação, compatibilidade e gestos mobile. O script de desenvolvimento usa o módulo Python `websocket-client` já disponível no ambiente de validação; ele não é necessário para usar o editor.
 

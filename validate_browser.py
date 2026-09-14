@@ -53,6 +53,8 @@ try:
         time.sleep(.1)
     check("!!scene.gl && scene.gl.getError()===0 && layers.length===4",'WebGL inicializa e desenha quatro camadas')
     screenshot('desktop-preview.png')
+    check("!$('adBanner').hidden && $('adContent').textContent.includes('Prévia') && !document.querySelector('script[src*=\"googlesyndication\"]')",'Prévia local não carrega anúncios reais')
+    check("document.querySelector('main').getBoundingClientRect().bottom <= $('adBanner').getBoundingClientRect().top && $('adBanner').getBoundingClientRect().bottom <= innerHeight",'Faixa abaixo de todo o editor sem sobreposição no desktop')
     check("!document.body.textContent.includes('Ã§') && !document.body.textContent.includes('â—')",'Textos em português sem codificação quebrada')
     js("$('bearing').value=57;$('bearing').oninput();$('tilt').value=58;$('tilt').oninput();")
     check("(()=>{const p=scene.project(620,560,Math.max(0,Terrain.sample(layers,620,560)||0)*.065,camera()),q=scene.pick(p.x,p.y);return q&&Math.abs(q.x-620)<.01&&Math.abs(q.y-560)<.01})()",'Seleção acompanha rotação e perspectiva')
@@ -123,6 +125,7 @@ try:
     call('Emulation.setDeviceMetricsOverride',{'width':844,'height':390,'deviceScaleFactor':1,'mobile':True})
     js('fit()')
     check("document.documentElement.scrollWidth===844 && $('viewport').clientHeight>150",'Celular em paisagem mantém área útil')
+    check("document.querySelector('main').getBoundingClientRect().bottom <= $('adBanner').getBoundingClientRect().top && $('adBanner').getBoundingClientRect().bottom <= innerHeight",'Faixa preserva o mapa no celular em paisagem')
     for width in [320,360,768,860,1024]:
         call('Emulation.setDeviceMetricsOverride',{'width':width,'height':800,'deviceScaleFactor':1,'mobile':True})
         js('fit()')
