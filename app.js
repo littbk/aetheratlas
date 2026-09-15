@@ -30,7 +30,7 @@ function addTunnel(p){
 function ink(l){if(!l.ink){l.ink=document.createElement('canvas');l.ink.width=W;l.ink.height=H;}return l.ink;}
 function layer(name){const c=document.createElement('canvas');c.width=W;c.height=H;return{name,visible:true,locked:false,opacity:1,c,ink:null,objects:[],routes:[],tunnels:[],terrain:Terrain.create()};}
 function notify(s){$('toast').textContent=s;$('toast').classList.add('show');clearTimeout(timer);timer=setTimeout(()=>$('toast').classList.remove('show'),2600);}
-function changed(){textureDirty=true;dirty=true;$('saved').textContent='Alterações não salvas';render();scheduleDriveSave();}
+function changed(){driveRevision++;textureDirty=true;dirty=true;$('saved').textContent='Alterações não salvas';render();scheduleDriveSave();}
 function snapshotBytes(){return layers.reduce((sum,l)=>sum+W*H*4*(l.ink?2:1)+Terrain.length*6,0);}
 function snapshot(){return layers.map(l=>({name:l.name,visible:l.visible,locked:l.locked,opacity:l.opacity,terrain:Terrain.copy(l.terrain),tunnels:structuredClone(l.tunnels),objects:structuredClone(l.objects),routes:structuredClone(l.routes),ink:l.ink?.getContext('2d').getImageData(0,0,W,H)||null,data:l.c.getContext('2d').getImageData(0,0,W,H)}));}
 function remember(){history.push({layers:snapshot(),active});const bytes=snapshotBytes();while(history.length>1&&history.length*bytes>96*1024*1024)history.shift();if(history.length>12)history.shift();future=[];}
@@ -189,7 +189,14 @@ const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.file';
 let driveToken='',driveFileId=localStorage.getItem('aether-atlas-drive-file')||'',driveTimer=0,driveBusy=false,driveServerSession=false;
 $('driveClientId').value=localStorage.getItem('aether-atlas-drive-client-id')||'';
 $('driveAutosave').checked=localStorage.getItem('aether-atlas-drive-autosave')!=='false';
-function driveStatus(text){$('driveHelp').textContent=text;}
+let driveLocalProject=false,driveRevision=0;
+const driveDebug=document.createElement('details');
+driveDebug.innerHTML='<summary>Console do Drive</summary><button type="button" id="driveCheck">Verificar sessão</button><pre id="driveLog" aria-live="polite"></pre>';
+document.querySelector('.drive-panel').append(driveDebug);
+$('driveLog').style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:11px';
+function driveLog(message){const line=new Date().toLocaleTimeString()+' '+message;console.info('[Drive] '+message);$('driveLog').textContent=($('driveLog').textContent+'\n'+line).split('\n').slice(-60).join('\n');}
+function driveStatus(text){$('driveHelp').textContent=text;driveLog(text);}
+$('driveCheck').onclick=async()=>{try{const s=await serverDriveSession();driveLog('Servidor configurado: '+!!s.configured+' | Sessão conectada: '+!!s.connected+' | Arquivo na API: '+(s.fileId||'nenhum')+' | Arquivo atual: '+(driveFileId||'novo')+' | Importação local: '+driveLocalProject);}catch{driveLog('Não foi possível consultar a API de sessão.');}};
 function revealDriveSetup(){document.querySelector('.drive-panel').open=true;if(matchMedia('(max-width:860px)').matches){closePanels();document.body.classList.add('show-layers');$('mobileLayers').setAttribute('aria-expanded','true');$('panelBackdrop').hidden=false;}setTimeout(()=>$('driveClientId').focus(),0);}
 async function serverDriveSession(){const response=await fetch('/api/drive/session',{credentials:'same-origin'});if(!response.ok)throw Error('sessão indisponível');return response.json();}
 function loadGoogleIdentity(){return new Promise((resolve,reject)=>{if(window.google?.accounts?.oauth2)return resolve();const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=resolve;s.onerror=()=>reject(Error('Não foi possível carregar o login do Google.'));document.head.append(s);});}
@@ -199,10 +206,11 @@ async function connectDrive(){
   try{
     const server=await serverDriveSession();
     if(!server.configured){revealDriveSetup();throw Error('Configure a sessão persistente do Drive no Vercel.');}
-    if(!server.connected){location.assign('/api/drive/connect');return;}
+    if(!server.connected){if(driveLocalProject||dirty){driveStatus('Conecte antes de importar: guarde o JSON local, conecte o Drive e abra o JSON novamente.');return;}location.assign('/api/drive/connect');return;}
     driveServerSession=true;driveToken=server.accessToken;
-    driveFileId=await resolveDriveFile(server.fileId);
+    if(!driveLocalProject)driveFileId=await resolveDriveFile(server.fileId);
     $('driveConnect').textContent='Drive conectado';
+    if(driveLocalProject){driveStatus('Conectado. Clique em Salvar no Drive agora para enviar o JSON local.');return;}
     if(driveFileId)await openLastDriveProject();
     else driveStatus('Conectado. Use Salvar no Drive para guardar este mapa.');
   }catch(err){driveStatus(err.message);notify('Google Drive: '+err.message);}
@@ -249,6 +257,7 @@ async function restoreDriveSession(){
       driveServerSession=true;driveToken=server.accessToken;
       driveFileId=await resolveDriveFile(server.fileId);
       $('driveConnect').textContent='Drive conectado';
+      if(driveLocalProject)return;
       if(driveFileId)await openLastDriveProject();
       else{driveStatus('Nenhum projeto salvo foi encontrado nesta conta.');notify('Nenhum projeto encontrado no Drive.');}
       return;
@@ -256,7 +265,35 @@ async function restoreDriveSession(){
     if(driveFileId)driveStatus('Conecte o Drive para abrir o último projeto.');
   }catch(err){driveStatus('Não foi possível restaurar o projeto: '+err.message);notify('Não foi possível abrir o mapa do Drive: '+err.message);}
 }
-async function saveToDrive(){end();if(!driveToken)return connectDrive();if(driveBusy)return;driveBusy=true;$('driveSave').disabled=true;driveStatus('Salvando no Google Drive…');try{const blob=new Blob([JSON.stringify(projectData())],{type:'application/json'}),name=($('title').value.trim()||'mapa')+'.aether-atlas.json';let response;if(driveFileId){response=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(driveFileId)+'?uploadType=media',{method:'PATCH',headers:{Authorization:'Bearer '+driveToken,'Content-Type':'application/json'},body:blob});}else{const boundary='aetheratlas'+Date.now(),metadata=JSON.stringify({name,mimeType:'application/json'});response=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{Authorization:'Bearer '+driveToken,'Content-Type':'multipart/related; boundary='+boundary},body:'--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+metadata+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+await blob.text()+'\r\n--'+boundary+'--'});}if(!response.ok)throw Error(response.status===401?'sessão expirada; conecte novamente':'erro '+response.status);const result=await response.json();if(result.id){driveFileId=result.id;localStorage.setItem('aether-atlas-drive-file',driveFileId);if(driveServerSession){const stored=await fetch('/api/drive/file',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({fileId:driveFileId})});if(!stored.ok)throw Error('não foi possível registrar o arquivo na sessão');}}dirty=false;$('saved').textContent='Salvo no Google Drive';driveStatus('Salvo no Google Drive. Autosave está ativo.');}catch(err){driveStatus('Falha ao salvar: '+err.message);notify('Google Drive: '+err.message);}finally{driveBusy=false;$('driveSave').disabled=false;}}
+async function saveToDrive(){
+  end();if(driveBusy){driveLog('Aguarde a operação atual terminar.');return;}
+  driveBusy=true;$('driveSave').disabled=true;
+  const revision=driveRevision;
+  try{
+    const session=await serverDriveSession();
+    if(!session.configured||!session.connected)throw Error('Conecte o Drive antes de importar o JSON local. O mapa atual continua aberto.');
+    driveToken=session.accessToken;driveServerSession=true;
+    const data=JSON.stringify(projectData()),name=($('title').value.trim()||'mapa')+'.aether-atlas.json';
+    const metadata={name,mimeType:'application/json'},boundary='atlas'+Date.now();
+    const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+data+'\r\n--'+boundary+'--';
+    const fileId=driveLocalProject?'':driveFileId;
+    driveStatus(fileId?'Atualizando arquivo '+fileId+'…':'Criando cópia do mapa no Drive…');
+    const response=await fetch('https://www.googleapis.com/upload/drive/v3/files'+(fileId?'/'+encodeURIComponent(fileId):'')+'?uploadType=multipart&fields=id',{
+      method:fileId?'PATCH':'POST',headers:{Authorization:'Bearer '+driveToken,'Content-Type':'multipart/related; boundary='+boundary},body
+    });
+    if(!response.ok)throw Error('Upload recusado pelo Drive (HTTP '+response.status+').');
+    const result=await response.json();if(!result.id)throw Error('Drive não retornou o ID do arquivo.');
+    driveFileId=result.id;driveLocalProject=false;localStorage.setItem('aether-atlas-drive-file',driveFileId);
+    driveLog('Upload concluído. ID: '+driveFileId);
+    const stored=await fetch('/api/drive/file',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fileId:driveFileId})});
+    if(!stored.ok)throw Error('Arquivo salvo, mas a API não registrou o ID (HTTP '+stored.status+'). Tente salvar novamente.');
+    driveLog('API registrou o arquivo para a próxima abertura: '+driveFileId);
+    dirty=driveRevision!==revision;
+    $('saved').textContent=dirty?'Novas alterações pendentes':'Salvo no Google Drive';
+    driveStatus('Mapa salvo e vinculado à sessão. Ao recarregar, este arquivo será aberto.');
+  }catch(err){driveStatus('Falha ao salvar: '+err.message);notify(err.message);}
+  finally{driveBusy=false;$('driveSave').disabled=false;if(driveRevision!==revision)scheduleDriveSave();}
+}
 function scheduleDriveSave(){clearTimeout(driveTimer);if(driveToken&&$('driveAutosave').checked)driveTimer=setTimeout(saveToDrive,1400);}
 $('driveConnect').onclick=connectDrive;$('driveSave').onclick=saveToDrive;$('driveAutosave').onchange=()=>{localStorage.setItem('aether-atlas-drive-autosave',$('driveAutosave').checked);if($('driveAutosave').checked)scheduleDriveSave();};
 $('export').onclick=()=>{
@@ -275,7 +312,7 @@ function exportImage(){
 $('exportImage').onclick=exportImage;
 $('open').onclick=()=>$('file').click();$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>80*1024*1024)throw Error('Arquivo muito grande (máximo 80 MB).');const d=JSON.parse(await f.text());if(d.format!=='aether-atlas'||![1,2,3,4].includes(d.version)||d.width!==W||d.height!==H||!Array.isArray(d.layers)||!d.layers.length||d.layers.length>16)throw Error('Projeto incompatível.');const imported=await Promise.all(d.layers.map(async v=>{if(typeof v.name!=='string'||typeof v.visible!=='boolean'||typeof v.locked!=='boolean'||!Number.isFinite(v.opacity)||v.opacity<0||v.opacity>1||typeof v.image!=='string'||!v.image.startsWith('data:image/png;base64,'))throw Error('Camada inválida.');const im=new Image();im.src=v.image;await im.decode();if(im.width!==W||im.height!==H)throw Error('Dimensões de camada inválidas.');const l=layer(v.name);l.visible=v.visible;l.locked=v.locked;l.opacity=v.opacity;if(d.version>=2)l.terrain=Terrain.validate(v.terrain);l.c.getContext('2d').drawImage(im,0,0);l.objects=Billboards.validate(v.objects??[]);l.routes=MapPaths.validate(v.routes??[]);
 if(v.overlay){if(typeof v.overlay!=='string'||!v.overlay.startsWith('data:image/png;base64,'))throw Error('Pintura inválida.');const overlay=new Image();overlay.src=v.overlay;await overlay.decode();if(overlay.width!==W||overlay.height!==H)throw Error('Dimensões de pintura inválidas.');ink(l).getContext('2d').drawImage(overlay,0,0);}
-if(v.tunnels!==undefined){if(!Array.isArray(v.tunnels)||v.tunnels.length>1000)throw Error('Túneis inválidos.');for(const t of v.tunnels){if(!t||![t.a,t.b].every(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>=0&&p.y>=0&&p.x<W&&p.y<H)||!Number.isFinite(t.width)||t.width<1||t.width>200||!Number.isFinite(t.depth)||t.depth<5||t.depth>500)throw Error('Túnel inválido.');}l.tunnels=v.tunnels;}return l;}));if(dirty&&!confirm('Substituir o projeto com alterações não salvas?'))return;end();layers=imported;activeRoute=null;tunnelStart=null;Terrain.setTheme(d.theme||Terrain.defaultTheme);const theme=Terrain.getTheme();$('grassColor').value=theme.grass;$('treeColor').value=theme.trees;$('waterColor').value=theme.water;$('lavaColor').value=theme.lava;textureDirty=true;if(d.camera){yaw=normalizeAngle((Number.isFinite(d.camera.yaw)?d.camera.yaw:0));tilt=Math.max(0,Math.min(65,(Number.isFinite(d.camera.tilt)?d.camera.tilt:0)));relief=Math.max(0,Math.min(2,(Number.isFinite(d.camera.relief)?d.camera.relief:1)));$('relief').value=relief;}if(d.view){for(const [id,key] of [['textures','texture'],['shade','shade'],['contours','contours'],['altitude','altitude']])if(typeof d.view[key]==='boolean')$(id).checked=d.view[key];if([50,100,250,500].includes(d.view.interval))$('interval').value=d.view.interval;}active=layers.length-1;history=[];future=[];$('title').value=typeof d.title==='string'?d.title:'Mapa importado';dirty=false;$('saved').textContent='Projeto importado';render();fit();notify('Projeto aberto.');return true;}catch(err){notify('Não foi possível abrir: '+err.message);return false;}finally{e.target.value='';}};
+if(v.tunnels!==undefined){if(!Array.isArray(v.tunnels)||v.tunnels.length>1000)throw Error('Túneis inválidos.');for(const t of v.tunnels){if(!t||![t.a,t.b].every(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>=0&&p.y>=0&&p.x<W&&p.y<H)||!Number.isFinite(t.width)||t.width<1||t.width>200||!Number.isFinite(t.depth)||t.depth<5||t.depth>500)throw Error('Túnel inválido.');}l.tunnels=v.tunnels;}return l;}));if(dirty&&!confirm('Substituir o projeto com alterações não salvas?'))return;end();layers=imported;activeRoute=null;tunnelStart=null;Terrain.setTheme(d.theme||Terrain.defaultTheme);const theme=Terrain.getTheme();$('grassColor').value=theme.grass;$('treeColor').value=theme.trees;$('waterColor').value=theme.water;$('lavaColor').value=theme.lava;textureDirty=true;if(d.camera){yaw=normalizeAngle((Number.isFinite(d.camera.yaw)?d.camera.yaw:0));tilt=Math.max(0,Math.min(65,(Number.isFinite(d.camera.tilt)?d.camera.tilt:0)));relief=Math.max(0,Math.min(2,(Number.isFinite(d.camera.relief)?d.camera.relief:1)));$('relief').value=relief;}if(d.view){for(const [id,key] of [['textures','texture'],['shade','shade'],['contours','contours'],['altitude','altitude']])if(typeof d.view[key]==='boolean')$(id).checked=d.view[key];if([50,100,250,500].includes(d.view.interval))$('interval').value=d.view.interval;}active=layers.length-1;history=[];future=[];$('title').value=typeof d.title==='string'?d.title:'Mapa importado';dirty=false;$('saved').textContent='Projeto importado';render();fit();if(!e.fromDrive){driveLocalProject=true;driveFileId='';clearTimeout(driveTimer);driveRevision++;dirty=true;$('saved').textContent='JSON local · ainda não salvo no Drive';driveStatus('JSON local aberto. Clique em Salvar no Drive agora para criar uma cópia e vinculá-la à API.');}notify('Projeto aberto.');return true;}catch(err){notify('Não foi possível abrir: '+err.message);return false;}finally{e.target.value='';}};
 $('new').onclick=()=>{if(!confirm('Criar um mapa vazio? Salve o projeto atual antes de continuar.'))return;remember();tunnelStart=null;layers=[layer('Terreno'),layer('Detalhes'),layer('Marcadores')];active=0;$('title').value='Meu novo mundo';changed();fit();};$('title').oninput=changed;
 
 for(const [id,unit] of [['strength','%'],['amount',' m'],['iconSize',' px'],['rotation','°']])$(id).oninput=()=>$(id+'Value').textContent=$(id).value+unit;
