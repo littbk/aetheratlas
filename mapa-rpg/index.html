@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0d1b24"><title>Atlas do Reino · Mapa da campanha</title>
-  <link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/viewer.css">
+  <link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/viewer.css"><style>.atlas_ad_unit{display:block;width:320px;height:50px}@media(min-width:861px){.atlas_ad_unit{width:728px;height:90px}}@media(max-width:343px){.atlas_ad_unit{display:none}}</style>
 </head>
 <body>
   <header><a class="brand" href="/"><span>✦</span><div>ATLAS <b>DO REINO</b><small>MAPA DA CAMPANHA</small></div></a><div class="header-actions"><button id="help" class="ghost">Como explorar</button><button id="adminOpen" class="admin-button">Administração</button></div></header>
@@ -21,7 +21,7 @@
       </div>
       <footer><span id="updated"></span><span id="viewStatus">SOMENTE VISUALIZAÇÃO</span></footer>
     </section>
-  </main>
+  </main><section id="adBanner" class="ad-banner" aria-label="Publicidade" hidden><span class="ad-label">Publicidade</span><div id="adContent" class="ad-content"></div></section>
   <dialog id="guide"><button class="close" data-close="guide" aria-label="Fechar">×</button><p class="eyebrow">GUIA DO VIAJANTE</p><h2>Explore o mapa completo.</h2><p>Arraste para mover ou escolha Orbitar para girar a câmera e mudar sua inclinação. No computador, o botão direito também orbita. Use a roda do mouse ou os botões + e − para aproximar.</p><p>No celular, dois dedos movem, ampliam e giram. Ajuste Perspectiva para observar o relevo ou use Planta para olhar de cima. Suas mudanças de câmera são pessoais e não alteram o mapa publicado.</p></dialog>
   <dialog id="adminDialog"><button class="close" data-close="adminDialog" aria-label="Fechar">×</button>
     <section id="loginPanel"><p class="eyebrow">ÁREA RESTRITA</p><h2>Entrar como mestre</h2><form id="loginForm"><label>Senha de administrador<input id="password" type="password" autocomplete="current-password" required></label><button class="primary">Entrar</button><p id="loginStatus" role="status"></p></form></section>
@@ -32,5 +32,5 @@
       <button id="removeMap" class="danger">Retirar mapa da visualização</button>
     </section>
   </dialog>
-  <script src="/renderer/terrain.js"></script><script src="/renderer/scene.js"></script><script src="/renderer/paths.js"></script><script src="/renderer/billboards.js"></script><script type="module" src="/app.js"></script>
+  <script src="/renderer/terrain.js"></script><script src="/renderer/scene.js"></script><script src="/renderer/paths.js"></script><script src="/renderer/billboards.js"></script><script type="module" src="/app.js"></script><script src="/ads-config.js"></script><script src="/ads.js"></script>
 </body></html>
