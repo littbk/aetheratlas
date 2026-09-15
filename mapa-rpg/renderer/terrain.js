@@ -2,9 +2,9 @@
 // A four-pixel heightfield keeps editing and project files compact.
 const Terrain = (() => {
   const step = 4, width = 400, height = 275, length = width * height;
-  const biomes = ['auto', 'grass', 'forest', 'sand', 'rock', 'snow', 'water'];
-  const palette = [[135,165,107], [135,165,107], [51,99,73], [211,193,142], [140,151,139], [224,235,230], [52,119,135]];
-  const defaults = [120,120,240,25,1000,2000,-80];
+  const biomes = ['auto', 'grass', 'forest', 'sand', 'rock', 'snow', 'water', 'lava'];
+  const palette = [[135,165,107], [135,165,107], [51,99,73], [211,193,142], [140,151,139], [224,235,230], [52,119,135], [216,74,28]];
+  const defaults = [120,120,240,25,1000,2000,-80,35];
   const noise = (x,y) => { const n=Math.sin(x*127.1+y*311.7)*43758.5453; return n-Math.floor(n); };
   function smoothNoise(x,y){const ix=Math.floor(x),iy=Math.floor(y);let u=x-ix,v=y-iy;u=u*u*(3-2*u);v=v*v*(3-2*v);return (noise(ix,iy)*(1-u)+noise(ix+1,iy)*u)*(1-v)+(noise(ix,iy+1)*(1-u)+noise(ix+1,iy+1)*u)*v;}
   const grain=new Float32Array(length),detail=new Float32Array(length);
@@ -19,7 +19,7 @@ const Terrain = (() => {
   function serialize(t) {return {heights:Array.from(t.heights,v=>Math.round(v*10)/10),coverage:Array.from(t.coverage),biomes:Array.from(t.biomes)};}
   function validate(data) {
     if(!data || !['heights','coverage','biomes'].every(k=>Array.isArray(data[k])&&data[k].length===length)) throw Error('Dados de relevo inválidos.');
-    for(let i=0;i<length;i++) if(!Number.isFinite(data.heights[i])||data.heights[i]<-500||data.heights[i]>3000||!Number.isInteger(data.coverage[i])||data.coverage[i]<0||data.coverage[i]>255||!Number.isInteger(data.biomes[i])||data.biomes[i]<0||data.biomes[i]>6) throw Error('Altitude ou textura inválida.');
+    for(let i=0;i<length;i++) if(!Number.isFinite(data.heights[i])||data.heights[i]<-500||data.heights[i]>3000||!Number.isInteger(data.coverage[i])||data.coverage[i]<0||data.coverage[i]>255||!Number.isInteger(data.biomes[i])||data.biomes[i]<0||data.biomes[i]>7) throw Error('Altitude ou textura inválida.');
     return restore(data);
   }
   function index(x,y) {return Math.max(0,Math.min(height-1,Math.floor(y/step)))*width+Math.max(0,Math.min(width-1,Math.floor(x/step)));}
@@ -72,6 +72,7 @@ const Terrain = (() => {
         if(type===3)light+=Math.sin(x*.28+y*.9+grain[i]*9)*.05;
         if(type===4)light+=Math.sin(x*.35-y*.48+grain[i]*14)*.09;
         if(type===6)light+=Math.sin(y*1.8+Math.sin(x*.15))*.035;
+        if(type===7)light+=Math.sin(x*.7+y*.95)*.13+(detail[i]>.6?.09:-.05);
       }
       if(settings.contours&&h>0){const interval=settings.interval,level=Math.floor(h/interval);if(level!==Math.floor(hAt(x+1,y,h)/interval)||level!==Math.floor(hAt(x,y+1,h)/interval))light*=.88;}
       for(let k=0;k<3;k++)p[i*4+k]=Math.max(0,Math.min(255,rgb[k]*light));p[i*4+3]=t.coverage[i];
@@ -93,6 +94,7 @@ const Terrain = (() => {
         if((type===4||type===5)&&n>.68){g.strokeStyle=type===5?'#ffffff60':'#e2ddc955';g.lineWidth=.8;g.beginPath();g.moveTo(px-2,py+2);g.lineTo(px,py);g.lineTo(px+4,py-1);g.stroke();}
         if(type===3&&n>.65){g.fillStyle='#fff0c544';g.fillRect(px,py,1,.7);}
         if(type===6&&n>.94){g.strokeStyle='#a6e1db30';g.lineWidth=.8;g.beginPath();g.moveTo(px,py);g.quadraticCurveTo(px+3,py-1,px+7,py);g.stroke();}
+        if(type===7&&n>.55){g.strokeStyle='#ffd35a';g.lineWidth=.9;g.beginPath();g.moveTo(px-2,py+1);g.quadraticCurveTo(px+2,py-3,px+5,py);g.stroke();}
       }
     }
     t.dirty=false;t.view=key;return t.surface;

@@ -18,7 +18,7 @@ export function validateProject(project) {
       if (!t || !['heights', 'coverage', 'biomes'].every(k => Array.isArray(t[k]) && t[k].length === 110000)) fail('Dados de relevo inválidos.');
       for (let i = 0; i < 110000; i++) if (!inRange(t.heights[i], -500, 3000) ||
         !Number.isInteger(t.coverage[i]) || !inRange(t.coverage[i], 0, 255) ||
-        !Number.isInteger(t.biomes[i]) || !inRange(t.biomes[i], 0, 6)) fail('Altitude ou bioma inválido.');
+        !Number.isInteger(t.biomes[i]) || !inRange(t.biomes[i], 0, 7)) fail('Altitude ou bioma inválido.');
     }
     const objects = layer.objects ?? [], routes = layer.routes ?? [], tunnels = layer.tunnels ?? [];
     if (!Array.isArray(objects) || objects.length > 2000 || !Array.isArray(routes) || routes.length > 2000 ||
