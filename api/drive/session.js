@@ -1,0 +1,2 @@
+const {configured,session,setSession,clearCookie,accessToken}=require('./_auth');
+module.exports=async(req,res)=>{if(!configured())return res.status(200).json({configured:false});const data=session(req);if(!data?.refreshToken)return res.status(200).json({configured:true,connected:false});try{const token=await accessToken(data.refreshToken);setSession(res,data);res.status(200).json({configured:true,connected:true,accessToken:token.access_token,fileId:data.fileId||null});}catch{res.setHeader('Set-Cookie',clearCookie);res.status(200).json({configured:true,connected:false});}};

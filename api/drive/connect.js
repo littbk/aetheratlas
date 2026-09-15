@@ -1,0 +1,3 @@
+const crypto=require('crypto');
+const {configured,baseUrl,stateCookie,cookieOptions}=require('./_auth');
+module.exports=(req,res)=>{if(!configured())return res.status(503).json({configured:false});const state=crypto.randomBytes(24).toString('base64url');res.setHeader('Set-Cookie',`${stateCookie}=${state}; ${cookieOptions}`);const params=new URLSearchParams({client_id:process.env.GOOGLE_CLIENT_ID,redirect_uri:baseUrl(req)+'/api/drive/callback',response_type:'code',scope:'https://www.googleapis.com/auth/drive.file',access_type:'offline',prompt:'consent',state});res.redirect('https://accounts.google.com/o/oauth2/v2/auth?'+params);};

@@ -1,0 +1,2 @@
+const {configured,session,setSession,clearCookie}=require('./_auth');
+module.exports=(req,res)=>{if(req.method!=='POST')return res.status(405).end();if(!configured())return res.status(503).json({configured:false});const data=session(req),fileId=req.body?.fileId;if(!data?.refreshToken||typeof fileId!=='string'||!/^[\w-]{10,}$/.test(fileId))return res.status(401).json({connected:false});setSession(res,{...data,fileId});res.status(200).json({ok:true});};
