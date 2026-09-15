@@ -14,6 +14,7 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 ## Construção e edição
 
 - **Terreno**, **Elevar**, **Rebaixar**, **Suavizar** e **Platô** modificam os biomas e a altitude da camada selecionada.
+- A paleta inclui **Lava**. Em **Cores do mundo**, ajuste separadamente a grama, as copas das árvores, a água e a lava; o ajuste aparece no relevo e nas texturas.
 - **Túnel**: toque ou clique na entrada e depois na saída. Ajuste a largura pelo pincel e a profundidade no painel de túneis. Escape cancela a primeira entrada.
 - Túneis são representados por portais conectados e uma rota subterrânea tracejada; a profundidade é uma anotação. O editor não simula escavação volumétrica ou navegação no interior. Desmarque **Mostrar rotas subterrâneas** para exibir apenas os portais.
 - Casas, vilas, castelos, pontes, cavernas e outros marcadores podem ser inseridos em qualquer camada editável. Construções, marcadores e textos são objetos separados, ancorados na altitude do terreno. Seus desenhos planos ficam de frente para a câmera, com tamanho legível e legendas horizontais.
@@ -32,7 +33,8 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 ## Salvar e exportar
 
 - **Salvar projeto** baixa um JSON com camadas, pintura, altitude, objetos, trajetos, túneis e orientação da câmera. **Abrir** restaura o arquivo. Projetos anteriores das versões 1, 2 e 3 continuam aceitos.
-- Não há salvamento automático. Salve antes de fechar a aba. Os projetos novos usam a versão 4 e requerem este editor atualizado.
+- **Google Drive:** informe no painel direito o *Client ID OAuth* de um aplicativo Web criado no Google Cloud, cadastre o endereço publicado do editor em "Authorized JavaScript origins" e clique em **Conectar Drive**. O primeiro salvamento cria `nomedomapa.aether-atlas.json` na sua conta; os seguintes atualizam o mesmo arquivo automaticamente após cada alteração. O token de acesso não é guardado no navegador. O ID público do cliente e o ID do arquivo ficam apenas neste dispositivo. Para abrir o mesmo mapa em outro computador, abra o JSON pelo Drive e use **Abrir**, depois conecte-o novamente.
+- O botão **Salvar JSON** continua disponível como cópia local. O formato do projeto continua na versão 4, com os novos campos opcionais de tema, e versões anteriores continuam aceitas.
 - **Exportar planta (PNG)**, no painel da câmera, gera o mapa de cima em 1600 × 1100 pixels, respeitando camadas e opacidade, independentemente da câmera.
 - **Exportar imagem**, no topo, salva a perspectiva, rotação, zoom e enquadramento atuais, incluindo os ícones e textos voltados à câmera, sem controles nem indicadores temporários. **Exportar esta vista**, no painel da câmera, faz a mesma exportação. A imagem usa a resolução do visor, com densidade de pixels limitada a 2.
 - **Exportar mapa de altura** gera 400 × 275 pixels: preto = −500 m e branco = 3.000 m. Áreas sem altitude definida ficam transparentes.

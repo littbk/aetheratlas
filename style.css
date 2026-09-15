@@ -68,6 +68,7 @@ body>main{flex:1;min-height:0;height:auto}
   #toast{bottom:calc(var(--ad-space) + 90px)}
   .ad-preview{width:min(320px,100%);height:50px}
 }
+ .world-colors{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.world-colors label{font-size:10px;color:#aeb9ba}.world-colors input{display:block;width:100%;margin-top:5px}.drive-panel{border-top:1px solid #37434a;margin-top:25px;padding-top:14px}.drive-panel summary{font-size:9px;letter-spacing:1.6px;color:#c6ae7b;cursor:pointer}.drive-panel label:not(.check){display:block;margin-top:13px;font-size:10px;color:#aeb9ba}.drive-panel #driveClientId{width:100%;margin:7px 0 2px;padding:8px;background:#14272f;color:#e2d3ad;border:1px solid #455955;border-radius:5px;font-size:10px}.drive-panel button{width:100%;margin-top:10px;font-size:10px}
 @media(max-width:860px) and (orientation:landscape){
   .ad-banner{padding-top:4px;padding-bottom:calc(4px + env(safe-area-inset-bottom))}
   .ad-label{margin-bottom:4px}
