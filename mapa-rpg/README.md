@@ -2,6 +2,8 @@
 
 Projeto paralelo ao editor, publicado em https://aetheratlas-pnp8.vercel.app. Jogadores recebem o mapa completo salvo pelo Aether Atlas: relevo, camadas visíveis, construções, textos, rios, caminhos e túneis. A câmera oferece mover, orbitar, zoom, inclinação, planta, relevo 3D e tela cheia. A interface não possui ferramentas de edição e só uma sessão de administrador pode mudar a publicação no servidor.
 
+Para incorporar o mapa em outro aplicativo, use https://aetheratlas-pnp8.vercel.app/?embed=1. Esse modo ocupa toda a área disponível, oculta cabeçalho, administração, publicidade e molduras, e mantém os controles de navegação e câmera. O elemento iframe deve permitir tela cheia quando essa ferramenta for necessária.
+
 ## Publicar seu mundo
 
 1. No editor original, clique em **Salvar projeto** e guarde o arquivo `.json`.

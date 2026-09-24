@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  if (new URLSearchParams(location.search).get('embed') === '1') return;
   const config = window.ATLAS_ADS || {};
   const banner = document.getElementById('adBanner');
   const content = document.getElementById('adContent');

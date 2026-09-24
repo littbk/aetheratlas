@@ -35,3 +35,12 @@ button.active{background:#d9bd78;color:#17272c}
 }
 
 :root{--ad-space:0px}.ad-banner{flex-shrink:0;border-top:1px solid #35474b;background:#132129;padding:8px 12px calc(8px + env(safe-area-inset-bottom));text-align:center}.ad-banner[hidden]{display:none}.ad-label{display:block;margin-bottom:6px;font-size:8px;line-height:12px;letter-spacing:1.8px;color:#92a3a6;text-transform:uppercase}.ad-content{display:flex;justify-content:center;min-height:50px}.ad-preview{align-items:center;color:#9eaeaf;font-size:11px;background:#1a2b32;border:1px dashed #43585c;border-radius:4px;width:min(728px,100%);height:90px;margin:auto}@media(max-width:860px){.ad-preview{width:min(320px,100%);height:50px}}@media(max-width:343px){.ad-banner{display:none}}
+
+/* Minimal, edge-to-edge presentation for embedding in another application. */
+html.embed-mode,html.embed-mode body{width:100%;height:100%;min-height:0;overflow:hidden}
+html.embed-mode body{background:#0b1922}
+html.embed-mode body>header,html.embed-mode #adBanner,html.embed-mode .viewer>footer{display:none!important}
+html.embed-mode main,html.embed-mode #viewer,html.embed-mode .stage{width:100%;height:100%;min-height:0}
+html.embed-mode main{flex:1}
+html.embed-mode .viewer{height:100%;min-height:0}
+html.embed-mode .map-name,html.embed-mode .compass,html.embed-mode .gesture,html.embed-mode #fullscreen{display:none!important}
