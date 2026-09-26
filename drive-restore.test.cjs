@@ -1,45 +1,39 @@
-const {test}=require('node:test');
+﻿const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const vm=require('node:vm');
-const fs=require('node:fs');
-const code=fs.readFileSync('app.js','utf8');
-const start=code.indexOf('async function resolveDriveFile(');
-const end=code.indexOf('async function restoreDriveSession(',start);
-test('local JSON creates a new Drive file and registers its ID with API',async()=>{
-  const calls=[],fields={driveSave:{},title:{value:'Meu mapa'},saved:{}};
-  const ctx={end:()=>{},driveBusy:false,driveRevision:1,driveLocalProject:true,driveFileId:'previous',driveToken:'',driveServerSession:false,dirty:true,
-    $:id=>fields[id],serverDriveSession:async()=>({configured:true,connected:true,accessToken:'test'}),
-    projectData:()=>({title:'Meu mapa',layers:[{name:'Imported'}]}),driveLog:()=>{},driveStatus:()=>{},notify:()=>{},scheduleDriveSave:()=>{},localStorage:{setItem:()=>{}},
-    fetch:async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>({id:'new-project-id'})};}};
-  vm.createContext(ctx);vm.runInContext(code.slice(code.indexOf('async function saveToDrive()'),code.indexOf('function scheduleDriveSave()')),ctx);
-  await ctx.saveToDrive();
-  assert.equal(calls[0].options.method,'POST');assert.ok(!calls[0].url.includes('previous'));
-  assert.match(calls[0].options.body,/Imported/);
-  assert.equal(calls[1].url,'/api/drive/file');assert.equal(JSON.parse(calls[1].options.body).fileId,'new-project-id');
-  assert.equal(ctx.dirty,false);assert.equal(ctx.driveLocalProject,false);
+const Client=require('./drive-client');
+const session=async()=>({configured:true,connected:true,accessToken:'token'});
+const json=(data,status=200)=>new Response(JSON.stringify(data),{status});
+test('search escapes literals and preserves pagination',async()=>{
+ const c=new Client({session,fetch:async url=>{const p=new URL(url).searchParams;assert.equal(p.get('pageToken'),'next');assert.ok(p.get('q').includes("name contains 'O\\'Brien\\\\magic'"));assert.ok(p.get('q').includes("'parent' in parents"));return json({files:[]});}});
+ await c.list({folder:'parent',search:"O'Brien\\magic",pageToken:'next'});
 });
-function context(fetch,remembered='saved-map'){
-  const fields={file:{onchange:async()=>true},saved:{}};
-  const ctx={fetch,URLSearchParams,File,driveToken:'token',driveFileId:'saved-map',driveServerSession:true,driveBusy:false,driveTimer:0,clearTimeout,driveStatus:()=>{},$:id=>fields[id],localStorage:{getItem:()=>remembered,setItem:()=>{}}};
-  vm.createContext(ctx);vm.runInContext(code.slice(start,end),ctx);return {ctx,fields};
-}
-test('missing server ID recovers accessible remembered project',async()=>{
-  const {ctx}=context(async()=>({ok:true,json:async()=>({id:'saved-map',trashed:false})}));
-  assert.equal(await ctx.resolveDriveFile(null),'saved-map');
+test('401 refreshes token and retries once',async()=>{
+ let sessions=0,requests=0;const c=new Client({session:async()=>({...await session(),accessToken:String(++sessions)}),fetch:async()=>++requests===1?json({},401):json({id:'map'})});
+ assert.equal((await c.metadata('map')).id,'map');assert.equal(sessions,2);assert.equal(requests,2);
 });
-test('missing local ID discovers most recently modified project',async()=>{
-  const {ctx}=context(async url=>{assert.match(url,/orderBy=modifiedTime\+desc/);return {ok:true,json:async()=>({files:[{id:'recent',name:'Mundo.aether-atlas.json'}]})};},'');
-  assert.equal(await ctx.resolveDriveFile(null),'recent');
+test('interrupted upload resumes acknowledged bytes in same session',async()=>{
+ const ranges=[],progress=[];let puts=0;const c=new Client({session,wait:async()=>{},fetch:async(url,o)=>{
+ if(o.method==='POST'){assert.deepEqual(JSON.parse(o.body).parents,['folder']);return new Response('',{headers:{Location:'https://www.googleapis.com/upload/drive/v3/files?upload_id=one'}});}
+ ranges.push(o.headers['Content-Range']);puts++;if(puts===1)throw Error('network');if(puts===2)return new Response('',{status:308,headers:{Range:'bytes=0-262143'}});return json({id:'new-map'});
+ }});
+ assert.equal((await c.upload({name:'Map.json',folder:'folder',blob:new Blob(['x'.repeat(524288)]),onProgress:n=>progress.push(n)})).id,'new-map');
+ assert.deepEqual(ranges,['bytes 0-524287/524288','bytes */524288','bytes 262144-524287/524288']);assert.deepEqual(progress,[50,100]);
 });
-test('failed import never reports success or registers file',async()=>{
-  let requests=0;const {ctx,fields}=context(async()=>{requests++;return {ok:true,blob:async()=>new Blob(['{}'])};});
-  fields.file.onchange=async()=>false;
-  await assert.rejects(ctx.openLastDriveProject(),/cancelada/);
-  assert.equal(fields.saved.textContent,undefined);assert.equal(requests,1);assert.equal(ctx.driveBusy,false);
+test('update uses PATCH, keeps parent, rejects unsafe upload URL',async()=>{
+ const c=new Client({session,fetch:async(url,o)=>{assert.equal(o.method,'PATCH');assert.ok(url.includes('/existing-map?'));assert.equal(JSON.parse(o.body).parents,undefined);return new Response('',{headers:{Location:'https://evil.test/upload/drive/v3/files'}});}});
+ await assert.rejects(c.upload({id:'existing-map',name:'Map',folder:'ignored',blob:new Blob(['{}'])}));
 });
-test('successful import registers file only after loading',async()=>{
-  const events=[];const {ctx,fields}=context(async(url)=>{events.push(url.includes('alt=media')?'download':'register');return {ok:true,blob:async()=>new Blob(['{}'])};});
-  fields.file.onchange=async()=>{events.push('import');return true;};
-  assert.equal(await ctx.openLastDriveProject(),true);
-  assert.deepEqual(events,['download','import','register']);
+test('oversized download rejected before network request',async()=>{
+ const c=new Client({session,fetch:()=>{throw Error('unexpected');}});await assert.rejects(c.download({id:'map',size:81*1024*1024}),/80 MB/);
 });
+process.env.GOOGLE_CLIENT_ID='test';process.env.GOOGLE_CLIENT_SECRET='test';process.env.DRIVE_SESSION_SECRET='test-only-secret';
+const auth=require('./api/drive/_auth'),handler=require('./api/drive/file');
+function response(){return {headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.code=n;return this;},json(v){this.body=v;return this;},end(){return this;}};}
+function preference(data,body,origin='https://atlas.test'){const cookie=response();auth.setSession(cookie,data);const req={method:'POST',headers:{host:'atlas.test',origin,cookie:cookie.headers['Set-Cookie'].split(';')[0]},body};const res=response();handler(req,res);return res;}
+test('current file changes preserve default and migrate legacy preference',()=>{
+ const data={refreshToken:'test',fileId:'original-map-id',defaultFileId:'pinned-map-id'};
+ let r=preference(data,{fileId:'another-map-id'});assert.equal(r.code,200);assert.equal(r.body.defaultFileId,'pinned-map-id');
+ r=preference(data,{defaultFileId:null});assert.equal(r.body.fileId,'original-map-id');assert.equal(r.body.defaultFileId,null);
+ r=preference({refreshToken:'test',fileId:'legacy-map-id'},{fileId:'another-map-id'});assert.equal(r.body.defaultFileId,'legacy-map-id');
+});
+test('invalid IDs and foreign origins rejected',()=>{const data={refreshToken:'test'};assert.equal(preference(data,{fileId:'../bad'}).code,400);assert.equal(preference(data,{defaultFileId:'valid-map-id'},'https://other.test').code,403);});

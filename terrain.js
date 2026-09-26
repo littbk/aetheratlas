@@ -18,14 +18,28 @@ const Terrain = (() => {
   function create() {
     const canvas=document.createElement('canvas'); canvas.width=width; canvas.height=height;
     const surface=document.createElement('canvas');surface.width=1600;surface.height=1100;
-    return {heights:new Float32Array(length), coverage:new Uint8Array(length), biomes:new Uint8Array(length), canvas, surface, dirty:true, view:''};
+    return {heights:new Float32Array(length), coverage:new Uint8Array(length), biomes:new Uint8Array(length), treeStyleIds:new Uint16Array(length),treeStyles:[],treeExclusions:new Set(),canvas, surface, dirty:true, view:''};
   }
-  function copy(t) { return {heights:t.heights.slice(),coverage:t.coverage.slice(),biomes:t.biomes.slice()}; }
-  function restore(data) { const t=create(); if(data){t.heights.set(data.heights);t.coverage.set(data.coverage);t.biomes.set(data.biomes);}return t; }
-  function serialize(t) {return {heights:Array.from(t.heights,v=>Math.round(v*10)/10),coverage:Array.from(t.coverage),biomes:Array.from(t.biomes)};}
+  function copy(t) { freezeTreeColors(t);return {heights:t.heights.slice(),coverage:t.coverage.slice(),biomes:t.biomes.slice(),treeStyleIds:t.treeStyleIds.slice(),treeStyles:t.treeStyles.map(s=>({...s})),treeExclusions:[...t.treeExclusions]}; }
+  function restore(data) { const t=create(); if(data){t.heights.set(data.heights);t.coverage.set(data.coverage);t.biomes.set(data.biomes);if(data.treeStyleIds)t.treeStyleIds.set(data.treeStyleIds);t.treeStyles=(data.treeStyles||[]).map(s=>({...s}));t.treeExclusions=new Set(data.treeExclusions||[]);}return t; }
+  function serialize(t) {freezeTreeColors(t);return {heights:Array.from(t.heights,v=>Math.round(v*10)/10),coverage:Array.from(t.coverage),biomes:Array.from(t.biomes),treeStyleIds:Array.from(t.treeStyleIds),treeStyles:t.treeStyles.map(s=>({...s})),treeExclusions:[...t.treeExclusions]};}
+  function styleId(t,type){
+    const key=type===2?'trees':biomes[type],rgb=type===2?hexRgb(theme.forest):type===8?hexRgb(theme.sand):hexRgb(theme[key]).map(v=>Math.round(v*.62));
+    const style={foliage:theme[key],trunk:theme.trunk,ground:'#'+rgb.map(v=>v.toString(16).padStart(2,'0')).join('')};
+    let id=t.treeStyles.findIndex(s=>s.foliage===style.foliage&&s.trunk===style.trunk&&s.ground===style.ground);
+    if(id<0){if(t.treeStyles.length>=65535)throw Error('Limite de cores de vegetação atingido nesta camada.');id=t.treeStyles.push(style)-1;}return id+1;
+  }
+  function freezeTreeColors(t){
+    const ids={};for(let i=0;i<length;i++){const type=t.biomes[i];if(t.coverage[i]&&(type===2||type>=8)&&!t.treeStyleIds[i]){t.treeStyleIds[i]=ids[type]||(ids[type]=styleId(t,type));t.dirty=true;}}
+  }
+  function freezeLayers(layers){for(const l of layers)freezeTreeColors(l.terrain);}
   function validate(data) {
     if(!data || !['heights','coverage','biomes'].every(k=>Array.isArray(data[k])&&data[k].length===length)) throw Error('Dados de relevo inválidos.');
     for(let i=0;i<length;i++) if(!Number.isFinite(data.heights[i])||data.heights[i]<-500||data.heights[i]>3000||!Number.isInteger(data.coverage[i])||data.coverage[i]<0||data.coverage[i]>255||!Number.isInteger(data.biomes[i])||data.biomes[i]<0||data.biomes[i]>=biomes.length) throw Error('Altitude ou textura inválida.');
+    if(data.treeStyles!==undefined||data.treeStyleIds!==undefined){
+      if(!Array.isArray(data.treeStyles)||data.treeStyles.length>65535||data.treeStyles.some(s=>!s||!['foliage','trunk','ground'].every(k=>hexRgb(s[k])))||!Array.isArray(data.treeStyleIds)||data.treeStyleIds.length!==length||data.treeStyleIds.some(id=>!Number.isInteger(id)||id<0||id>data.treeStyles.length))throw Error('Cores de vegetação inválidas.');
+    }
+    if(data.treeExclusions!==undefined&&(!Array.isArray(data.treeExclusions)||data.treeExclusions.length>length||data.treeExclusions.some(i=>!Number.isInteger(i)||i<0||i>=length)))throw Error('Árvores removidas inválidas.');
     return restore(data);
   }
   function index(x,y) {return Math.max(0,Math.min(height-1,Math.floor(y/step)))*width+Math.max(0,Math.min(width-1,Math.floor(x/step)));}
@@ -37,13 +51,15 @@ const Terrain = (() => {
   }
   function stamp(layers,active,x,y,options) {
     const t=layers[active].terrain, radius=Math.max(3,options.size/2), strength=options.strength;
+    freezeTreeColors(t);
+    const paintedBiome=biomes.indexOf(options.biome),paintedStyle=options.mode==='brush'&&(paintedBiome===2||paintedBiome>=8)?styleId(t,paintedBiome):0;
     const x0=Math.max(0,Math.floor((x-radius)/step)),x1=Math.min(width-1,Math.ceil((x+radius)/step));
     const y0=Math.max(0,Math.floor((y-radius)/step)),y1=Math.min(height-1,Math.ceil((y+radius)/step));
     const old=options.mode==='smooth'?t.heights.slice():null;
     for(let j=y0;j<=y1;j++)for(let i=x0;i<=x1;i++){
       const px=i*step+2,py=j*step+2,d=Math.hypot(px-x,py-y)/radius;if(d>=1)continue;
       const k=j*width+i,fall=Math.pow(1-d*d,options.soft?2:0.4),a=Math.min(1,fall*strength);
-      if(options.mode==='erase'){t.coverage[k]=Math.round(t.coverage[k]*(1-a));if(t.coverage[k]<3){t.coverage[k]=0;t.heights[k]=0;}continue;}
+      if(options.mode==='erase'){t.coverage[k]=Math.round(t.coverage[k]*(1-a));if(t.coverage[k]<3){t.coverage[k]=0;t.heights[k]=0;t.treeStyleIds[k]=0;t.treeExclusions.delete(k);}continue;}
       const covered=t.coverage[k]>0,base=covered?t.heights[k]:(sample(layers,px,py,active)??0);
       let next=base,biome=t.biomes[k];
       if(options.mode==='mountain') {const peak=Math.max(0,1-d)*options.amount;next=base+(Math.max(0,peak-base)*a);biome=4;}
@@ -56,6 +72,7 @@ const Terrain = (() => {
       } else if(options.mode==='plateau') {next=base+(options.target-base)*a;biome=0;}
       else {biome=biomes.indexOf(options.biome);if(biome<0)biome=1;next=options.integrate?base+(defaults[biome]-base)*a:base;}
       t.heights[k]=Math.max(-500,Math.min(3000,next));t.biomes[k]=biome;
+      if(options.mode==='brush'){t.treeStyleIds[k]=paintedStyle;t.treeExclusions.delete(k);}else if(biome!==2&&biome<8)t.treeStyleIds[k]=0;
       t.coverage[k]=Math.min(255,Math.round(t.coverage[k]+(255-t.coverage[k])*a));
     }
     t.dirty=true;
@@ -65,12 +82,14 @@ const Terrain = (() => {
     for(let i=1;i<stops.length;i++)if(h<=stops[i][0]){const [lo,a]=stops[i-1],[hi,b]=stops[i],f=Math.max(0,(h-lo)/(hi-lo));return a.map((v,k)=>v+(b[k]-v)*f);}return stops.at(-1)[1];
   }
   function render(t,settings) {
+    freezeTreeColors(t);
     const key=JSON.stringify(settings)+themeRevision;if(!t.dirty&&t.view===key)return t.surface;
     const c=t.canvas.getContext('2d'),image=c.createImageData(width,height),p=image.data,colorPalette=palette();
     const hAt=(x,y,fallback)=>{const k=Math.max(0,Math.min(height-1,y))*width+Math.max(0,Math.min(width-1,x));return t.coverage[k]?t.heights[k]:fallback;};
     for(let y=0;y<height;y++)for(let x=0;x<width;x++){
       const i=y*width+x;if(!t.coverage[i])continue;const h=t.heights[i],biome=t.biomes[i];
-      let rgb=(settings.altitude||biome===0)?autoColor(h):colorPalette[biome].slice();
+      const treeStyle=t.treeStyles[t.treeStyleIds[i]-1];
+      let rgb=(settings.altitude||biome===0)?autoColor(h):treeStyle&&(biome===2||biome>=8)?hexRgb(treeStyle.ground):colorPalette[biome].slice();
       const dx=(hAt(x+1,y,h)-hAt(x-1,y,h))/32,dy=(hAt(x,y+1,h)-hAt(x,y-1,h))/32;
       let light=settings.shade?Math.max(.52,Math.min(1.38,.9+(-dx-dy+2)*.23/Math.sqrt(4+dx*dx+dy*dy))):1;
       if(settings.texture){const n=detail[i]-.5;light+=(grain[i]-.5)*.25+n*.055;
@@ -95,7 +114,7 @@ const Terrain = (() => {
         const px=x*4+(n-.5)*6,py=y*4+(detail[Math.max(0,i-1)]-.5)*6;
         if(type===1&&n>.62){const forest=hexRgb(theme.forest)||hexRgb(theme.trees);g.strokeStyle=`rgba(${forest.join(',')},${n>.88?.24:.14})`;g.lineWidth=.65;g.beginPath();g.moveTo(px,py);g.lineTo(px+1,py-2.4);g.stroke();}
         if((type===2||type>=8)&&x%3===0&&y%3===0){
-          const r=3+n*2.4,tree=hexRgb(theme[type===2?'trees':biomes[type]]);g.fillStyle='#153c355e';g.beginPath();g.ellipse(px+1,py+2,r+1,r*.75,0,0,Math.PI*2);g.fill();
+          const r=3+n*2.4,tree=hexRgb(t.treeStyles[t.treeStyleIds[i]-1]?.foliage||theme[type===2?'trees':biomes[type]]);g.fillStyle='#153c355e';g.beginPath();g.ellipse(px+1,py+2,r+1,r*.75,0,0,Math.PI*2);g.fill();
           g.fillStyle=`rgb(${mix(tree,n>.5?16:-12).join(',')})`;g.beginPath();g.arc(px,py,r,0,Math.PI*2);g.fill();
           g.fillStyle=`rgb(${mix(tree,55).join(',')})88`;g.beginPath();g.arc(px-1,py-1,r*.55,0,Math.PI*2);g.fill();
         }
@@ -117,7 +136,7 @@ const Terrain = (() => {
       t.heights[i]=Math.min(3000,(45+ridge*crags+grain[i]*210)*Math.min(1,coast[i]/10));t.coverage[i]=p[i*4+3];t.biomes[i]=t.heights[i]<40?3:t.heights[i]<530&&coast[i]>9&&grain[i]>.51?2:0;
     }t.dirty=true;
   }
-  return {create,copy,restore,serialize,validate,sample,stamp,render,seed,index,length,setTheme,getTheme,defaultTheme,biomes};
+  return {create,copy,restore,serialize,validate,sample,stamp,render,seed,index,length,setTheme,getTheme,defaultTheme,biomes,freezeTreeColors,freezeLayers};
 })();
 
 // Native canvas icons remain crisp at any marker size and need no external assets.

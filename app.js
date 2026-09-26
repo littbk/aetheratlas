@@ -5,7 +5,7 @@ rollSetting.innerHTML='<label for="roll">Rotação Z <span id="rollValue">0°</s
 document.querySelector('label[for="tilt"]').closest('.setting').after(rollSetting);
 const canvas=$('map'),ctx=canvas.getContext('2d');
 const colors=[['Pradaria','#87a56b'],['Floresta','#336349'],['Areia','#d3c591'],['Montanha','#9aab9a'],['Neve','#dee3d4'],['Água','#347787'],['Lava','#d84a1c']];
-const toolList=[['pan','✥','Navegar'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['text','T','Texto'],['erase','▱','Borracha']];
+const toolList=[['pan','✥','Navegar'],['select','↖','Seletor'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['text','T','Texto'],['erase','▱','Borracha']];
 let layers=[],patches=[],playerLocation={x:4000,y:2200},active=0,tool='pan',zoom=1,ox=0,oy=0,grid=false,down=false,last=null,space=false,history=[],future=[],dirty=false,timer;
 let selectedBiome='grass', selectedBuilding=null, strokeDistance=0;
 const viewSettings=()=>({texture:$('textures').checked,shade:$('shade').checked,contours:$('contours').checked,altitude:$('altitude').checked,interval:+$('interval').value,planet:$('planetMode')?.checked||false});
@@ -36,13 +36,13 @@ function ink(l){if(!l.ink){l.ink=document.createElement('canvas');l.ink.width=W;
 function layer(name){const c=document.createElement('canvas');c.width=W;c.height=H;return{id:crypto.randomUUID(),name,visible:true,locked:false,opacity:1,planet:{enabled:$('planetMode')?.checked||false},c,ink:null,objects:[],routes:[],tunnels:[],terrain:Terrain.create()};}
 function notify(s){$('toast').textContent=s;$('toast').classList.add('show');clearTimeout(timer);timer=setTimeout(()=>$('toast').classList.remove('show'),2600);}
 function changed(){driveRevision++;textureDirty=true;dirty=true;$('saved').textContent='Alterações não salvas';render();scheduleDriveSave();}
-function snapshotBytes(){return layers.reduce((sum,l)=>sum+W*H*4*(l.ink?2:1)+Terrain.length*6,0);}
+function snapshotBytes(){return layers.reduce((sum,l)=>sum+W*H*4*(l.ink?2:1)+Terrain.length*8,0);}
 function snapshot(){return layers.map(l=>({id:l.id,name:l.name,visible:l.visible,locked:l.locked,opacity:l.opacity,planet:structuredClone(l.planet||{enabled:false}),terrain:Terrain.copy(l.terrain),tunnels:structuredClone(l.tunnels),objects:structuredClone(l.objects),routes:structuredClone(l.routes),ink:l.ink?.getContext('2d').getImageData(0,0,W,H)||null,data:l.c.getContext('2d').getImageData(0,0,W,H)}));}
 function patchSnapshot(){return patches.map(p=>({...p}));}
 function remember(){history.push({layers:snapshot(),patches:patchSnapshot(),playerLocation:{...playerLocation},active});const bytes=snapshotBytes();while(history.length>1&&history.length*bytes>96*1024*1024)history.shift();if(history.length>12)history.shift();future=[];}
 function restore(s){tunnelStart=null;activeRoute=null;layers=s.layers.map(v=>{let l=layer(v.name);Object.assign(l,{id:v.id||crypto.randomUUID(),visible:v.visible,locked:v.locked,opacity:v.opacity,planet:structuredClone(v.planet||{enabled:false})});l.c.getContext('2d').putImageData(v.data,0,0);l.terrain=Terrain.restore(v.terrain);l.tunnels=structuredClone(v.tunnels||[]);l.objects=structuredClone(v.objects||[]);l.routes=structuredClone(v.routes||[]);if(v.ink)ink(l).getContext('2d').putImageData(v.ink,0,0);return l;});patches=s.patches||[];playerLocation=s.playerLocation||{x:4000,y:2200};active=s.active;refreshPatches();changed();}
 function undo(redo=false){let src=redo?future:history,dst=redo?history:future;if(!src.length)return;dst.push({layers:snapshot(),patches:patchSnapshot(),playerLocation:{...playerLocation},active});restore(src.pop());}
-function render(){window.syncVegetationColors?.();document.querySelector('.map-tag').firstChild.textContent=$('title').value||'MEU MUNDO';draw();$('layers').replaceChildren();[...layers.keys()].reverse().forEach(i=>{const l=layers[i],row=document.createElement('div');row.className='layer'+(active===i?' selected':'');const eye=document.createElement('button');eye.textContent=l.visible?'◉':'○';eye.title=l.visible?'Ocultar camada':'Mostrar camada';eye.onclick=e=>{e.stopPropagation();remember();l.visible=!l.visible;changed();};const name=document.createElement('span');name.className='name';name.textContent=l.name;const small=document.createElement('small');small.textContent=Math.round(l.opacity*100)+'% · '+(l.locked?'Bloqueada':'Editável');name.append(small);const lock=document.createElement('button');lock.textContent=l.locked?'▣':'▢';lock.title=l.locked?'Desbloquear':'Bloquear';lock.onclick=e=>{e.stopPropagation();remember();l.locked=!l.locked;changed();};row.append(eye,name,lock);row.onclick=()=>{tunnelStart=null;active=i;render();};$('layers').append(row);});$('opacity').value=layers[active].opacity*100;$('opacityValue').textContent=$('opacity').value+'%';$('count').textContent=layers.length+' camadas';$('undo').disabled=!history.length;$('redo').disabled=!future.length;}
+function render(){window.syncSelection?.();window.syncVegetationColors?.();document.querySelector('.map-tag').firstChild.textContent=$('title').value||'MEU MUNDO';draw();$('layers').replaceChildren();[...layers.keys()].reverse().forEach(i=>{const l=layers[i],row=document.createElement('div');row.className='layer'+(active===i?' selected':'');const eye=document.createElement('button');eye.textContent=l.visible?'◉':'○';eye.title=l.visible?'Ocultar camada':'Mostrar camada';eye.onclick=e=>{e.stopPropagation();remember();l.visible=!l.visible;changed();};const name=document.createElement('span');name.className='name';name.textContent=l.name;const small=document.createElement('small');small.textContent=Math.round(l.opacity*100)+'% · '+(l.locked?'Bloqueada':'Editável');name.append(small);const lock=document.createElement('button');lock.textContent=l.locked?'▣':'▢';lock.title=l.locked?'Desbloquear':'Bloquear';lock.onclick=e=>{e.stopPropagation();remember();l.locked=!l.locked;changed();};row.append(eye,name,lock);row.onclick=()=>{tunnelStart=null;active=i;render();};$('layers').append(row);});$('opacity').value=layers[active].opacity*100;$('opacityValue').textContent=$('opacity').value+'%';$('count').textContent=layers.length+' camadas';$('undo').disabled=!history.length;$('redo').disabled=!future.length;}
 function compose(){
   const g=mapTexture.getContext('2d');g.clearRect(0,0,W,H);
   for(const l of layers)if(l.visible){g.globalAlpha=l.opacity;drawLayer(g,l);}g.globalAlpha=1;
@@ -60,7 +60,7 @@ function draw(decorations=true){
   else{tilt=0;ctx.save();ctx.translate(ox,oy);ctx.rotate((yaw+roll)*Math.PI/180);ctx.scale(zoom,zoom);ctx.drawImage(mapTexture,-W/2,-H/2);ctx.restore();$('cameraNote').textContent='Vista plana: aceleração 3D indisponível neste navegador.';}
   billboardHits=Billboards.draw(ctx,Billboards.collect(layers,$('underground').checked),scene,camera(),layers,r.width,r.height);
   if(!navigation.walking)Billboards.drawPlayerPivot(ctx,scene,camera(),playerLocation,r.width,r.height,layers);
-  navigation.drawCharacter(ctx);
+  navigation.drawCharacter(ctx);if(decorations)window.drawSelection?.(ctx);
   if(decorations&&tunnelStart){const h=Math.max(0,Terrain.sample(layers,tunnelStart.x,tunnelStart.y)||0)*.065,p=scene.project(tunnelStart.x,tunnelStart.y,h,camera());ctx.beginPath();ctx.arc(p.x,p.y,12,0,Math.PI*2);ctx.strokeStyle='#ffe1a5';ctx.lineWidth=2;ctx.stroke();}
   $('zoom').textContent=Math.round(zoom*100)+'%';$('bearingValue').textContent=Math.round(yaw)+'°';$('bearing').value=yaw;
   $('tiltValue').textContent=Math.round(tilt)+'°';$('tilt').value=tilt;
@@ -129,6 +129,7 @@ function finishRoute(){for(const l of layers)l.routes=l.routes.filter(r=>r.point
 let panning=false,orbiting=false,pending=null,strokeStarted=false,gesture=null;
 const pointers=new Map();
 function beginPaint(p){
+  if(tool==='select')return false;
   if(tool==='player'){
     if(!Number.isFinite(p.worldX)||!Number.isFinite(p.worldY)||p.worldX<0||p.worldX>8000||p.worldY<0||p.worldY>4400)return false;
     remember();playerLocation={x:p.worldX,y:p.worldY};changed();notify('LOCAL ATUAL definido. O visualizador abrirá neste ponto.');return false;
@@ -192,7 +193,7 @@ canvas.addEventListener('wheel',e=>{e.preventDefault();const r=canvas.getBoundin
 function normalizeAngle(v){return ((v+180)%360+360)%360-180;}
 toolList.forEach(([id,icon,name])=>{let b=document.createElement('button');b.innerHTML=`<span>${icon}</span>${name}`;b.dataset.tool=id;b.className=id===tool?'active':'';b.onclick=()=>{end();tunnelStart=null;tool=id;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===id));$('toolName').textContent=name;canvas.style.cursor=['pan','orbit'].includes(id)?'grab':'crosshair';$('status').textContent=id==='tunnel'?'Toque na entrada e depois na saída':name;draw();};$('tools').append(b);});
 colors.forEach(([name,color],i)=>{const b=document.createElement('button');b.className='swatch'+(!i?' selected':'');b.innerHTML=`<i style="background:${color}"></i>${name}`;b.onclick=()=>{$('color').value=color;selectedBiome=['grass','forest','sand','rock','snow','water','lava'][i];if(i===1)selectedBiome=$('forestType')?.value||'forest';document.querySelectorAll('.swatch').forEach(v=>v.classList.remove('selected'));b.classList.add('selected');document.querySelector('[data-tool="brush"]').click();};$('palette').append(b);});
-$('grassColor').oninput=$('treeColor').oninput=$('waterColor').oninput=$('lavaColor').oninput=$('sandColor').oninput=$('rockColor').oninput=$('snowColor').oninput=$('forestColor').oninput=()=>{Terrain.setTheme({...Terrain.getTheme(),grass:$('grassColor').value,trees:$('treeColor').value,water:$('waterColor').value,lava:$('lavaColor').value,sand:$('sandColor').value,rock:$('rockColor').value,snow:$('snowColor').value,forest:$('forestColor').value});changed();};
+$('grassColor').oninput=$('treeColor').oninput=$('waterColor').oninput=$('lavaColor').oninput=$('sandColor').oninput=$('rockColor').oninput=$('snowColor').oninput=$('forestColor').oninput=()=>{Terrain.freezeLayers(layers);Terrain.setTheme({...Terrain.getTheme(),grass:$('grassColor').value,trees:$('treeColor').value,water:$('waterColor').value,lava:$('lavaColor').value,sand:$('sandColor').value,rock:$('rockColor').value,snow:$('snowColor').value,forest:$('forestColor').value});changed();};
 $('planetMode').onchange=()=>{remember();layers.forEach(l=>l.planet={enabled:$('planetMode').checked});textureDirty=true;changed();notify($('planetMode').checked?'Planeta ativado. Os dados e marcadores do mapa foram preservados.':'Superfície plana restaurada.');fit();};
 function selectedPatch(){return patches.find(p=>p.id===$('patchSelect').value);}
 function refreshPatches(selected=patches.at(-1)?.id){
@@ -285,119 +286,6 @@ async function publishToPlayers(){
   finally{playersPublishing=false;button.disabled=false;button.textContent='↑ Enviar aos jogadores';}
 }
 $('publishPlayers').onclick=publishToPlayers;
-// Google Drive uses OAuth in the browser. Tokens stay in memory; only the chosen
-// file id and the public OAuth Client ID are remembered on this device.
-const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.file';
-let driveToken='',driveFileId=localStorage.getItem('aether-atlas-drive-file')||'',driveTimer=0,driveBusy=false,driveServerSession=false;
-$('driveClientId').value=localStorage.getItem('aether-atlas-drive-client-id')||'';
-$('driveAutosave').checked=localStorage.getItem('aether-atlas-drive-autosave')!=='false';
-let driveLocalProject=false,driveRevision=0;
-const driveDebug=document.createElement('details');
-driveDebug.innerHTML='<summary>Console do Drive</summary><button type="button" id="driveCheck">Verificar sessão</button><pre id="driveLog" aria-live="polite"></pre>';
-document.querySelector('.drive-panel').append(driveDebug);
-$('driveLog').style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:11px';
-function driveLog(message){const line=new Date().toLocaleTimeString()+' '+message;console.info('[Drive] '+message);$('driveLog').textContent=($('driveLog').textContent+'\n'+line).split('\n').slice(-60).join('\n');}
-function driveStatus(text){$('driveHelp').textContent=text;driveLog(text);}
-$('driveCheck').onclick=async()=>{try{const s=await serverDriveSession();driveLog('Servidor configurado: '+!!s.configured+' | Sessão conectada: '+!!s.connected+' | Arquivo na API: '+(s.fileId||'nenhum')+' | Arquivo atual: '+(driveFileId||'novo')+' | Importação local: '+driveLocalProject);}catch{driveLog('Não foi possível consultar a API de sessão.');}};
-function revealDriveSetup(){document.querySelector('.drive-panel').open=true;if(matchMedia('(max-width:860px)').matches){closePanels();document.body.classList.add('show-layers');$('mobileLayers').setAttribute('aria-expanded','true');$('panelBackdrop').hidden=false;}setTimeout(()=>$('driveClientId').focus(),0);}
-async function serverDriveSession(){const response=await fetch('/api/drive/session',{credentials:'same-origin'});if(!response.ok)throw Error('sessão indisponível');return response.json();}
-function loadGoogleIdentity(){return new Promise((resolve,reject)=>{if(window.google?.accounts?.oauth2)return resolve();const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=resolve;s.onerror=()=>reject(Error('Não foi possível carregar o login do Google.'));document.head.append(s);});}
-async function requestDriveToken(prompt){await loadGoogleIdentity();const clientId=$('driveClientId').value.trim();return new Promise((resolve,reject)=>{const tc=google.accounts.oauth2.initTokenClient({client_id:clientId,scope:DRIVE_SCOPE,callback:r=>r.error?reject(Error(r.error)):resolve(r.access_token)});tc.requestAccessToken({prompt});});}
-async function connectDrive(){
-  $('driveConnect').disabled=true;
-  try{
-    const server=await serverDriveSession();
-    if(!server.configured){revealDriveSetup();throw Error('Configure a sessão persistente do Drive no Vercel.');}
-    if(!server.connected){if(driveLocalProject||dirty){driveStatus('Conecte antes de importar: guarde o JSON local, conecte o Drive e abra o JSON novamente.');return;}location.assign('/api/drive/connect');return;}
-    driveServerSession=true;driveToken=server.accessToken;
-    if(!driveLocalProject)driveFileId=await resolveDriveFile(server.fileId);
-    $('driveConnect').textContent='Drive conectado';
-    if(driveLocalProject){driveStatus('Conectado. Clique em Salvar no Drive agora para enviar o JSON local.');return;}
-    if(driveFileId)await openLastDriveProject();
-    else driveStatus('Conectado. Use Salvar no Drive para guardar este mapa.');
-  }catch(err){driveStatus(err.message);notify('Google Drive: '+err.message);}
-  finally{$('driveConnect').disabled=false;}
-}
-async function resolveDriveFile(serverId){
-  if(serverId)return serverId;
-  const remembered=localStorage.getItem('aether-atlas-drive-file');
-  if(remembered){
-    const check=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(remembered)+'?fields=id,trashed',{headers:{Authorization:'Bearer '+driveToken}});
-    if(check.ok){const file=await check.json();if(!file.trashed)return file.id;}
-    else if(![403,404].includes(check.status))throw Error('Não foi possível localizar o último arquivo ('+check.status+').');
-  }
-  const params=new URLSearchParams({q:"trashed = false and mimeType = 'application/json' and name contains '.aether-atlas.json'",orderBy:'modifiedTime desc',pageSize:'100',fields:'files(id,name)'});
-  const response=await fetch('https://www.googleapis.com/drive/v3/files?'+params,{headers:{Authorization:'Bearer '+driveToken}});
-  if(!response.ok)throw Error('Não foi possível consultar os projetos do Drive ('+response.status+').');
-  const data=await response.json();
-  return data.files?.find(f=>f.name.endsWith('.aether-atlas.json'))?.id||'';
-}
-async function openLastDriveProject(){
-  if(!driveToken||!driveFileId)return false;
-  driveBusy=true;clearTimeout(driveTimer);
-  driveStatus('Abrindo o último projeto salvo…');
-  try{
-    const response=await fetch('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(driveFileId)+'?alt=media',{headers:{Authorization:'Bearer '+driveToken}});
-    if(!response.ok)throw Error(response.status===404?'arquivo não encontrado':'erro '+response.status);
-    const file=new File([await response.blob()],'ultimo-projeto.aether-atlas.json',{type:'application/json'});
-    const opened=await $('file').onchange({target:{files:[file],value:''},fromDrive:true});
-    if(!opened)throw Error('A abertura foi cancelada ou o projeto é inválido.');
-    localStorage.setItem('aether-atlas-drive-file',driveFileId);
-    if(driveServerSession){
-      const stored=await fetch('/api/drive/file',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fileId:driveFileId})});
-      if(!stored.ok)throw Error('Mapa aberto, mas não foi possível memorizar o arquivo.');
-    }
-    $('saved').textContent='Projeto aberto do Google Drive';
-    driveStatus('Último projeto aberto.');return true;
-  }finally{driveBusy=false;}
-}
-async function restoreDriveSession(){
-  try{
-    const server=await serverDriveSession();
-    if(server.configured){
-      if(!server.connected){driveStatus('Conecte o Google Drive para abrir seu projeto.');return;}
-      driveServerSession=true;driveToken=server.accessToken;
-      driveFileId=await resolveDriveFile(server.fileId);
-      $('driveConnect').textContent='Drive conectado';
-      if(driveLocalProject)return;
-      if(driveFileId)await openLastDriveProject();
-      else{driveStatus('Nenhum projeto salvo foi encontrado nesta conta.');notify('Nenhum projeto encontrado no Drive.');}
-      return;
-    }
-    if(driveFileId)driveStatus('Conecte o Drive para abrir o último projeto.');
-  }catch(err){driveStatus('Não foi possível restaurar o projeto: '+err.message);notify('Não foi possível abrir o mapa do Drive: '+err.message);}
-}
-async function saveToDrive(){
-  end();if(driveBusy){driveLog('Aguarde a operação atual terminar.');return;}
-  driveBusy=true;$('driveSave').disabled=true;
-  const revision=driveRevision;
-  try{
-    const session=await serverDriveSession();
-    if(!session.configured||!session.connected)throw Error('Conecte o Drive antes de importar o JSON local. O mapa atual continua aberto.');
-    driveToken=session.accessToken;driveServerSession=true;
-    const data=JSON.stringify(projectData()),name=($('title').value.trim()||'mapa')+'.aether-atlas.json';
-    const metadata={name,mimeType:'application/json'},boundary='atlas'+Date.now();
-    const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+data+'\r\n--'+boundary+'--';
-    const fileId=driveLocalProject?'':driveFileId;
-    driveStatus(fileId?'Atualizando arquivo '+fileId+'…':'Criando cópia do mapa no Drive…');
-    const response=await fetch('https://www.googleapis.com/upload/drive/v3/files'+(fileId?'/'+encodeURIComponent(fileId):'')+'?uploadType=multipart&fields=id',{
-      method:fileId?'PATCH':'POST',headers:{Authorization:'Bearer '+driveToken,'Content-Type':'multipart/related; boundary='+boundary},body
-    });
-    if(!response.ok)throw Error('Upload recusado pelo Drive (HTTP '+response.status+').');
-    const result=await response.json();if(!result.id)throw Error('Drive não retornou o ID do arquivo.');
-    driveFileId=result.id;driveLocalProject=false;localStorage.setItem('aether-atlas-drive-file',driveFileId);
-    driveLog('Upload concluído. ID: '+driveFileId);
-    const stored=await fetch('/api/drive/file',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fileId:driveFileId})});
-    if(!stored.ok)throw Error('Arquivo salvo, mas a API não registrou o ID (HTTP '+stored.status+'). Tente salvar novamente.');
-    driveLog('API registrou o arquivo para a próxima abertura: '+driveFileId);
-    dirty=driveRevision!==revision;
-    $('saved').textContent=dirty?'Novas alterações pendentes':'Salvo no Google Drive';
-    driveStatus('Mapa salvo e vinculado à sessão. Ao recarregar, este arquivo será aberto.');
-  }catch(err){driveStatus('Falha ao salvar: '+err.message);notify(err.message);}
-  finally{driveBusy=false;$('driveSave').disabled=false;if(driveRevision!==revision)scheduleDriveSave();}
-}
-function scheduleDriveSave(){clearTimeout(driveTimer);if(driveToken&&$('driveAutosave').checked)driveTimer=setTimeout(saveToDrive,1400);}
-$('driveConnect').onclick=connectDrive;$('driveSave').onclick=saveToDrive;$('driveAutosave').onchange=()=>{localStorage.setItem('aether-atlas-drive-autosave',$('driveAutosave').checked);if($('driveAutosave').checked)scheduleDriveSave();};
 $('export').onclick=()=>{
   end();if(textureDirty)compose();const planet=camera().planet,c=document.createElement('canvas');c.width=planet?8000:W;c.height=planet?4400:H;const g=c.getContext('2d');
   if(planet){g.fillStyle=Terrain.getTheme().water;g.fillRect(0,0,c.width,c.height);for(const p of patches)g.drawImage(p.image,p.x,p.y,p.width,p.height);g.drawImage(mapTexture,AtlasScene.REGION_X,AtlasScene.REGION_Y);g.save();g.translate(AtlasScene.REGION_X,AtlasScene.REGION_Y);}else g.drawImage(mapTexture,0,0);
@@ -420,7 +308,7 @@ function exportImage(){
 $('exportImage').onclick=exportImage;
 $('open').onclick=()=>$('file').click();$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>80*1024*1024)throw Error('Arquivo muito grande (máximo 80 MB).');const d=JSON.parse(await f.text());if(d.format!=='aether-atlas'||![1,2,3,4].includes(d.version)||d.width!==W||d.height!==H||!Array.isArray(d.layers)||!d.layers.length||d.layers.length>16)throw Error('Projeto incompatível.');const imported=await Promise.all(d.layers.map(async v=>{if(typeof v.name!=='string'||typeof v.visible!=='boolean'||typeof v.locked!=='boolean'||!Number.isFinite(v.opacity)||v.opacity<0||v.opacity>1||typeof v.image!=='string'||!v.image.startsWith('data:image/png;base64,'))throw Error('Camada inválida.');const im=new Image();im.src=v.image;await im.decode();if(im.width!==W||im.height!==H)throw Error('Dimensões de camada inválidas.');const l=layer(v.name);l.id=typeof v.id==='string'&&v.id.length<=64?v.id:crypto.randomUUID();l.planet=typeof v.planet?.enabled==='boolean'?{enabled:v.planet.enabled}:{enabled:d.world?.type==='planet'};l.visible=v.visible;l.locked=v.locked;l.opacity=v.opacity;if(d.version>=2&&v.terrain)l.terrain=Terrain.validate(v.terrain);l.c.getContext('2d').drawImage(im,0,0);l.objects=Billboards.validate(v.objects??[]);l.routes=MapPaths.validate(v.routes??[]);
 if(v.overlay){if(typeof v.overlay!=='string'||!v.overlay.startsWith('data:image/png;base64,'))throw Error('Pintura inválida.');const overlay=new Image();overlay.src=v.overlay;await overlay.decode();if(overlay.width!==W||overlay.height!==H)throw Error('Dimensões de pintura inválidas.');ink(l).getContext('2d').drawImage(overlay,0,0);}
-if(v.tunnels!==undefined){if(!Array.isArray(v.tunnels)||v.tunnels.length>1000)throw Error('Túneis inválidos.');for(const t of v.tunnels){if(!t||![t.a,t.b].every(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>=0&&p.y>=0&&p.x<W&&p.y<H)||!Number.isFinite(t.width)||t.width<1||t.width>200||!Number.isFinite(t.depth)||t.depth<5||t.depth>500)throw Error('Túnel inválido.');}l.tunnels=v.tunnels;}return l;}));if(dirty&&!confirm('Substituir o projeto com alterações não salvas?'))return;end();layers=imported;activeRoute=null;tunnelStart=null;Terrain.setTheme(d.theme||Terrain.defaultTheme);const theme=Terrain.getTheme();$('grassColor').value=theme.grass;$('forestColor').value=theme.forest||theme.trees;$('treeColor').value=theme.trees;$('sandColor').value=theme.sand;$('rockColor').value=theme.rock;$('snowColor').value=theme.snow;$('waterColor').value=theme.water;$('lavaColor').value=theme.lava;$('planetMode').checked=d.world?.type==='planet'||layers.some(l=>l.planet?.enabled);textureDirty=true;if(d.camera){yaw=normalizeAngle((Number.isFinite(d.camera.yaw)?d.camera.yaw:0));tilt=AtlasNavigation.pitch((Number.isFinite(d.camera.tilt)?d.camera.tilt:0),layers.some(l=>l.planet?.enabled));relief=Math.max(0,Math.min(2,(Number.isFinite(d.camera.relief)?d.camera.relief:1)));$('relief').value=relief;}if(d.view){for(const [id,key] of [['textures','texture'],['shade','shade'],['contours','contours'],['altitude','altitude']])if(typeof d.view[key]==='boolean')$(id).checked=d.view[key];if([50,100,250,500].includes(d.view.interval))$('interval').value=d.view.interval;}active=layers.length-1;history=[];future=[];$('title').value=typeof d.title==='string'?d.title:'Mapa importado';dirty=false;$('saved').textContent='Projeto importado';render();fit();if(!e.fromDrive){driveLocalProject=true;driveFileId='';clearTimeout(driveTimer);driveRevision++;dirty=true;$('saved').textContent='JSON local · ainda não salvo no Drive';driveStatus('JSON local aberto. Clique em Salvar no Drive agora para criar uma cópia e vinculá-la à API.');}notify('Projeto aberto.');return true;}catch(err){notify('Não foi possível abrir: '+err.message);return false;}finally{e.target.value='';}};
+if(v.tunnels!==undefined){if(!Array.isArray(v.tunnels)||v.tunnels.length>1000)throw Error('Túneis inválidos.');for(const t of v.tunnels){if(!t||![t.a,t.b].every(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>=0&&p.y>=0&&p.x<W&&p.y<H)||!Number.isFinite(t.width)||t.width<1||t.width>200||!Number.isFinite(t.depth)||t.depth<5||t.depth>500)throw Error('Túnel inválido.');}l.tunnels=v.tunnels;}return l;}));if(e.canApply&&!e.canApply())return false;if(dirty&&!e.discardConfirmed&&!confirm('Substituir o projeto com alterações não salvas?'))return;end();layers=imported;activeRoute=null;tunnelStart=null;Terrain.setTheme(d.theme||Terrain.defaultTheme);const theme=Terrain.getTheme();$('grassColor').value=theme.grass;$('forestColor').value=theme.forest||theme.trees;$('treeColor').value=theme.trees;$('sandColor').value=theme.sand;$('rockColor').value=theme.rock;$('snowColor').value=theme.snow;$('waterColor').value=theme.water;$('lavaColor').value=theme.lava;$('planetMode').checked=d.world?.type==='planet'||layers.some(l=>l.planet?.enabled);textureDirty=true;if(d.camera){yaw=normalizeAngle((Number.isFinite(d.camera.yaw)?d.camera.yaw:0));tilt=AtlasNavigation.pitch((Number.isFinite(d.camera.tilt)?d.camera.tilt:0),layers.some(l=>l.planet?.enabled));relief=Math.max(0,Math.min(2,(Number.isFinite(d.camera.relief)?d.camera.relief:1)));$('relief').value=relief;}if(d.view){for(const [id,key] of [['textures','texture'],['shade','shade'],['contours','contours'],['altitude','altitude']])if(typeof d.view[key]==='boolean')$(id).checked=d.view[key];if([50,100,250,500].includes(d.view.interval))$('interval').value=d.view.interval;}active=layers.length-1;history=[];future=[];$('title').value=typeof d.title==='string'?d.title:'Mapa importado';dirty=false;$('saved').textContent='Projeto importado';render();fit();if(!e.fromDrive){detachDriveProject();driveRevision++;dirty=true;$('saved').textContent='JSON local · ainda não salvo no Drive';driveStatus('JSON local aberto. Clique em Salvar no Drive agora para criar uma cópia e vinculá-la à API.');}notify('Projeto aberto.');return true;}catch(err){notify('Não foi possível abrir: '+err.message);return false;}finally{e.target.value='';}};
 const openProject=$('file').onchange;
 $('file').onchange=async e=>{const file=e.target.files[0];if(!file)return false;let data;try{data=JSON.parse(await file.text());}catch{return openProject(e);}const opened=await openProject(e);if(!opened)return false;
   roll=normalizeAngle(Number.isFinite(data.camera?.roll)?data.camera.roll:0);
@@ -430,7 +318,7 @@ $('file').onchange=async e=>{const file=e.target.files[0];if(!file)return false;
     patches=loaded;refreshPatches();textureDirty=true;draw();return true;
   }catch(err){patches=[];refreshPatches();textureDirty=true;draw();notify('Projeto aberto sem mapas encaixados: '+err.message);return true;}
 };
-$('new').onclick=()=>{if(!confirm('Criar um planeta de água vazio? Salve o projeto atual antes de continuar.'))return;remember();tunnelStart=null;patches=[];playerLocation={x:4000,y:2200};roll=0;$('planetMode').checked=true;layers=[layer('Terreno'),layer('Detalhes'),layer('Marcadores')];active=0;refreshPatches();$('title').value='Meu novo mundo';changed();fit();};$('title').oninput=changed;
+$('new').onclick=()=>{if(!confirm('Criar um planeta de água vazio? Salve o projeto atual antes de continuar.'))return;remember();detachDriveProject();tunnelStart=null;patches=[];playerLocation={x:4000,y:2200};roll=0;$('planetMode').checked=true;layers=[layer('Terreno'),layer('Detalhes'),layer('Marcadores')];active=0;refreshPatches();$('title').value='Meu novo mundo';changed();fit();};$('title').oninput=changed;
 
 for(const [id,unit] of [['strength','%'],['amount',' m'],['iconSize',' px'],['rotation','°']])$(id).oninput=()=>$(id+'Value').textContent=$(id).value+unit;
 for(const id of ['textures','shade','contours','altitude','interval'])$(id).onchange=changed;
@@ -453,4 +341,3 @@ function closePanels(){document.body.classList.remove('show-tools','show-layers'
 for(const [id,cls] of [['mobileTools','show-tools'],['mobileLayers','show-layers']])$(id).onclick=()=>{const open=document.body.classList.contains(cls);closePanels();if(!open){document.body.classList.add(cls);$(id).setAttribute('aria-expanded','true');$('panelBackdrop').hidden=false;}};
 document.querySelectorAll('.close-panel').forEach(b=>b.onclick=closePanels);$('panelBackdrop').onclick=closePanels;
 layers=[layer('Terreno'),layer('Detalhes'),layer('Marcadores')];active=0;refreshPatches();render();fit();
-restoreDriveSession();

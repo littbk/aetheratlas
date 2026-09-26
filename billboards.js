@@ -5,17 +5,18 @@ const Billboards=(()=>{
   function validate(objects){
     if(!Array.isArray(objects)||objects.length>2000)throw Error('Marcadores inválidos.');
     return objects.map(o=>{
-      if(!o||!['building','marker','text'].includes(o.kind)||![o.x,o.y,o.size,o.rotation].every(Number.isFinite)||o.x<0||o.y<0||o.x>=1600||o.y>=1100||o.size<8||o.size>160||Math.abs(o.rotation)>360||typeof o.text!=='string'||o.text.length>240||!/^#[0-9a-f]{6}$/i.test(o.color))throw Error('Marcador inválido.');
+      if(!o||!['building','marker','text','tree'].includes(o.kind)||![o.x,o.y,o.size,o.rotation].every(Number.isFinite)||o.x<0||o.y<0||o.x>=1600||o.y>=1100||o.size<8||o.size>160||Math.abs(o.rotation)>360||typeof o.text!=='string'||o.text.length>240||!/^#[0-9a-f]{6}$/i.test(o.color))throw Error('Marcador inválido.');
+      if(o.kind==='tree'&&(!['forest','palms','pines','magic','autumn','jungle'].includes(o.species)||!/^#[0-9a-f]{6}$/i.test(o.trunkColor)||!Number.isFinite(o.seed)||o.seed<0||o.seed>1))throw Error('Árvore inválida.');
       if(o.kind==='building'&&!Object.hasOwn(Buildings.names,o.building))throw Error('Construção inválida.');
       if(o.kind==='marker'&&!['◇','♜','▲','✦','♣'].includes(o.symbol))throw Error('Símbolo inválido.');
-      return {kind:o.kind,x:o.x,y:o.y,size:o.size,rotation:o.rotation,text:o.text,color:o.color,...(o.kind==='building'?{building:o.building}:{}),...(o.kind==='marker'?{symbol:o.symbol}:{})};
+      return {kind:o.kind,x:o.x,y:o.y,size:o.size,rotation:o.rotation,text:o.text,color:o.color,...(o.kind==='tree'?{species:o.species,trunkColor:o.trunkColor,seed:o.seed}:{}),...(o.kind==='building'?{building:o.building}:{}),...(o.kind==='marker'?{symbol:o.symbol}:{})};
     });
   }
   function collect(layers,underground){
     const entries=[];
     for(let i=0;i<layers.length;i++){
       const layer=layers[i];if(!layer.visible||layer.opacity<=0)continue;
-      for(const object of layer.objects)entries.push({object,layer:i,opacity:layer.opacity});
+      for(const object of layer.objects)if(object.kind!=='tree')entries.push({object,layer:i,opacity:layer.opacity});
       for(const tunnel of layer.tunnels){
         for(const p of [tunnel.a,tunnel.b])entries.push({object:{kind:'building',building:'tunnel',x:p.x,y:p.y,size:tunnel.width*2.1,rotation:0,text:'',color:'#f4e6bf'},layer:i,opacity:layer.opacity,tunnel});
         if(underground)entries.push({object:{kind:'text',x:(tunnel.a.x+tunnel.b.x)/2,y:(tunnel.a.y+tunnel.b.y)/2,size:20,rotation:0,text:'Túnel · −'+tunnel.depth+' m',color:'#ecd6aa'},layer:i,opacity:layer.opacity,tunnel});

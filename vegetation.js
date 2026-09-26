@@ -3,8 +3,9 @@
 const Vegetation=(()=>{
   const random=(x,y)=>{const n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n);};
   function build(layers,planet){
-    const vertices=[],theme=Terrain.getTheme(),counts={};let count=0;
-    const color=key=>theme[key].slice(1).match(/../g).map(v=>parseInt(v,16)/255);
+    Terrain.freezeLayers(layers);
+    const vertices=[],theme=Terrain.getTheme(),counts={},entries=[],candidates=[];let count=0;
+    const color=value=>value.slice(1).match(/../g).map(v=>parseInt(v,16)/255);
     const sample=(x,y)=>Math.max(0,Terrain.sample(layers,x,y)||0)*.065;
     const surface=(x,y)=>{
       const dx=planet?8000/192:20,dy=planet?4400/96:20,ox=planet?3200:0,oy=planet?1650:0;
@@ -13,13 +14,20 @@ const Vegetation=(()=>{
       return (u+v<=1?a+(b-a)*u+(c-a)*v:d+(c-d)*(1-u)+(b-d)*(1-v))+.2;
     };
     for(let gy=15;gy<1090;gy+=27)for(let gx=15;gx<1590;gx+=27){
-      const n=random(gx,gy);if(n<.22||count>=2200)continue;
+      const n=random(gx,gy);if(n<.22||candidates.length>=2200)continue;
       const x=gx+(random(gx+8,gy)-.5)*14,y=gy+(random(gx,gy+9)-.5)*14,i=Terrain.index(x,y);
-      let type=0;
-      for(const l of layers)if(l.visible&&l.terrain.coverage[i]/255*l.opacity>.35)type=l.terrain.biomes[i];
+      let type=0,layer=-1;
+      layers.forEach((l,j)=>{if(l.visible&&l.terrain.coverage[i]/255*l.opacity>.35){type=l.terrain.biomes[i];layer=j;}});
       if(type!==2&&type<8)continue;
-      const base=surface(x,y),scale=planet?.37:1,key=type===2?'trees':Terrain.biomes[type],leaf=color(key),trunk=color('trunk');
-      const h=(type===8?31:type===9?28:20)*(0.8+n*.45),r=(type===12?10:7)*(0.85+n*.3);
+      const t=layers[layer].terrain;if(t.treeExclusions.has(i))continue;
+      const style=t.treeStyles[t.treeStyleIds[i]-1];
+      candidates.push({x,y,n,type,layer,index:i,foliage:style.foliage,trunk:style.trunk,size:40});
+    }
+    layers.forEach((l,layer)=>{if(l.visible&&l.opacity>.05)for(const object of l.objects||[])if(object.kind==='tree')candidates.push({x:object.x,y:object.y,n:object.seed??random(object.x,object.y),type:Terrain.biomes.indexOf(object.species),layer,object,foliage:object.color,trunk:object.trunkColor,size:object.size});});
+    for(const entry of candidates){
+      const {x,y,n,type}=entry,base=surface(x,y),scale=planet?.37:1,key=type===2?'trees':Terrain.biomes[type],leaf=color(entry.foliage),trunk=color(entry.trunk),factor=entry.size/40;
+      const h=(type===8?31:type===9?28:20)*(0.8+n*.45)*factor,r=(type===12?10:7)*(0.85+n*.3)*factor;
+      entry.base=base;entry.height=h*1.2*scale;entry.radius=r*(type===8?1.8:1.1);entries.push(entry);
       const vertex=(p,tint,shade)=>{
         const wx=x+p[0]+(planet?3200:0),wy=y+p[1]+(planet?1650:0);
         vertices.push(wx,wy,base,wx/(planet?8000:1600),wy/(planet?4400:1100),1,...tint.map(v=>Math.max(0,Math.min(1,v*shade))),p[2]*scale);
@@ -53,7 +61,7 @@ const Vegetation=(()=>{
       }
       count++;counts[key]=(counts[key]||0)+1;
     }
-    return {vertices:new Float32Array(vertices),count,counts};
+    return {vertices:new Float32Array(vertices),count,counts,entries};
   }
   return {build};
 })();

@@ -28,14 +28,19 @@ export function validateProject(project) {
       for (let i = 0; i < 110000; i++) if (!inRange(t.heights[i], -500, 3000) ||
         !Number.isInteger(t.coverage[i]) || !inRange(t.coverage[i], 0, 255) ||
         !Number.isInteger(t.biomes[i]) || !inRange(t.biomes[i], 0, 12)) fail('Altitude ou bioma inválido.');
+      if(t.treeStyles!==undefined||t.treeStyleIds!==undefined){
+        if(!Array.isArray(t.treeStyles)||t.treeStyles.length>65535||t.treeStyles.some(s=>!s||!['foliage','trunk','ground'].every(k=>/^#[0-9a-f]{6}$/i.test(s[k])))||!Array.isArray(t.treeStyleIds)||t.treeStyleIds.length!==110000||t.treeStyleIds.some(id=>!Number.isInteger(id)||!inRange(id,0,t.treeStyles.length)))fail('Cores de vegetação inválidas.');
+      }
+      if(t.treeExclusions!==undefined&&(!Array.isArray(t.treeExclusions)||t.treeExclusions.length>110000||t.treeExclusions.some(i=>!Number.isInteger(i)||!inRange(i,0,109999))))fail('Árvores removidas inválidas.');
     }
     const objects = layer.objects ?? [], routes = layer.routes ?? [], tunnels = layer.tunnels ?? [];
     if (!Array.isArray(objects) || objects.length > 2000 || !Array.isArray(routes) || routes.length > 2000 ||
         !Array.isArray(tunnels) || tunnels.length > 1000) fail('Objetos do mapa inválidos.');
     const buildings = ['house','village','tower','castle','temple','bridge','camp','ruin','windmill','tunnel','cave'];
-    for (const o of objects) if (!o || !['building','marker','text'].includes(o.kind) || !point(o) ||
+    for (const o of objects) if (!o || !['building','marker','text','tree'].includes(o.kind) || !point(o) ||
       !inRange(o.size,8,160) || !inRange(o.rotation,-360,360) || typeof o.text !== 'string' || o.text.length > 240 ||
       !/^#[0-9a-f]{6}$/i.test(o.color) || (o.kind === 'building' && !buildings.includes(o.building)) ||
+      (o.kind === 'tree' && (!['forest','palms','pines','magic','autumn','jungle'].includes(o.species) || !/^#[0-9a-f]{6}$/i.test(o.trunkColor) || !inRange(o.seed,0,1))) ||
       (o.kind === 'marker' && !['◇','♜','▲','✦','♣'].includes(o.symbol))) fail('Marcador inválido.');
     let count = 0;
     for (const r of routes) if (!r || !['river','path'].includes(r.kind) || !inRange(r.width,1,180) ||
