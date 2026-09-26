@@ -4,6 +4,10 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 
 ## Visual e câmera
 
+- No editor e no visualizador, **Lado oposto** gira 180° e **Focar local** encontra o ponto atual. A órbita do planeta atravessa os polos; mapas planos aceitam inclinação de −85° a 85°.
+- Clique no mapa para usar o teclado: **setas** giram e inclinam continuamente, **Q/E** giram a vista em Z, **WASD** desloca a câmera e **+/−** controla o zoom. **Espaço + arraste** ou o botão do meio desloca a vista. No modo Orbitar, dois dedos também mudam a direção e a inclinação.
+- **Explorar com personagem** ativa um viajante em terceira pessoa. **WASD** anda pela superfície, **Shift** corre e as **setas** ou o botão direito ajustam a câmera. A câmera acompanha o viajante; **Esc** restaura a vista anterior. A posição da exploração é temporária e não altera o marcador LOCAL ATUAL nem o projeto publicado. O movimento é livre, sem colisão com construções ou simulação de túneis.
+
 - O editor inicia com um planeta esférico coberto por água. A superfície virtual tem **8.000 × 4.400 pixels**, 20 vezes a área do mapa editável anterior. O editor pinta uma região de 1.600 × 1.100 pixels no centro do planeta; o restante pode receber mapas encaixados.
 - Em **Encaixar mapa antigo**, importe um JSON das versões 1 a 4 ou um PNG. Ajuste longitude, latitude e escala no painel do planeta. Os encaixes ficam no JSON do projeto e aparecem no visualizador dos jogadores. O JSON antigo é composto em uma imagem antes do encaixe; seus marcadores passam a fazer parte dessa imagem.
 - **Navegar**: arraste para mover e use a roda do mouse para ampliar.
@@ -17,6 +21,10 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 - Pradarias, copas de árvores, areia, rochas, neve e água têm detalhes procedurais alinhados ao mundo. Texturas, sombras e curvas de nível podem ser alternadas no painel direito.
 
 ## Construção e edição
+
+- Em **Árvores e florestas**, escolha floresta de copas, coqueiral de praia, pinheiros, floresta mágica de cristais, floresta outonal ou selva tropical e pinte com **Pintar vegetação**. Cada tipo tem sua cor de copa; os troncos também aceitam qualquer cor.
+- Em **Cores do mundo**, personalize grama, chão da floresta, areia, rocha, neve, água e lava. A paleta também colore o terreno automático. As cores e os tipos ficam salvos no JSON e são reproduzidos no visualizador.
+- A vegetação pintada gera automaticamente pequenas árvores com troncos, copas e folhas em geometria 3D. Coqueiros têm folhas abertas, pinheiros têm copas cônicas e a floresta mágica tem copas cristalinas. A vegetação acompanha o relevo e respeita a visibilidade das camadas; uma camada de terreno que cobre a floresta também cobre suas árvores. Mapas antigos encaixados como imagens mantêm sua textura original.
 
 - **Terreno**, **Elevar**, **Rebaixar**, **Suavizar** e **Platô** modificam os biomas e a altitude da camada selecionada.
 - A paleta inclui **Lava**. Em **Cores do mundo**, ajuste separadamente a grama, as copas das árvores, a água e a lava; o ajuste aparece no relevo e nas texturas.

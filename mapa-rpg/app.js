@@ -8,9 +8,9 @@ let viewer, loadedVersion = '', refreshing = false;
 function ensureViewer() {
   if (!viewer) viewer = new MapViewer($('mapCanvas'), $('stage'), (camera, webgl) => {
     $('zoomRead').textContent = `${Math.round(camera.zoom*100)}%`;
-    $('tilt').value = camera.tilt; $('tiltRead').textContent = `${Math.round(camera.tilt)}°`;
+    $('tilt').min=viewer.camera().planet?-180:-85;$('tilt').max=viewer.camera().planet?180:85;$('tilt').value = camera.tilt; $('tiltRead').textContent = `${Math.round(camera.tilt)}°`;
     $('roll').value = camera.roll; $('rollRead').textContent = `${Math.round(camera.roll)}°`;
-    $('viewTop').classList.toggle('active',camera.tilt===0);$('view3d').classList.toggle('active',camera.tilt>0);
+    $('viewTop').classList.toggle('active',camera.tilt===0);$('view3d').classList.toggle('active',camera.tilt!==0);
     document.querySelector('.compass').style.transform = `rotate(${viewer.camera().planet?camera.roll:camera.yaw+camera.roll}deg)`;
     $('viewStatus').textContent = webgl ? 'SOMENTE VISUALIZAÇÃO · RELEVO 3D' : 'VISUALIZAÇÃO PLANA · 3D INDISPONÍVEL NESTE NAVEGADOR';
   });

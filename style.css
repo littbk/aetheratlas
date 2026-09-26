@@ -75,3 +75,15 @@ body>main{flex:1;min-height:0;height:auto}
   .ad-banner{padding-top:4px;padding-bottom:calc(4px + env(safe-area-inset-bottom))}
   .ad-label{margin-bottom:4px}
 }
+
+.navigation-panel{position:absolute;top:100px;left:18px;right:90px;max-width:530px;padding:8px;background:#10272ee8;border:1px solid #5d7774;border-radius:8px;z-index:2}
+.navigation-panel>div{display:flex;flex-wrap:wrap;gap:5px}.navigation-panel button{font-size:11px;padding:8px 10px}.navigation-panel button[aria-pressed=true]{background:#d9bd78;color:#17272c}.navigation-panel p{font:11px/1.5 system-ui;color:#e0e3d3;margin:7px 2px 0}
+canvas:focus-visible{outline:2px solid #d9bd78;outline-offset:-3px}
+@media(max-width:860px){.navigation-panel{top:76px;left:10px;right:10px;max-width:none}.navigation-panel button{font-size:10px;padding:7px}.navigation-panel p{font-size:10px}}
+@media(max-height:550px){.navigation-panel{top:8px;left:10px;right:auto;max-width:52%}.navigation-panel p{display:none}}
+
+/* Compact navigation: square icons with accessible names and hover titles. */
+.navigation-panel{width:max-content;max-width:none;right:auto;padding:4px;top:100px;border-radius:6px}
+.navigation-panel>div{flex-wrap:nowrap;gap:4px}.navigation-panel button{display:grid;place-items:center;width:34px;height:34px;padding:0;font:21px/1 system-ui;border-radius:4px}
+@media(max-width:860px){.navigation-panel{top:76px;left:10px;right:auto}.navigation-panel button{width:32px;height:32px;padding:0;font-size:20px}}
+@media(max-height:550px){.navigation-panel{top:8px;max-width:none}}

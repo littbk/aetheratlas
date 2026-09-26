@@ -17,7 +17,7 @@ export function validateProject(project) {
   if(project.world?.playerLocation!==undefined){const p=project.world.playerLocation;
     if(!p||!inRange(p.x,0,8000)||!inRange(p.y,0,4400))fail('LOCAL ATUAL inválido.');}
   if (project.theme !== undefined) for (const [key,value] of Object.entries(project.theme))
-    if (['grass','trees','water','lava','sand','rock','snow','forest'].includes(key) && !/^#[0-9a-f]{6}$/i.test(value)) fail('Paleta de cores inválida.');
+    if (['grass','trees','water','lava','sand','rock','snow','forest','palms','pines','magic','autumn','jungle','trunk'].includes(key) && !/^#[0-9a-f]{6}$/i.test(value)) fail('Paleta de cores inválida.');
   for (const layer of project.layers) {
     if (!layer || typeof layer.name !== 'string' || typeof layer.visible !== 'boolean' ||
         typeof layer.locked !== 'boolean' || !inRange(layer.opacity, 0, 1) || !png(layer.image) ||
@@ -27,7 +27,7 @@ export function validateProject(project) {
       if (!t || !['heights', 'coverage', 'biomes'].every(k => Array.isArray(t[k]) && t[k].length === 110000)) fail('Dados de relevo inválidos.');
       for (let i = 0; i < 110000; i++) if (!inRange(t.heights[i], -500, 3000) ||
         !Number.isInteger(t.coverage[i]) || !inRange(t.coverage[i], 0, 255) ||
-        !Number.isInteger(t.biomes[i]) || !inRange(t.biomes[i], 0, 7)) fail('Altitude ou bioma inválido.');
+        !Number.isInteger(t.biomes[i]) || !inRange(t.biomes[i], 0, 12)) fail('Altitude ou bioma inválido.');
     }
     const objects = layer.objects ?? [], routes = layer.routes ?? [], tunnels = layer.tunnels ?? [];
     if (!Array.isArray(objects) || objects.length > 2000 || !Array.isArray(routes) || routes.length > 2000 ||

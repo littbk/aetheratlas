@@ -16,7 +16,7 @@ class AtlasScene {
     };
     this.program=gl.createProgram();
     gl.attachShader(this.program,shader(gl.VERTEX_SHADER,`
-      attribute vec3 position; attribute vec2 uv; attribute float visible; varying vec2 texcoord; varying float surfaceVisible; varying mediump float sphereLight;
+      attribute vec3 position; attribute vec2 uv; attribute float visible; attribute vec3 treeTint; attribute float treeLift; varying vec3 canopyColor; varying vec2 texcoord; varying float surfaceVisible; varying mediump float sphereLight;
       uniform vec2 viewport; uniform vec2 offset;
       uniform float zoom; uniform float yaw; uniform float tilt; uniform float roll; uniform float relief; uniform mediump float spherical;
       void main(){
@@ -25,7 +25,7 @@ class AtlasScene {
         if(spherical>0.5){
           float lon=(uv.x-.5)*6.28318530718+yaw;
           float lat=(.5-uv.y)*3.14159265359;
-          float radius=470.+position.z*relief;
+          float radius=470.+position.z*relief+treeLift;
           float sx=radius*cos(lat)*sin(lon);
           float sy=-radius*sin(lat);
           float sz=radius*cos(lat)*cos(lon);
@@ -37,7 +37,7 @@ class AtlasScene {
         }else{
           x=p.x*cos(yaw)-p.y*sin(yaw);
           float y=p.x*sin(yaw)+p.y*cos(yaw);
-          float z=position.z*relief;
+          float z=position.z*relief+treeLift;
           py=y*cos(tilt)-z*sin(tilt);
           depth=y*sin(tilt)+z*cos(tilt);
           sphereLight=1.;
@@ -47,16 +47,16 @@ class AtlasScene {
         float w=1.-depth/2400.;
         gl_Position=vec4((rolledX*zoom+offset.x*w)*2./viewport.x,
           -(rolledY*zoom+offset.y*w)*2./viewport.y,-depth/2400.,w);
-        texcoord=uv; surfaceVisible=visible;
+        texcoord=uv; surfaceVisible=visible; canopyColor=treeTint;
       }`));
     gl.attachShader(this.program,shader(gl.FRAGMENT_SHADER,`
       precision mediump float; varying vec2 texcoord; varying float surfaceVisible; varying mediump float sphereLight; uniform sampler2D atlas;
-      uniform mediump float spherical; uniform vec3 ocean;
+      uniform mediump float spherical; uniform vec3 ocean; uniform float treeMode; varying vec3 canopyColor;
       void main(){if(surfaceVisible<0.5)discard;vec4 color=texture2D(atlas,texcoord);
-        gl_FragColor=spherical>0.5?vec4(mix(ocean,color.rgb,color.a)*sphereLight,1.):color;}`));
+        gl_FragColor=treeMode>.5?vec4(canopyColor*sphereLight,1.):(spherical>0.5?vec4(mix(ocean,color.rgb,color.a)*sphereLight,1.):color);}`));
     gl.linkProgram(this.program);
     if(!gl.getProgramParameter(this.program,gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(this.program));
-    this.buffer=gl.createBuffer(); this.texture=gl.createTexture();
+    this.buffer=gl.createBuffer(); this.treeBuffer=gl.createBuffer();this.texture=gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
@@ -81,6 +81,8 @@ class AtlasScene {
     }
     this.vertices=new Float32Array(vertices);this.spherical=spherical;
     gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,this.vertices,gl.STATIC_DRAW);
+    this.vegetation=Vegetation.build(layers,spherical);
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.treeBuffer);gl.bufferData(gl.ARRAY_BUFFER,this.vegetation.vertices,gl.STATIC_DRAW);
     gl.bindTexture(gl.TEXTURE_2D,this.texture);
     if(spherical){
       const max=gl.getParameter(gl.MAX_TEXTURE_SIZE),w=Math.min(4000,max),h=Math.round(w*AtlasScene.WORLD_HEIGHT/AtlasScene.WORLD_WIDTH);
@@ -118,12 +120,21 @@ class AtlasScene {
       const loc=gl.getAttribLocation(this.program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,24,offset);
     }
     const uniform=name=>gl.getUniformLocation(this.program,name);
+    for(const name of ['treeTint','treeLift']){const loc=gl.getAttribLocation(this.program,name);gl.disableVertexAttribArray(loc);if(name==='treeTint')gl.vertexAttrib3f(loc,0,0,0);else gl.vertexAttrib1f(loc,0);}
+    gl.uniform1f(uniform('treeMode'),0);
     gl.uniform2f(uniform('viewport'),width,height);gl.uniform2f(uniform('offset'),camera.cx-width/2,camera.cy-height/2);
     for(const [name,value] of [['zoom',camera.zoom],['yaw',camera.yaw*Math.PI/180],['tilt',camera.tilt*Math.PI/180],['roll',(camera.roll||0)*Math.PI/180],['relief',camera.relief],['spherical',this.spherical?1:0]])gl.uniform1f(uniform(name),value);
     const water=Terrain.getTheme().water.match(/[0-9a-f]{2}/gi).map(v=>parseInt(v,16)/255);
     gl.uniform3f(uniform('ocean'),...water);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);gl.uniform1i(uniform('atlas'),0);
     gl.drawArrays(gl.TRIANGLES,0,this.vertices.length/6);
+    if(this.vegetation?.vertices.length){
+      gl.bindBuffer(gl.ARRAY_BUFFER,this.treeBuffer);
+      for(const [name,size,offset] of [['position',3,0],['uv',2,12],['visible',1,20],['treeTint',3,24],['treeLift',1,36]]){
+        const loc=gl.getAttribLocation(this.program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,40,offset);
+      }
+      gl.uniform1f(uniform('treeMode'),1);gl.drawArrays(gl.TRIANGLES,0,this.vegetation.vertices.length/10);
+    }
     this.projected=[];
     for(let i=0;i<this.vertices.length;i+=6)this.projected.push(this.project(this.vertices[i],this.vertices[i+1],this.vertices[i+2],camera,this.spherical));
     return this.canvas;

@@ -1,0 +1,18 @@
+'use strict';
+// Editor palette: each species retains its color in the project theme.
+const forestPanel=document.createElement('details');forestPanel.className='brush-panel';forestPanel.open=true;
+forestPanel.innerHTML='<summary>ÁRVORES E FLORESTAS</summary><label for="forestType">Vegetação do pincel</label><select id="forestType"><option value="forest">Floresta de copas</option><option value="palms">Coqueiral de praia</option><option value="pines">Floresta de pinheiros</option><option value="magic">Floresta mágica · cristais</option><option value="autumn">Floresta outonal</option><option value="jungle">Selva tropical</option></select><div class="world-colors"><label>Cor das copas <input id="foliageColor" type="color"></label><label>Troncos <input id="trunkColor" type="color"></label></div><button id="paintForest" type="button">♣ Pintar vegetação</button>';
+$('palette').after(forestPanel);
+const worldColors=$('grassColor').closest('details');worldColors.open=true;forestPanel.after(worldColors);
+function syncVegetationColors(){
+  const theme=Terrain.getTheme(),key=$('forestType').value==='forest'?'trees':$('forestType').value;
+  $('foliageColor').value=theme[key];$('trunkColor').value=theme.trunk;
+  for(const [id,k] of [['grassColor','grass'],['treeColor','trees'],['forestColor','forest'],['sandColor','sand'],['rockColor','rock'],['snowColor','snow'],['waterColor','water'],['lavaColor','lava']])$(id).value=theme[k];
+  document.querySelectorAll('#palette .swatch i').forEach((el,i)=>el.style.background=theme[['grass','trees','sand','rock','snow','water','lava'][i]]);
+}
+window.syncVegetationColors=syncVegetationColors;
+function chooseForest(){selectedBiome=$('forestType').value;document.querySelector('[data-tool="brush"]').click();document.querySelectorAll('.swatch').forEach(b=>b.classList.remove('selected'));$('palette').children[1].classList.add('selected');syncVegetationColors();}
+$('forestType').onchange=chooseForest;$('paintForest').onclick=chooseForest;
+$('foliageColor').oninput=()=>{const key=$('forestType').value==='forest'?'trees':$('forestType').value;Terrain.setTheme({...Terrain.getTheme(),[key]:$('foliageColor').value});changed();};
+$('trunkColor').oninput=()=>{Terrain.setTheme({...Terrain.getTheme(),trunk:$('trunkColor').value});changed();};
+syncVegetationColors();

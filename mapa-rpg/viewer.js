@@ -7,10 +7,12 @@ export class MapViewer {
     this.texture.width = 1600; this.texture.height = 1100;
     this.layers = []; this.c = { yaw: -12, tilt: 38, roll: 0, relief: 1, zoom: 1, cx: 0, cy: 0 };
     this.mode = 'pan'; this.onChange = onChange; this.pointers = new Map();
+    this.navigation=new AtlasNavigation({canvas,stage,read:()=>this.camera(),write:c=>Object.assign(this.c,c),draw:()=>this.draw(),scene:this.scene,layers:()=>this.layers,location:()=>this.playerLocation||{x:4000,y:2200}});
     this.bind(); new ResizeObserver(() => { if (this.layers.length) this.fit(); }).observe(stage);
   }
   async load(project) {
     validateProject(project);
+    if(this.navigation.walking)this.navigation.toggle(false);
     Terrain.setTheme(project.theme||Terrain.defaultTheme);
     const loadImage = async source => {
       const image = new Image(); image.src = source; await image.decode();
@@ -27,13 +29,13 @@ export class MapViewer {
     }
     this.layers = layers;
     const camera = project.camera || {}, number = (v, fallback) => Number.isFinite(v) ? v : fallback;
-    this.c.yaw = number(camera.yaw, -12) % 360; this.c.tilt = Math.max(0, Math.min(65, number(camera.tilt, 38)));
+    this.c.yaw = AtlasNavigation.angle(number(camera.yaw, -12)); this.c.tilt = AtlasNavigation.pitch(number(camera.tilt, 38),layers.some(l=>l.planet?.enabled));
     this.c.roll = ((number(camera.roll, 0)+180)%360+360)%360-180;
     this.c.relief = Math.max(0, Math.min(2, number(camera.relief, 1)));
     this.playerLocation=project.world?.playerLocation||{x:4000,y:2200};
     if(layers.some(l=>l.planet?.enabled)){
       this.c.yaw=-(this.playerLocation.x/AtlasScene.WORLD_WIDTH-.5)*360;
-      this.c.tilt=Math.max(-85,Math.min(85,(this.playerLocation.y/AtlasScene.WORLD_HEIGHT-.5)*180));
+      this.c.tilt=(this.playerLocation.y/AtlasScene.WORLD_HEIGHT-.5)*180;
     }
     this.initial = { yaw: this.c.yaw, tilt: this.c.tilt, roll: this.c.roll, relief: this.c.relief };
     const settings = { texture: true, shade: true, contours: false, altitude: false, interval: 100, planet:project.world?.type==='planet' };
@@ -57,6 +59,7 @@ export class MapViewer {
   camera() { const planet=this.layers.some(l=>l.planet?.enabled);return { ...this.c, relief: planet||this.c.tilt ? this.c.relief : 0, planet }; }
   draw() {
     if (!this.layers.length) return;
+    if(this.navigation.walking)this.navigation.center();
     const width=this.stage.clientWidth,height=this.stage.clientHeight,d=Math.min(devicePixelRatio||1,2);
     if (!width || !height) return;
     if (this.canvas.width!==Math.round(width*d)||this.canvas.height!==Math.round(height*d)) {this.canvas.width=Math.round(width*d);this.canvas.height=Math.round(height*d);}
@@ -65,7 +68,8 @@ export class MapViewer {
     if(result) g.drawImage(result,0,0,width,height);
     else { this.c.tilt=0; g.save();g.translate(this.c.cx,this.c.cy);g.rotate((this.c.yaw+this.c.roll)*Math.PI/180);g.scale(this.c.zoom,this.c.zoom);g.drawImage(this.texture,-800,-550);g.restore(); }
     Billboards.draw(g,Billboards.collect(this.layers,true),this.scene,this.camera(),this.layers,width,height);
-    Billboards.drawPlayerPivot(g,this.scene,this.camera(),this.playerLocation,width,height,this.layers);
+    if(!this.navigation.walking)Billboards.drawPlayerPivot(g,this.scene,this.camera(),this.playerLocation,width,height,this.layers);
+    this.navigation.drawCharacter(g);
     this.onChange(this.c,!!this.scene.gl);
   }
   fit(reset=false) {
@@ -82,20 +86,20 @@ export class MapViewer {
     const value=Math.max(.03,Math.min(5,this.c.zoom*factor)),ratio=value/this.c.zoom;
     this.c.cx=x-(x-this.c.cx)*ratio;this.c.cy=y-(y-this.c.cy)*ratio;this.c.zoom=value;this.draw();
   }
-  rotate(degrees) {this.c.yaw=(this.c.yaw+degrees)%360;this.draw();}
-  tilt(degrees) {this.c.tilt=Math.max(-85,Math.min(85,degrees));this.draw();}
+  rotate(degrees) {this.c.yaw=AtlasNavigation.angle(this.c.yaw+degrees);this.draw();}
+  tilt(degrees) {this.c.tilt=AtlasNavigation.pitch(degrees,this.camera().planet);this.draw();}
   rotateRoll(degrees) {this.c.roll=((degrees+180)%360+360)%360-180;this.draw();}
   snapshotGesture() {
     const points=[...this.pointers.values()],p=points[0];
     if(!p) {this.gesture=null;return;}
     const q=points[1]||p;
-    this.gesture={x:(p.x+q.x)/2,y:(p.y+q.y)/2,distance:Math.hypot(q.x-p.x,q.y-p.y),angle:Math.atan2(q.y-p.y,q.x-p.x),c:{...this.c},orbit:p.button===2||this.mode==='orbit'};
+    this.gesture={x:(p.x+q.x)/2,y:(p.y+q.y)/2,distance:Math.hypot(q.x-p.x,q.y-p.y),angle:Math.atan2(q.y-p.y,q.x-p.x),c:{...this.c},orbit:p.button===2||p.altKey||this.mode==='orbit',pan:p.button===1||p.space};
   }
   bind() {
     const element=this.canvas;
     element.addEventListener('contextmenu',e=>e.preventDefault());
     element.addEventListener('wheel',e=>{e.preventDefault();const r=element.getBoundingClientRect();this.zoom(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top);},{passive:false});
-    element.addEventListener('pointerdown',e=>{element.setPointerCapture(e.pointerId);this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,button:e.button});this.snapshotGesture();});
+    element.addEventListener('pointerdown',e=>{e.preventDefault();element.setPointerCapture(e.pointerId);this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,button:e.button,altKey:e.altKey,space:this.space});this.snapshotGesture();});
     element.addEventListener('pointermove',e=>{
       if(!this.pointers.has(e.pointerId)||!this.gesture)return;
       this.pointers.set(e.pointerId,{...this.pointers.get(e.pointerId),x:e.clientX,y:e.clientY});
@@ -105,16 +109,17 @@ export class MapViewer {
         const zoom=Math.max(.03,Math.min(5,g.c.zoom*Math.hypot(q.x-p.x,q.y-p.y)/Math.max(1,g.distance)));
         this.c.zoom=zoom;this.c.cx=mx-(g.x-r.left-g.c.cx)*zoom/g.c.zoom;this.c.cy=my-(g.y-r.top-g.c.cy)*zoom/g.c.zoom;
         const value=g.c.roll+(Math.atan2(q.y-p.y,q.x-p.x)-g.angle)*180/Math.PI;this.c.roll=((value+180)%360+360)%360-180;
-      } else if(g.orbit){if(e.shiftKey){const value=g.c.roll+(p.x-g.x)*.4;this.c.roll=((value+180)%360+360)%360-180;}else{this.c.yaw=g.c.yaw+(p.x-g.x)*.4;this.c.tilt=Math.max(-85,Math.min(85,g.c.tilt-(p.y-g.y)*.25));}}
+        if(this.mode==='orbit'){this.c.yaw=AtlasNavigation.angle(g.c.yaw+((p.x+q.x)/2-g.x)*.4);this.c.tilt=AtlasNavigation.pitch(g.c.tilt-((p.y+q.y)/2-g.y)*.25,this.camera().planet);}
+      } else if(g.orbit&&!g.pan){if(e.shiftKey){const value=g.c.roll+(p.x-g.x)*.4;this.c.roll=((value+180)%360+360)%360-180;}else{this.c.yaw=AtlasNavigation.angle(g.c.yaw+(p.x-g.x)*.4);this.c.tilt=AtlasNavigation.pitch(g.c.tilt-(p.y-g.y)*.25,this.camera().planet);}}
       else {this.c.cx=g.c.cx+p.x-g.x;this.c.cy=g.c.cy+p.y-g.y;}
       this.draw();
     });
     const end=e=>{this.pointers.delete(e.pointerId);this.snapshotGesture();};
     element.addEventListener('pointerup',end);element.addEventListener('pointercancel',end);element.addEventListener('lostpointercapture',end);
     element.addEventListener('keydown',e=>{
-      if(e.key==='ArrowLeft'){this.rotate(-15);e.preventDefault();}if(e.key==='ArrowRight'){this.rotate(15);e.preventDefault();}
-      if(e.key.toLowerCase()==='q'){this.rotateRoll(this.c.roll-15);e.preventDefault();}if(e.key.toLowerCase()==='e'){this.rotateRoll(this.c.roll+15);e.preventDefault();}
-      if(e.key==='+'||e.key==='=')this.zoom(1.2);if(e.key==='-')this.zoom(.8);if(e.key==='Home')this.fit(true);
+      if(e.code==='Space'){this.space=true;e.preventDefault();}if(e.key==='Home'){this.fit(true);e.preventDefault();}
     });
+    element.addEventListener('keyup',e=>{if(e.code==='Space')this.space=false;});
+    element.addEventListener('blur',()=>{this.space=false;this.pointers.clear();this.gesture=null;});
   }
 }

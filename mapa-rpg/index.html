@@ -15,14 +15,14 @@
         <div class="vignette"></div><div class="compass" aria-hidden="true">N<span>✦</span>S</div>
         <div class="map-name"><p id="mapTitle"></p><small id="mapNote"></small></div>
         <div class="view-mode" role="group" aria-label="Modo de câmera"><button id="modePan" class="active">Mover</button><button id="modeOrbit">Orbitar</button><button id="viewTop">Planta</button><button id="view3d">Relevo 3D</button></div>
-        <div class="camera-settings"><label>Perspectiva <input id="tilt" type="range" min="-85" max="85" value="38"></label><output id="tiltRead">38°</output><label>Rotação Z <input id="roll" type="range" min="-180" max="180" value="0"></label><output id="rollRead">0°</output><button id="fullscreen" aria-label="Tela cheia">⛶</button></div>
+        <div class="camera-settings"><label>Perspectiva <input id="tilt" type="range" min="-180" max="180" value="38"></label><output id="tiltRead">38°</output><label>Rotação Z <input id="roll" type="range" min="-180" max="180" value="0"></label><output id="rollRead">0°</output><button id="fullscreen" aria-label="Tela cheia">⛶</button></div>
         <div class="controls" aria-label="Controles do mapa"><button id="rotateLeft" aria-label="Girar à esquerda">↶</button><button id="reset" aria-label="Enquadrar mapa">⌖</button><button id="rotateRight" aria-label="Girar à direita">↷</button><button id="zoomOut" aria-label="Afastar">−</button><output id="zoomRead">100%</output><button id="zoomIn" aria-label="Aproximar">+</button></div>
         <p class="gesture">Arraste para mover · Botão direito para orbitar · Shift + orbitar ou Q/E para girar em Z · Dois dedos para mover, ampliar e girar</p>
       </div>
       <footer><span id="updated"></span><span id="viewStatus">SOMENTE VISUALIZAÇÃO</span></footer>
     </section>
   </main><section id="adBanner" class="ad-banner" aria-label="Publicidade" hidden><span class="ad-label">Publicidade</span><div id="adContent" class="ad-content"></div></section>
-  <dialog id="guide"><button class="close" data-close="guide" aria-label="Fechar">×</button><p class="eyebrow">GUIA DO VIAJANTE</p><h2>Explore o mapa completo.</h2><p>Arraste para mover ou escolha Orbitar para girar a câmera e mudar sua inclinação. No computador, o botão direito também orbita. Use a roda do mouse ou os botões + e − para aproximar.</p><p>No celular, dois dedos movem, ampliam e giram. Ajuste Perspectiva para observar o relevo ou use Planta para olhar de cima. Suas mudanças de câmera são pessoais e não alteram o mapa publicado.</p></dialog>
+  <dialog id="guide"><button class="close" data-close="guide" aria-label="Fechar">×</button><p class="eyebrow">GUIA DO VIAJANTE</p><h2>Explore o mapa completo.</h2><p>Arraste para mover ou escolha Orbitar para girar a câmera e mudar sua inclinação. No computador, o botão direito também orbita. Use a roda do mouse ou os botões + e − para aproximar.</p><p>No celular, dois dedos movem, ampliam e giram. Ajuste Perspectiva para observar o relevo ou use Planta para olhar de cima. Use Lado oposto para girar 180° e Focar local para encontrar o ponto atual. Em Explorar com personagem, WASD anda, Shift corre, as setas giram a câmera e Esc retorna à vista anterior. Suas mudanças de câmera são pessoais e não alteram o mapa publicado.</p></dialog>
   <dialog id="adminDialog"><button class="close" data-close="adminDialog" aria-label="Fechar">×</button>
     <section id="loginPanel"><p class="eyebrow">ÁREA RESTRITA</p><h2>Entrar como mestre</h2><form id="loginForm"><label>Senha de administrador<input id="password" type="password" autocomplete="current-password" required></label><button class="primary">Entrar</button><p id="loginStatus" role="status"></p></form></section>
     <section id="publishPanel" hidden><div class="admin-heading"><div><p class="eyebrow">ÁREA DO MESTRE</p><h2>Publicar mapa 3D</h2></div><button id="logout" class="ghost">Sair</button></div>
@@ -32,5 +32,5 @@
       <button id="removeMap" class="danger">Retirar mapa da visualização</button>
     </section>
   </dialog>
-  <script src="/renderer/terrain.js"></script><script src="/renderer/scene.js"></script><script src="/renderer/paths.js"></script><script src="/renderer/billboards.js"></script><script type="module" src="/app.js"></script><script src="/ads-config.js"></script><script src="/ads.js"></script>
+  <script src="/renderer/terrain.js"></script><script src="/renderer/vegetation.js"></script><script src="/renderer/scene.js"></script><script src="/renderer/paths.js"></script><script src="/renderer/billboards.js"></script><script src="/renderer/navigation.js"></script><script type="module" src="/app.js"></script><script src="/ads-config.js"></script><script src="/ads.js"></script>
 </body></html>
