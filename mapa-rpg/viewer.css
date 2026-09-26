@@ -9,7 +9,7 @@ header{flex-shrink:0}
 .view-mode{position:absolute;left:24px;bottom:46px;display:flex;gap:4px;background:#10272ee8;padding:4px;border:1px solid #5d7774;border-radius:10px}
 .view-mode button{border:0;padding:9px 11px;font-size:12px;background:transparent}
 button.active{background:#d9bd78;color:#17272c}
-.camera-settings{position:absolute;left:24px;bottom:104px;display:flex;align-items:center;gap:10px;padding:8px 12px;background:#10272edb;border:1px solid #5d7774;border-radius:8px}
+.camera-settings{position:absolute;left:24px;bottom:104px;display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:8px 12px;background:#10272edb;border:1px solid #5d7774;border-radius:8px;max-width:calc(100% - 48px)}
 .camera-settings label{display:flex;align-items:center;gap:10px;font-size:11px}
 .camera-settings input{width:110px;padding:0;accent-color:#d9bd78}
 .camera-settings output{font-size:11px;width:26px}
@@ -20,7 +20,7 @@ button.active{background:#d9bd78;color:#17272c}
 @media(max-width:740px){
   .view-mode{left:14px;bottom:98px;right:14px;justify-content:space-between}
   .view-mode button{padding:9px 6px;font-size:11px}
-  .camera-settings{left:14px;bottom:153px;padding:5px 10px}
+  .camera-settings{left:14px;bottom:153px;padding:5px 10px;max-width:calc(100% - 28px)}
   .camera-settings input{width:100px}
   .gesture{font-size:9px}
   .map-name p{font-size:18px}

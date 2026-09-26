@@ -9,10 +9,19 @@ export function validateProject(project) {
   const inRange = (v, a, b) => Number.isFinite(v) && v >= a && v <= b;
   const point = p => p && inRange(p.x, 0, 1599.9999) && inRange(p.y, 0, 1099.9999);
   const png = v => typeof v === 'string' && v.startsWith('data:image/png;base64,');
+  if (project.world !== undefined && !['planet','flat'].includes(project.world?.type)) fail('Tipo de mundo inválido.');
+  if(project.world?.patches!==undefined){
+    if(project.world.width!==8000||project.world.height!==4400||!Array.isArray(project.world.patches)||project.world.patches.length>16)fail('Mundo esférico inválido.');
+    for(const p of project.world.patches)if(!p||typeof p.name!=='string'||p.name.length>120||typeof p.image!=='string'||!p.image.startsWith('data:image/png;base64,')||![p.x,p.y,p.width,p.height].every(Number.isFinite)||p.width<100||p.height<100||p.x<0||p.y<0||p.x+p.width>8000||p.y+p.height>4400)fail('Mapa encaixado inválido.');
+  }
+  if(project.world?.playerLocation!==undefined){const p=project.world.playerLocation;
+    if(!p||!inRange(p.x,0,8000)||!inRange(p.y,0,4400))fail('LOCAL ATUAL inválido.');}
+  if (project.theme !== undefined) for (const [key,value] of Object.entries(project.theme))
+    if (['grass','trees','water','lava','sand','rock','snow','forest'].includes(key) && !/^#[0-9a-f]{6}$/i.test(value)) fail('Paleta de cores inválida.');
   for (const layer of project.layers) {
     if (!layer || typeof layer.name !== 'string' || typeof layer.visible !== 'boolean' ||
         typeof layer.locked !== 'boolean' || !inRange(layer.opacity, 0, 1) || !png(layer.image) ||
-        (layer.overlay && !png(layer.overlay))) fail('Camada ou pintura inválida.');
+        (layer.overlay && !png(layer.overlay)) || (layer.planet !== undefined && typeof layer.planet.enabled !== 'boolean')) fail('Camada ou pintura inválida.');
     if (project.version >= 2) {
       const t = layer.terrain;
       if (!t || !['heights', 'coverage', 'biomes'].every(k => Array.isArray(t[k]) && t[k].length === 110000)) fail('Dados de relevo inválidos.');
@@ -31,7 +40,8 @@ export function validateProject(project) {
     let count = 0;
     for (const r of routes) if (!r || !['river','path'].includes(r.kind) || !inRange(r.width,1,180) ||
       !Array.isArray(r.points) || r.points.length < 2 || (count += r.points.length) > 100000 || !r.points.every(point)) fail('Trajeto inválido.');
-    for (const t of tunnels) if (!t || !point(t.a) || !point(t.b) || !inRange(t.width,1,200) || !inRange(t.depth,5,500)) fail('Túnel inválido.');
+    for (const t of tunnels) if (!t || !point(t.a) || !point(t.b) || !inRange(t.width,1,200) || !inRange(t.depth,5,500) ||
+      (t.hollow !== undefined && typeof t.hollow !== 'boolean') || (t.route !== undefined && (!Array.isArray(t.route) || t.route.length < 2 || t.route.length > 1000 || !t.route.every(p => point(p) && inRange(p.z,-500,0))))) fail('Túnel inválido.');
   }
   return project;
 }

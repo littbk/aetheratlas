@@ -15,9 +15,9 @@
         <div class="vignette"></div><div class="compass" aria-hidden="true">N<span>✦</span>S</div>
         <div class="map-name"><p id="mapTitle"></p><small id="mapNote"></small></div>
         <div class="view-mode" role="group" aria-label="Modo de câmera"><button id="modePan" class="active">Mover</button><button id="modeOrbit">Orbitar</button><button id="viewTop">Planta</button><button id="view3d">Relevo 3D</button></div>
-        <div class="camera-settings"><label>Perspectiva <input id="tilt" type="range" min="0" max="65" value="38"></label><output id="tiltRead">38°</output><button id="fullscreen" aria-label="Tela cheia">⛶</button></div>
+        <div class="camera-settings"><label>Perspectiva <input id="tilt" type="range" min="-85" max="85" value="38"></label><output id="tiltRead">38°</output><label>Rotação Z <input id="roll" type="range" min="-180" max="180" value="0"></label><output id="rollRead">0°</output><button id="fullscreen" aria-label="Tela cheia">⛶</button></div>
         <div class="controls" aria-label="Controles do mapa"><button id="rotateLeft" aria-label="Girar à esquerda">↶</button><button id="reset" aria-label="Enquadrar mapa">⌖</button><button id="rotateRight" aria-label="Girar à direita">↷</button><button id="zoomOut" aria-label="Afastar">−</button><output id="zoomRead">100%</output><button id="zoomIn" aria-label="Aproximar">+</button></div>
-        <p class="gesture">Arraste para mover · Botão direito para orbitar · Dois dedos para mover, ampliar e girar</p>
+        <p class="gesture">Arraste para mover · Botão direito para orbitar · Shift + orbitar ou Q/E para girar em Z · Dois dedos para mover, ampliar e girar</p>
       </div>
       <footer><span id="updated"></span><span id="viewStatus">SOMENTE VISUALIZAÇÃO</span></footer>
     </section>
@@ -27,7 +27,7 @@
     <section id="loginPanel"><p class="eyebrow">ÁREA RESTRITA</p><h2>Entrar como mestre</h2><form id="loginForm"><label>Senha de administrador<input id="password" type="password" autocomplete="current-password" required></label><button class="primary">Entrar</button><p id="loginStatus" role="status"></p></form></section>
     <section id="publishPanel" hidden><div class="admin-heading"><div><p class="eyebrow">ÁREA DO MESTRE</p><h2>Publicar mapa 3D</h2></div><button id="logout" class="ghost">Sair</button></div>
       <form id="publishForm"><label>Nome do mapa<input name="title" maxlength="90" placeholder="Usar o nome salvo no projeto"></label><label>Descrição breve <span>opcional</span><textarea name="note" maxlength="240" placeholder="Ex.: Região explorada pela companhia"></textarea></label>
-      <label class="file-label">Projeto completo do Aether Atlas<span>No editor, clique em Salvar projeto. Envie o arquivo .json de até 80 MB.</span><input name="project" type="file" accept="application/json,.json" required></label>
+      <label class="file-label">Projeto ou pacote de alterações<span>No editor, use “Enviar aos jogadores”. Importe o JSON completo ou o pacote incremental (.json, até 80 MB).</span><input name="project" type="file" accept="application/json,.json" required></label>
       <button class="primary" id="publish">Publicar para jogadores</button><p id="adminStatus" role="status"></p></form>
       <button id="removeMap" class="danger">Retirar mapa da visualização</button>
     </section>

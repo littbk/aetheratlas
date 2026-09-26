@@ -1,14 +1,16 @@
 # Atlas do Reino — visualização 3D da campanha
 
-Projeto paralelo ao editor, publicado em https://aetheratlas-pnp8.vercel.app. Jogadores recebem o mapa completo salvo pelo Aether Atlas: relevo, camadas visíveis, construções, textos, rios, caminhos e túneis. A câmera oferece mover, orbitar, zoom, inclinação, planta, relevo 3D e tela cheia. A interface não possui ferramentas de edição e só uma sessão de administrador pode mudar a publicação no servidor.
+Projeto paralelo ao editor, publicado em https://aetheratlas-pnp8.vercel.app. Jogadores recebem o planeta esférico de 8.000 × 4.400 pixels salvo pelo Aether Atlas: camadas visíveis, mapas antigos encaixados, construções, textos, rios, caminhos e túneis. A câmera oferece mover, orbitar, zoom, inclinação, planta, relevo 3D e tela cheia. A interface não possui ferramentas de edição e só uma sessão de administrador pode mudar a publicação no servidor.
 
-Para incorporar o mapa em outro aplicativo, use https://aetheratlas-pnp8.vercel.app/?embed=1. Esse modo ocupa toda a área disponível, oculta cabeçalho, administração, publicidade e molduras, e mantém os controles de navegação e câmera. O elemento iframe deve permitir tela cheia quando essa ferramenta for necessária.
+O ponto **LOCAL ATUAL** é definido pelo mestre no editor. Ao abrir o visualizador, a câmera começa centrada nesse ponto; o botão de enquadramento volta a ele. O marcador indica a posição dos jogadores e fica oculto quando está no lado oposto do planeta.
+
+Para incorporar o mapa em outro aplicativo, use https://aetheratlas-pnp8.vercel.app/?embed=1. Esse modo ocupa toda a área disponível, oculta cabeçalho, administração, publicidade e molduras, e mantém os controles de navegação e câmera. O elemento iframe deve permitir tela cheia quando essa ferramenta for necessária. A câmera aceita rotação em Z pelo controle, Q/E, Shift + Orbitar ou torção de dois dedos. Planetas são desenhados como uma superfície esférica editável com os pincéis do mapa; os túneis ainda aparecem como portais e rota subterrânea, sem câmera em primeira pessoa para atravessá-los.
 
 ## Publicar seu mundo
 
-1. No editor original, clique em **Salvar projeto** e guarde o arquivo `.json`.
-2. No site da campanha, abra **Administração** e entre com a senha.
-3. Selecione o JSON (até 80 MB), preencha nome e descrição se desejar e clique em **Publicar para jogadores**.
+1. No editor, clique em **Enviar aos jogadores**. Ele abre o visualizador e prepara um pacote incremental quando há uma base local da publicação; caso contrário, prepara o JSON completo. Se o navegador bloquear a janela, o arquivo é baixado para importação manual.
+2. No visualizador, entre em **Administração** como mestre. O editor transfere o arquivo à janela e preenche o formulário; confira nome e descrição e clique em **Publicar para jogadores**. Também é possível selecionar manualmente qualquer JSON salvo.
+3. Pacotes incrementais contêm somente as camadas alteradas e só são aceitos se a base publicada e a ordem das camadas ainda forem as mesmas. Inclusão, exclusão ou reordenação de camadas requer envio completo. Para começar em outro dispositivo, use **Salvar JSON** e importe o projeto completo.
 
 Os visitantes recebem a nova versão ao abrir a página; páginas abertas verificam atualizações a cada minuto sem redefinir a câmera quando o projeto continua igual. Publicar outro JSON substitui o mapa exibido. **Retirar mapa da visualização** remove a publicação, preservando os arquivos no armazenamento para recuperação.
 
@@ -19,7 +21,7 @@ Os visitantes recebem a nova versão ao abrir a página; páginas abertas verifi
 - Vercel Blob **privado**, conectado aos ambientes do projeto.
 - Variáveis privadas: `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET` (32 caracteres ou mais), `BLOB_READ_WRITE_TOKEN`.
 - O token de escrita nunca é entregue ao navegador. Uploads diretos usam tokens temporários emitidos somente para administradores; a publicação é efetivada após validar o JSON no servidor.
-- As camadas precisam chegar ao navegador para a renderização 3D. O endpoint público libera somente o projeto atualmente publicado; não há lista de arquivos, escrita pública nem interface de edição. Não inclua segredos da campanha no projeto entregue aos jogadores.
+- As camadas precisam chegar ao navegador para a renderização 3D. O endpoint público libera somente o projeto atualmente publicado; não há lista de arquivos nem escrita pública. Não inclua segredos da campanha no projeto entregue aos jogadores.
 
 A senha inicial gerada durante a configuração está em `.vercel/admin-access.json` na raiz do repositório local. Essa pasta é ignorada pelo Git e pela publicação; nunca copie esse arquivo para `public`. Para trocar a senha, altere `ADMIN_PASSWORD` no painel da Vercel e faça novo deploy. Para encerrar as sessões existentes, troque também `ADMIN_SESSION_SECRET`.
 

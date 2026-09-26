@@ -2,6 +2,7 @@ import { get } from '@vercel/blob';
 import { currentMap, storageOptions } from '../lib/storage.js';
 import { json } from '../lib/auth.js';
 
+
 export async function GET() {
   try {
     const map = await currentMap();

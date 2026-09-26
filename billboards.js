@@ -32,17 +32,17 @@ const Billboards=(()=>{
   function layout(entries,scene,camera,layers){
     return entries.map(entry=>{
       const o=entry.object,p=scene.project(o.x,o.y,surfaceHeight(o.x,o.y,layers),camera);
-      const scale=camera.zoom/Math.max(.2,p.w);
-      const size=Math.min(180,Math.max(o.kind==='text'?12:19,o.size*scale));
+      const scale=Math.pow(camera.zoom/Math.max(.2,p.w),.7)*(camera.planet?.5:1);
+      const size=Math.min(camera.planet?56:80,Math.max(3,o.size*scale));
       return {...entry,anchor:p,size,scale};
-    }).sort((a,b)=>b.anchor.w-a.anchor.w||a.layer-b.layer);
+    }).filter(item=>item.anchor.visible!==false).sort((a,b)=>b.anchor.w-a.anchor.w||a.layer-b.layer);
   }
   function draw(g,entries,scene,camera,layers,width,height){
     const items=layout(entries,scene,camera,layers),hits=[];
-    const occupied=items.filter(i=>i.object.kind!=='text').map(i=>({x:i.anchor.x-i.size*.72,y:i.anchor.y-i.size*1.3-3,w:i.size*1.44,h:i.size*1.4}));
+    const occupied=items.filter(i=>i.object.kind!=='text'&&i.size>=6).map(i=>({x:i.anchor.x-i.size*.72,y:i.anchor.y-i.size*1.3-3,w:i.size*1.44,h:i.size*1.4}));
     for(const item of items){
       const o=item.object,p=item.anchor,size=item.size;
-      if(p.x<-200||p.x>width+200||p.y<-200||p.y>height+200)continue;
+      if(size<6||p.x<-200||p.x>width+200||p.y<-200||p.y>height+200)continue;
       const icon=o.kind!=='text',lift=icon?size*.6+3:5;
       g.save();g.globalAlpha=item.opacity;
       if(icon){
@@ -57,8 +57,8 @@ const Billboards=(()=>{
         g.restore();
         hits.push({...item,box:{x:p.x-size*.72,y:p.y-lift-size*.7,w:size*1.44,h:size*1.4}});
       }
-      if(o.text){
-        const font=icon?Math.max(11,Math.min(22,size*.32)):Math.max(12,Math.min(38,size*.65));
+      if(o.text&&(!icon||size>=14)){
+        const font=icon?Math.max(8,Math.min(22,size*.32)):Math.max(8,Math.min(38,size*.65));
         g.font=(icon?'500 ':'italic ')+font+'px Georgia';g.textAlign='center';g.textBaseline='middle';
         const textWidth=Math.min(width-24,g.measureText(o.text).width),pad=5,h=font+8;
         const below=p.y+font*.7+5,above=p.y-lift-(icon?size*.8:0)-font;
@@ -83,5 +83,18 @@ const Billboards=(()=>{
     }
     return hits;
   }
-  return {validate,collect,layout,draw,surfaceHeight};
+  function drawPlayerPivot(g,scene,camera,location,width,height,layers=[]){
+    if(!location)return;
+    const localX=location.x-AtlasScene.REGION_X,localY=location.y-AtlasScene.REGION_Y;
+    const z=layers.length&&localX>=0&&localX<1600&&localY>=0&&localY<1100?surfaceHeight(localX,localY,layers):0;
+    const p=camera.planet?scene.project(location.x,location.y,z,camera,true):scene.project(localX,localY,z,camera);
+    if(p.visible===false||p.x<-80||p.x>width+80||p.y<-80||p.y>height+80)return;
+    const size=Math.max(9,Math.min(26,16*Math.pow(camera.zoom,.45)));
+    g.save();g.translate(p.x,p.y);g.shadowColor='#071923';g.shadowBlur=7;g.lineWidth=2;
+    g.fillStyle='#173b47';g.strokeStyle='#ffe2a0';g.beginPath();g.arc(0,0,size,0,Math.PI*2);g.fill();g.stroke();
+    g.shadowBlur=0;g.strokeStyle='#fff1c9';g.beginPath();g.moveTo(-size*.45,0);g.lineTo(size*.45,0);g.moveTo(0,-size*.45);g.lineTo(0,size*.45);g.stroke();
+    g.fillStyle='#ffe2a0';g.beginPath();g.arc(0,0,Math.max(2,size*.16),0,Math.PI*2);g.fill();
+    g.font='bold 11px system-ui';g.textAlign='center';g.textBaseline='bottom';g.lineWidth=3;g.strokeStyle='#0a2630';g.strokeText('LOCAL ATUAL',0,-size-8);g.fillStyle='#fff1c9';g.fillText('LOCAL ATUAL',0,-size-8);g.restore();
+  }
+  return {validate,collect,layout,draw,drawPlayerPivot,surfaceHeight};
 })();

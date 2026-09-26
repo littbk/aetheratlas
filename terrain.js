@@ -4,13 +4,13 @@ const Terrain = (() => {
   const step = 4, width = 400, height = 275, length = width * height;
   const biomes = ['auto', 'grass', 'forest', 'sand', 'rock', 'snow', 'water', 'lava'];
   const defaults = [120,120,240,25,1000,2000,-80,35];
-  const defaultTheme={grass:'#87a56b',trees:'#336349',water:'#347787',lava:'#d84a1c'};
+  const defaultTheme={grass:'#87a56b',trees:'#336349',water:'#347787',lava:'#d84a1c',sand:'#d3c18e',rock:'#8c978b',snow:'#e0ebe6',forest:'#2c5944'};
   let theme={...defaultTheme},themeRevision=0;
   const hexRgb=value=>{const m=/^#([0-9a-f]{6})$/i.exec(value||'');return m?[parseInt(m[1].slice(0,2),16),parseInt(m[1].slice(2,4),16),parseInt(m[1].slice(4,6),16)]:null;};
   const mix=(rgb,amount)=>rgb.map(v=>Math.max(0,Math.min(255,Math.round(v+amount))));
   function setTheme(next={}){for(const key of Object.keys(defaultTheme))if(hexRgb(next[key]))theme[key]=next[key];themeRevision++;}
   function getTheme(){return {...theme};}
-  function palette(){const grass=hexRgb(theme.grass),trees=hexRgb(theme.trees),water=hexRgb(theme.water),lava=hexRgb(theme.lava);return [[135,165,107],grass,trees,[211,193,142],[140,151,139],[224,235,230],water,lava];}
+  function palette(){const grass=hexRgb(theme.grass),trees=hexRgb(theme.trees),water=hexRgb(theme.water),lava=hexRgb(theme.lava);return [[135,165,107],grass,hexRgb(theme.forest)||trees,hexRgb(theme.sand),hexRgb(theme.rock),hexRgb(theme.snow),water,lava];}
   const noise = (x,y) => { const n=Math.sin(x*127.1+y*311.7)*43758.5453; return n-Math.floor(n); };
   function smoothNoise(x,y){const ix=Math.floor(x),iy=Math.floor(y);let u=x-ix,v=y-iy;u=u*u*(3-2*u);v=v*v*(3-2*v);return (noise(ix,iy)*(1-u)+noise(ix+1,iy)*u)*(1-v)+(noise(ix,iy+1)*(1-u)+noise(ix+1,iy+1)*u)*v;}
   const grain=new Float32Array(length),detail=new Float32Array(length);
@@ -46,7 +46,9 @@ const Terrain = (() => {
       if(options.mode==='erase'){t.coverage[k]=Math.round(t.coverage[k]*(1-a));if(t.coverage[k]<3){t.coverage[k]=0;t.heights[k]=0;}continue;}
       const covered=t.coverage[k]>0,base=covered?t.heights[k]:(sample(layers,px,py,active)??0);
       let next=base,biome=t.biomes[k];
-      if(options.mode==='raise'||options.mode==='lower') {next=base+(options.mode==='raise'?1:-1)*options.amount*a;biome=0;}
+      if(options.mode==='mountain') {const peak=Math.max(0,1-d)*options.amount;next=base+(Math.max(0,peak-base)*a);biome=4;}
+      else if(options.mode==='volcano') {const crater=Math.exp(-Math.pow(d/.24,2));const cone=(1-Math.max(0,(d-.28)/.72))*options.amount;next=base+(Math.max(-options.amount*.22,cone-crater*options.amount*.4-base)*a);biome=d<.25?7:4;}
+      else if(options.mode==='raise'||options.mode==='lower') {next=base+(options.mode==='raise'?1:-1)*options.amount*a;biome=0;}
       else if(options.mode==='smooth'){
         let sum=0,count=0;
         for(let yy=Math.max(0,j-2);yy<=Math.min(height-1,j+2);yy++)for(let xx=Math.max(0,i-2);xx<=Math.min(width-1,i+2);xx++) {const q=yy*width+xx;sum+=t.coverage[q]?old[q]:(sample(layers,xx*step,yy*step,active)??0);count++;}
@@ -73,7 +75,7 @@ const Terrain = (() => {
       let light=settings.shade?Math.max(.52,Math.min(1.38,.9+(-dx-dy+2)*.23/Math.sqrt(4+dx*dx+dy*dy))):1;
       if(settings.texture){const n=detail[i]-.5;light+=(grain[i]-.5)*.25+n*.055;
         const type=biome|| (h<0?6:h<45?3:h<700?1:h<1900?4:5);
-        if(type===2){light+=(detail[i]>.55?-.08:.03);}
+      if(type===2){light+=(detail[i]>.55?-.08:.03);}
         if(type===1){rgb[1]+=grain[i]*8;light+=Math.sin(x*.11+y*.09)*.025;}
         if(type===3)light+=Math.sin(x*.28+y*.9+grain[i]*9)*.05;
         if(type===4)light+=Math.sin(x*.35-y*.48+grain[i]*14)*.09;
@@ -91,14 +93,14 @@ const Terrain = (() => {
         const i=y*width+x;if(t.coverage[i]<220)continue;
         const h=t.heights[i],n=detail[i],type=t.biomes[i]||(h<0?6:h<45?3:h<700?1:h<1900?4:5);
         const px=x*4+(n-.5)*6,py=y*4+(detail[Math.max(0,i-1)]-.5)*6;
-        if(type===1&&n>.62){g.strokeStyle=n>.88?'#e0dba339':'#234d342c';g.lineWidth=.65;g.beginPath();g.moveTo(px,py);g.lineTo(px+1,py-2.4);g.stroke();}
+        if(type===1&&n>.62){const forest=hexRgb(theme.forest)||hexRgb(theme.trees);g.strokeStyle=`rgba(${forest.join(',')},${n>.88?.24:.14})`;g.lineWidth=.65;g.beginPath();g.moveTo(px,py);g.lineTo(px+1,py-2.4);g.stroke();}
         if(type===2&&x%2===0&&y%2===0){
           const r=3+n*2.4,tree=hexRgb(theme.trees);g.fillStyle='#153c355e';g.beginPath();g.ellipse(px+1,py+2,r+1,r*.75,0,0,Math.PI*2);g.fill();
           g.fillStyle=`rgb(${mix(tree,n>.5?16:-12).join(',')})`;g.beginPath();g.arc(px,py,r,0,Math.PI*2);g.fill();
           g.fillStyle=`rgb(${mix(tree,55).join(',')})88`;g.beginPath();g.arc(px-1,py-1,r*.55,0,Math.PI*2);g.fill();
         }
         if((type===4||type===5)&&n>.68){g.strokeStyle=type===5?'#ffffff60':'#e2ddc955';g.lineWidth=.8;g.beginPath();g.moveTo(px-2,py+2);g.lineTo(px,py);g.lineTo(px+4,py-1);g.stroke();}
-        if(type===3&&n>.65){g.fillStyle='#fff0c544';g.fillRect(px,py,1,.7);}
+        if(type===3&&n>.65){const sand=hexRgb(theme.sand);g.fillStyle=`rgba(${mix(sand,45).join(',')},.3)`;g.fillRect(px,py,1,.7);}
         if(type===6&&n>.94){g.strokeStyle='#a6e1db30';g.lineWidth=.8;g.beginPath();g.moveTo(px,py);g.quadraticCurveTo(px+3,py-1,px+7,py);g.stroke();}
         if(type===7&&n>.55){g.strokeStyle='#ffd35a';g.lineWidth=.9;g.beginPath();g.moveTo(px-2,py+1);g.quadraticCurveTo(px+2,py-3,px+5,py);g.stroke();}
       }

@@ -4,8 +4,13 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 
 ## Visual e câmera
 
+- O editor inicia com um planeta esférico coberto por água. A superfície virtual tem **8.000 × 4.400 pixels**, 20 vezes a área do mapa editável anterior. O editor pinta uma região de 1.600 × 1.100 pixels no centro do planeta; o restante pode receber mapas encaixados.
+- Em **Encaixar mapa antigo**, importe um JSON das versões 1 a 4 ou um PNG. Ajuste longitude, latitude e escala no painel do planeta. Os encaixes ficam no JSON do projeto e aparecem no visualizador dos jogadores. O JSON antigo é composto em uma imagem antes do encaixe; seus marcadores passam a fazer parte dessa imagem.
 - **Navegar**: arraste para mover e use a roda do mouse para ampliar.
 - **Orbitar**: arraste na horizontal para girar o mundo e na vertical para inclinar. O botão direito do mouse também orbita.
+- **Rotação Z** gira a vista em torno da direção da câmera. Use o controle no painel, Q/E, Shift + Orbitar ou a torção de dois dedos. O valor é salvo no JSON e reproduzido no visualizador.
+- A ferramenta **LOCAL ATUAL** posiciona o ponto dos jogadores em qualquer parte visível do planeta, inclusive sobre um mapa encaixado. O visualizador sempre abre com esse ponto no centro e o botão de enquadramento retorna a ele.
+- A ferramenta **LOCAL ATUAL** posiciona o ponto dos jogadores em qualquer parte visível do planeta, inclusive sobre um mapa encaixado. O visualizador sempre abre com esse ponto no centro e o botão de enquadramento retorna a ele.
 - **Planta** mostra o mapa de cima; **Relevo 3D** projeta a altitude do terreno. No painel de camadas, ajuste rotação, inclinação e intensidade do relevo.
 - As setas ao lado do zoom giram o mapa em passos de 30°. **Enquadrar** ajusta o mapa à tela, e **Orientar ao norte** restaura a vista de cima sem rotação.
 - O pincel acompanha a posição do terreno mesmo com a câmera girada. WebGL renderiza o relevo; navegadores sem esse recurso usam a vista plana com rotação.
@@ -17,7 +22,7 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 - A paleta inclui **Lava**. Em **Cores do mundo**, ajuste separadamente a grama, as copas das árvores, a água e a lava; o ajuste aparece no relevo e nas texturas.
 - **Túnel**: toque ou clique na entrada e depois na saída. Ajuste a largura pelo pincel e a profundidade no painel de túneis. Escape cancela a primeira entrada.
 - Túneis são representados por portais conectados e uma rota subterrânea tracejada; a profundidade é uma anotação. O editor não simula escavação volumétrica ou navegação no interior. Desmarque **Mostrar rotas subterrâneas** para exibir apenas os portais.
-- Casas, vilas, castelos, pontes, cavernas e outros marcadores podem ser inseridos em qualquer camada editável. Construções, marcadores e textos são objetos separados, ancorados na altitude do terreno. Seus desenhos planos ficam de frente para a câmera, com tamanho legível e legendas horizontais.
+- Casas, vilas, castelos, pontes, cavernas e outros marcadores podem ser inseridos em qualquer camada editável. Construções, marcadores e textos são objetos separados, ancorados na altitude do terreno. Seus desenhos planos ficam de frente para a câmera e diminuem conforme o zoom se afasta; legendas muito pequenas deixam de aparecer para evitar excesso visual.
 - **Rio** e **Caminho** guardam trajetos contínuos com curvas suaves; as margens são desenhadas antes do preenchimento para evitar anéis nas junções. **Cor livre** continua sendo pintura raster. Preencha o nome para inserir **Texto** ou legendas de marcadores.
 - **Borracha** remove um objeto ao tocar no ícone ou legenda, recorta trechos de rios e estradas e remove pintura e relevo da camada; tocar na rota de um túnel com a borracha remove essa conexão inteira.
 - Camadas aceitam visibilidade, bloqueio, reordenação e opacidade. Camadas superiores podem cobrir as inferiores.
@@ -35,8 +40,8 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 - **Salvar projeto** baixa um JSON com camadas, pintura, altitude, objetos, trajetos, túneis e orientação da câmera. **Abrir** restaura o arquivo. Projetos anteriores das versões 1, 2 e 3 continuam aceitos.
 - **Google Drive:** informe no painel direito o *Client ID OAuth* de um aplicativo Web criado no Google Cloud, cadastre o endereço publicado do editor em "Authorized JavaScript origins" e clique em **Conectar Drive**. O primeiro salvamento cria `nomedomapa.aether-atlas.json` na sua conta; os seguintes atualizam o mesmo arquivo automaticamente após cada alteração. Nas próximas visitas, com a sessão Google ativa, o editor abre silenciosamente o último projeto salvo neste navegador. O token de acesso não é guardado no navegador; se a sessão expirar ou o navegador bloquear a autenticação silenciosa, basta conectar novamente. O ID público do cliente e o ID do arquivo ficam apenas neste dispositivo.
 - O botão **Salvar JSON** continua disponível como cópia local. O formato do projeto continua na versão 4, com os novos campos opcionais de tema, e versões anteriores continuam aceitas.
-- **Exportar planta (PNG)**, no painel da câmera, gera o mapa de cima em 1600 × 1100 pixels, respeitando camadas e opacidade, independentemente da câmera.
-- **Exportar imagem**, no topo, salva a perspectiva, rotação, zoom e enquadramento atuais, incluindo os ícones e textos voltados à câmera, sem controles nem indicadores temporários. **Exportar esta vista**, no painel da câmera, faz a mesma exportação. A imagem usa a resolução do visor, com densidade de pixels limitada a 2.
+- **Exportar planta (PNG)** gera o planeta aberto em 8.000 × 4.400 pixels quando o modo esférico está ativo; no modo plano, gera 1.600 × 1.100 pixels.
+- **Exportar imagem** salva a perspectiva e o enquadramento atuais, incluindo ícones e textos visíveis na face voltada à câmera. **Exportar esta vista** faz a mesma exportação. O maior lado chega a 4096 pixels, conforme o limite WebGL do dispositivo.
 - **Exportar mapa de altura** gera 400 × 275 pixels: preto = −500 m e branco = 3.000 m. Áreas sem altitude definida ficam transparentes.
 
 O mapa é um campo de alturas com até 16 camadas. Novos textos e construções são objetos independentes; para reposicioná-los, desfaça e reinsira. Elementos de projetos antigos que já foram gravados na imagem continuam rasterizados: um PNG não contém as posições e os textos originais para separá-los automaticamente. O exemplo e os materiais são originais, desenhados por código.
@@ -59,6 +64,6 @@ Referências: [AdSense e AdMob](https://support.google.com/adsense/answer/923465
 
 ## Validação do editor
 
-`validate_browser.py` verifica o editor com Chrome headless e DevTools: câmera, escultura, construções, túneis, desfazer/refazer, exportação, compatibilidade e gestos mobile. O script de desenvolvimento usa o módulo Python `websocket-client` já disponível no ambiente de validação; ele não é necessário para usar o editor.
+`planet_browser.py` verifica o planeta, a seleção, a ocultação dos marcadores, o encaixe de PNG, a reabertura do JSON e a exportação em alta resolução com Chrome headless. O script usa o módulo Python `websocket-client` apenas na validação.
 
 Os resultados ficam em `validation-results.json`. Layout e gestos foram verificados com emulação de celular; desempenho, downloads e gestos em Android/iPhone físicos ainda precisam ser conferidos no aparelho.
