@@ -1,6 +1,7 @@
 'use strict';
 // Architectural parts are stored as small 2D footprints and extruded against the terrain.
 const Structures=(()=>{
+  let nextGroup=0;
   const elevations={wall:12,room:12,corridor:8,rect:8,ellipse:8,line:1,door:11,window:10,stairs:8,pillar:12,pit:-10};
   const rgb=value=>{const hex=(value||'#888888').match(/[0-9a-f]{2}/gi)||['88','88','88'];return hex.slice(0,3).map(v=>parseInt(v,16)/255);};
   const normalize=part=>{
@@ -14,7 +15,8 @@ const Structures=(()=>{
     const primary=source.find(p=>p.fill)||source.find(p=>p.stroke&&!['#242c2b','#202927','#252c29'].includes(p.stroke))||source[0];
     const color=options.color||primary.fill||primary.stroke||'#b6ad98',wallMaterial=options.material==='wood'?'wood':'stone',floorMaterial=options.material==='wood'?'wood':'tile';
     const points=primary.points;
-    const piece=(points,fill,lift,width=thickness,tint=color,material=fill?floorMaterial:wallMaterial,close=true,base=0)=>({points:points.map(p=>({...p})),fill,height:lift,width,color:tint,material,kind,close,base});
+    const groupId=globalThis.crypto?.randomUUID?.()||'construction-'+Date.now()+'-'+(++nextGroup);
+    const piece=(points,fill,lift,width=thickness,tint=color,material=fill?floorMaterial:wallMaterial,close=true,base=0)=>({points:points.map(p=>({...p})),fill,height:lift,width,color:tint,material,kind,close,base,groupId,planDynamic:true});
     if(kind==='wall'||kind==='line')return[piece(points,false,kind==='line'?1:height,kind==='line'?Math.max(2,thickness*.3):thickness,color,wallMaterial,false)];
     if(kind==='room')return[piece(points,true,.8),piece(points,false,height)].map(p=>({...p,foundationPoints:points.map(v=>({...v}))}));
     if(kind==='corridor')return[piece(points,true,.8),piece([points[0],points[1]],false,height,thickness,color,wallMaterial,false),piece([points[3],points[2]],false,height,thickness,color,wallMaterial,false)];
@@ -201,10 +203,33 @@ const Structures=(()=>{
   function validate(items){
     if(!Array.isArray(items)||items.length>3000)throw Error('Construções 3D inválidas.');
     return items.map(item=>{
-      if(!item||(item.foundationPoints!==undefined&&(!Array.isArray(item.foundationPoints)||item.foundationPoints.length<3||item.foundationPoints.length>128||item.foundationPoints.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)))||(item.base!==undefined&&(!Number.isFinite(item.base)||item.base<0||item.base>100))||(item.material!==undefined&&!['stone','tile','wood','glass','metal'].includes(item.material))||(item.kind!==undefined&&!['wall','room','corridor','floor','rect','rectFill','ellipse','ellipseFill','line','door','window','stairs','pillar','pit'].includes(item.kind))||!Array.isArray(item.points)||item.points.length<2||item.points.length>128||item.points.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)||!Number.isFinite(item.width)||item.width<1||item.width>180||!Number.isFinite(item.height)||item.height< -100||item.height>100||typeof item.fill!=='boolean'||!/^#[0-9a-f]{6,8}$/i.test(item.color))throw Error('Construção 3D inválida.');
+      if(!item||(item.groupId!==undefined&&(typeof item.groupId!=='string'||item.groupId.length>100))||(item.planDynamic!==undefined&&typeof item.planDynamic!=='boolean')||(item.foundationPoints!==undefined&&(!Array.isArray(item.foundationPoints)||item.foundationPoints.length<3||item.foundationPoints.length>128||item.foundationPoints.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)))||(item.base!==undefined&&(!Number.isFinite(item.base)||item.base<0||item.base>100))||(item.material!==undefined&&!['stone','tile','wood','glass','metal'].includes(item.material))||(item.kind!==undefined&&!['wall','room','corridor','floor','rect','rectFill','ellipse','ellipseFill','line','door','window','stairs','pillar','pit'].includes(item.kind))||!Array.isArray(item.points)||item.points.length<2||item.points.length>128||item.points.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)||!Number.isFinite(item.width)||item.width<1||item.width>180||!Number.isFinite(item.height)||item.height< -100||item.height>100||typeof item.fill!=='boolean'||!/^#[0-9a-f]{6,8}$/i.test(item.color))throw Error('Construção 3D inválida.');
       return item;
     });
   }
-  return{capture,build,validate,textures,shadows,paintPlan};
+  const segments=part=>part.points.slice(0,part.close?undefined:-1).map((p,i)=>[p,part.points[(i+1)%part.points.length]]);
+  function touches(a,b){
+    const distance=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1)));return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);};
+    const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+    return segments(a).some(([p,q])=>segments(b).some(([r,s])=>{
+      const u=cross(p,q,r),v=cross(p,q,s),w=cross(r,s,p),z=cross(r,s,q);
+      if(u*v<0&&w*z<0)return true;
+      return Math.min(distance(p,r,s),distance(q,r,s),distance(r,p,q),distance(s,p,q))<=(a.width+b.width)/2+.5;
+    }));
+  }
+  function connected(items,object,autoWalls=true){
+    const result=new Set([object]),wall=p=>!p.fill&&['wall','room','corridor','rect','ellipse'].includes(p.kind);
+    let added=true;while(added){added=false;for(const p of items)if(!result.has(p)&&[...result].some(q=>p.groupId&&p.groupId===q.groupId||!p.groupId&&!q.groupId&&p.kind===q.kind&&p.foundationPoints&&q.foundationPoints&&JSON.stringify(p.foundationPoints)===JSON.stringify(q.foundationPoints)||autoWalls&&wall(p)&&wall(q)&&touches(p,q))){result.add(p);added=true;}}
+    return [...result];
+  }
+  // Legacy projects baked the architectural plan into the shared ink canvas.
+  // Separate those footprints once before editing so moves never leave a ghost.
+  function prepareEdit(layer){
+    const legacy=(layer.structures||[]).filter(p=>!p.planDynamic);if(!legacy.length)return;
+    if(layer.ink){const g=layer.ink.getContext('2d');g.save();g.globalCompositeOperation='destination-out';paintPlan(g,legacy);g.restore();}
+    for(const p of legacy)p.planDynamic=true;
+  }
+  function drawPlan(g,items){paintPlan(g,(items||[]).filter(p=>p.planDynamic));}
+  return{capture,build,validate,textures,shadows,paintPlan,drawPlan,prepareEdit,connected,touches,footprints};
 })();
 

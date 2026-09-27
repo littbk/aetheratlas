@@ -51,7 +51,7 @@ export class MapViewer {
     const g = this.texture.getContext('2d'); g.clearRect(0,0,1600,1100);
     for (const l of layers) if (l.visible) {
       g.globalAlpha = l.opacity; g.drawImage(l.c,0,0); g.drawImage(Terrain.render(l.terrain,settings),0,0,1600,1100);
-      MapPaths.draw(g,l.routes); if (l.ink) g.drawImage(l.ink,0,0);
+      MapPaths.draw(g,l.routes); if (l.ink) g.drawImage(l.ink,0,0);Structures.drawPlan(g,l.structures);
       for (const t of l.tunnels) {
         g.save(); g.lineCap='round'; g.beginPath(); g.moveTo(t.a.x,t.a.y); g.lineTo(t.b.x,t.b.y);
         g.strokeStyle='#102d3199'; g.lineWidth=t.width+7; g.stroke(); g.strokeStyle='#e6c48b';
@@ -138,7 +138,7 @@ export class MapViewer {
   async loadFlatSubmap(project,name){
     const settings={texture:true,shade:true,contours:false,altitude:false,interval:100,planet:false,...project.view},texture=document.createElement('canvas');texture.width=1600;texture.height=1100;const g=texture.getContext('2d'),layers=[];
     for(const v of project.layers){const image=await this.decodeSubmap(v.image),c=document.createElement('canvas');c.width=1600;c.height=1100;c.getContext('2d').drawImage(image,0,0);let ink=null;if(v.overlay){const overlay=await this.decodeSubmap(v.overlay);ink=document.createElement('canvas');ink.width=1600;ink.height=1100;ink.getContext('2d').drawImage(overlay,0,0);}layers.push({name:v.name,visible:v.visible,opacity:v.opacity,planet:{enabled:false},c,ink,terrain:project.version>=2?Terrain.validate(v.terrain):Terrain.create(),objects:Billboards.validate(v.objects||[]),routes:MapPaths.validate(v.routes||[]),tunnels:v.tunnels||[],structures:Structures.validate(v.structures||[])});}
-    for(const l of layers)if(l.visible){g.globalAlpha=l.opacity;g.drawImage(l.c,0,0);g.drawImage(Terrain.render(l.terrain,settings),0,0,1600,1100);MapPaths.draw(g,l.routes);if(l.ink)g.drawImage(l.ink,0,0);}g.globalAlpha=1;
+    for(const l of layers)if(l.visible){g.globalAlpha=l.opacity;g.drawImage(l.c,0,0);g.drawImage(Terrain.render(l.terrain,settings),0,0,1600,1100);MapPaths.draw(g,l.routes);if(l.ink)g.drawImage(l.ink,0,0);Structures.drawPlan(g,l.structures);}g.globalAlpha=1;
     this.texture=texture;this.layers=layers;this.patches=[];this.playerLocation=null;this.submapMode=true;this.stage.classList.add('submap-mode');Terrain.setTheme(project.theme||Terrain.defaultTheme);this.c={yaw:0,tilt:0,roll:0,relief:0,zoom:Math.min(this.stage.clientWidth/1600,this.stage.clientHeight/1100)*.9,cx:this.stage.clientWidth/2,cy:this.stage.clientHeight/2};this.scene.planetTexture=null;this.scene.update(texture,layers,this.camera(),[]);document.getElementById('mapTitle').textContent=name;document.getElementById('mapNote').textContent='Submapa plano';
   }
   decodeSubmap(source){return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=source;});}

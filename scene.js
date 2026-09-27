@@ -182,7 +182,7 @@ class AtlasScene {
       for(const region of regions){
         if(!region.gx&&!region.gy){g.drawImage(texture,region.x*sx,region.y*sy,1600*sx,1100*sy);continue;}
         const tile=document.createElement('canvas');tile.width=1600;tile.height=1100;const tg=tile.getContext('2d');
-        for(const l of region.layers)if(l.visible&&l.opacity){tg.globalAlpha=l.opacity;tg.drawImage(l.c,0,0);tg.drawImage(Terrain.render(l.terrain,camera.terrainView||{texture:true,shade:true}),0,0,1600,1100);MapPaths.draw(tg,l.routes);if(l.ink)tg.drawImage(l.ink,0,0);}
+        for(const l of region.layers)if(l.visible&&l.opacity){tg.globalAlpha=l.opacity;tg.drawImage(l.c,0,0);tg.drawImage(Terrain.render(l.terrain,camera.terrainView||{texture:true,shade:true}),0,0,1600,1100);MapPaths.draw(tg,l.routes);if(l.ink)tg.drawImage(l.ink,0,0);Structures.drawPlan(tg,l.structures);}
         g.drawImage(tile,region.x*sx,region.y*sy,1600*sx,1100*sy);
       }
       gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,this.planetTexture);

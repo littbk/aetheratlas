@@ -11,7 +11,8 @@ const Selector=(()=>{
     return storage[selected.collection].includes(selected.object);
   };
   function clear(){selected=null;drag=null;panel.hidden=true;draw();}
-  const points=()=>selected.generated?[{x:selected.entry.localX??selected.entry.x,y:selected.entry.localY??selected.entry.y}]:selected.collection==='routes'?selected.object.points:selected.collection==='tunnels'?[selected.object.a,selected.object.b]:[selected.object];
+  const members=()=>selected.members||[selected.object];
+  const points=()=>selected.collection==='structures'?[...new Set(members().flatMap(o=>[...o.points,...(o.foundationPoints||[])]))]:selected.generated?[{x:selected.entry.localX??selected.entry.x,y:selected.entry.localY??selected.entry.y}]:selected.collection==='routes'?selected.object.points:selected.collection==='tunnels'?[selected.object.a,selected.object.b]:[selected.object];
   function bounds(){const p=points(),xs=p.map(p=>p.x),ys=p.map(p=>p.y);return {x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};}
   function center(){const b=bounds();return {x:(b.x0+b.x1)/2,y:(b.y0+b.y1)/2};}
   function sync(){
@@ -20,9 +21,10 @@ const Selector=(()=>{
     const o=selected.object||selected.entry,c=center(),tree=selected.generated||o.kind==='tree';
     const species={forest:'Floresta de copas',palms:'Coqueiro',pines:'Pinheiro',magic:'Árvore mágica',autumn:'Árvore outonal',jungle:'Árvore de selva',snowForest:'Pinheiro nevado'};
     $('selectionName').textContent=tree?(species[o.species||Terrain.biomes[o.type]]||'Árvore'):o.text||({building:Buildings.names[o.building],marker:'Marcador',text:'Texto',river:'Rio',path:'Caminho'}[o.kind])||(selected.collection==='tunnels'?'Túnel':'Objeto');
+    if(selected.collection==='structures')$('selectionName').textContent=({wall:'Muro',room:'Sala',corridor:'Corredor',floor:'Piso',stairs:'Escada',door:'Porta',window:'Janela',pillar:'Pilar',pit:'Fosso'}[o.kind]||'Arquitetura')+(members().length>1?' · '+members().length+' peças':'');
     $('selectionX').value=Math.round(c.x);$('selectionY').value=Math.round(c.y);
     $('selectionLayer').replaceChildren();layers.forEach((l,i)=>{const option=new Option(l.name+(l.locked?' · bloqueada':''),i);option.disabled=l.locked; $('selectionLayer').add(option);});$('selectionLayer').value=selected.layer;
-    $('selectionTint').hidden=selected.collection!=='objects'&&!selected.generated;
+    $('selectionTint').hidden=!['objects','structures'].includes(selected.collection)&&!selected.generated;
     $('selectionTrunkLabel').hidden=!tree;
     $('selectionColor').value=selected.generated?o.foliage:o.color||'#ffffff';$('selectionTrunk').value=selected.generated?o.trunk:o.trunkColor||'#70503b';
     const locked=layers[selected.layer].locked;panel.querySelectorAll('input,select,button').forEach(el=>el.disabled=locked&&el.id!=='selectionClear');
@@ -33,6 +35,24 @@ const Selector=(()=>{
     if(samples[0].visible===false)return null;
     const xs=samples.map(p=>p.x),ys=samples.map(p=>p.y);return {x:Math.min(...xs)-4,y:Math.min(...ys)-4,w:Math.max(...xs)-Math.min(...xs)+8,h:Math.max(...ys)-Math.min(...ys)+8,depth:samples[0].w};
   }
+  function structureFaces(object,region){
+    const gx=(region?.gx||0)*1600,gy=(region?.gy||0)*1100,c=camera(),tc={...c,relief:1};
+    const ground=Math.max(0,...(object.foundationPoints||object.points).map(p=>Billboards.surfaceHeight(p.x+gx,p.y+gy,layers)));
+    const project=(p,h)=>scene.project(p.x+gx,p.y+gy,ground+(h||0)*(c.planet?.37:1),tc);
+    return Structures.footprints(object).flatMap(poly=>{const bottom=poly.map(p=>project(p,object.base)),top=poly.map(p=>project(p,object.height));return [top,bottom,...poly.map((_,i)=>[bottom[i],bottom[(i+1)%poly.length],top[(i+1)%poly.length],top[i]])];});
+  }
+  function hitStructures(x,y){
+    const inside=poly=>{let yes=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a.y>y)!==(b.y>y)&&x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x)yes=!yes;}return yes;};
+    let best=null;
+    for(let i=layers.length-1;i>=0;i--){const parent=layers[i];if(!parent.visible||parent.opacity<=0)continue;
+      const sources=worldMode()?[{source:parent,region:{gx:0,gy:0}},...(parent.tiles||[]).map(source=>({source,region:{gx:source.gx,gy:source.gy}}))]:[{source:parent,region:null}];
+      for(const {source,region} of sources)for(const object of [...(source.structures||[])].reverse())for(const face of structureFaces(object,region)){
+        if(face.some(p=>p.visible===false)||!inside(face))continue;const depth=face.reduce((n,p)=>n+(p.w||0),0)/face.length;
+        if(!best||depth<best.depth)best={layer:i,collection:'structures',object,region,depth};
+      }
+    }
+    return best;
+  }
   function hit(e){
     const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
     const icons=[...billboardHits].reverse();
@@ -40,6 +60,7 @@ const Selector=(()=>{
     let tree=null;
     for(const entry of scene.vegetation?.entries||[]){const box=treeBox(entry);if(box&&x>=box.x&&x<=box.x+box.w&&y>=box.y&&y<=box.y+box.h&&(!tree||box.depth<tree.depth))tree={entry,depth:box.depth};}
     if(tree)return {layer:tree.entry.layer,collection:'objects',object:tree.entry.object,entry:tree.entry,generated:!tree.entry.object,region:tree.entry.region};
+    const architecture=hitStructures(x,y);if(architecture)return architecture;
     const original=point(e);if(!original.inside)return null;const region=worldMode()?WorldSurface.locate(original.x,original.y):null,p={x:original.x-(region?.gx||0)*1600,y:original.y-(region?.gy||0)*1100},regionLayers=region?WorldSurface.group(layers,region.gx,region.gy):layers;
     for(let i=layers.length-1;i>=0;i--){const l=regionLayers[i];if(!l.visible||l.opacity<=0)continue;
       for(const t of l.tunnels)if(MapPaths.distance(p,t.a,t.b)<t.width/2+6)return {layer:i,collection:'tunnels',object:t,region};
@@ -49,12 +70,13 @@ const Selector=(()=>{
   }
   function pick(e){
     const item=hit(e);if(!item){clear();return;}
-    selected={...item,source:item.region?WorldSurface.child(layers[item.layer],item.region.gx,item.region.gy):layers[item.layer]};active=item.layer;
+    selected={...item,source:item.region?WorldSurface.child(layers[item.layer],item.region.gx,item.region.gy):layers[item.layer]};if(item.collection==='structures')selected.members=Structures.connected(selected.source.structures,item.object,$('architectureAutoGroup')?.checked!==false);active=item.layer;
     const p=point(e),c=center();drag={id:e.pointerId,start:p.inside?{x:p.x-(selected.region?.gx||0)*1600,y:p.y-(selected.region?.gy||0)*1100}:c,center:c,moved:false};
     render();if(layers[selected.layer].locked)notify('Camada bloqueada: desbloqueie para editar este objeto.');
   }
   function editable(){if(!valid())return false;if(layers[selected.layer].locked){notify('Desbloqueie a camada do objeto para editá-lo.');return false;}if(selected.generated&&selected.source.objects.length>=2000){notify('Limite de objetos da camada atingido.');return false;}return true;}
   function detach(){
+    if(selected.collection==='structures')Structures.prepareEdit(selected.source);
     if(!selected.generated)return;
     const e=selected.entry,l=selected.source;
     const object={kind:'tree',species:Terrain.biomes[e.type],x:e.localX??e.x,y:e.localY??e.y,size:e.size,rotation:0,text:'',color:e.foliage,trunkColor:e.trunk,seed:e.n};
@@ -77,18 +99,18 @@ const Selector=(()=>{
   function transfer(index){
     if(!editable()||index===selected.layer)return;
     const parent=layers[index],dest=parent&&(selected.region?WorldSurface.child(parent,selected.region.gx,selected.region.gy,true):parent);if(!dest||parent.locked){notify('Escolha uma camada desbloqueada.');return;}
-    const limit=selected.collection==='tunnels'?1000:2000;if(dest[selected.collection].length>=limit){notify('Limite de objetos da camada de destino atingido.');return;}
+    const limit=selected.collection==='structures'?3000:selected.collection==='tunnels'?1000:2000;if(dest[selected.collection].length+members().length>limit){notify('Limite de objetos da camada de destino atingido.');return;}
     remember();detach();const source=selected.source,collection=selected.collection,object=selected.object;
-    source[collection].splice(source[collection].indexOf(object),1);dest[collection].push(object);selected.layer=index;selected.source=dest;active=index;changed();
+    if(collection==='structures')Structures.prepareEdit(dest);for(const item of members()){source[collection].splice(source[collection].indexOf(item),1);dest[collection].push(item);}selected.layer=index;selected.source=dest;active=index;changed();
   }
   function recolor(color,trunk){
     if(!/^#[0-9a-f]{6}$/i.test(color)||!editable())return;
-    remember();detach();selected.object.color=color;if(selected.object.kind==='tree'&&/^#[0-9a-f]{6}$/i.test(trunk))selected.object.trunkColor=trunk;changed();
+    remember();detach();for(const item of members())item.color=color;if(selected.object.kind==='tree'&&/^#[0-9a-f]{6}$/i.test(trunk))selected.object.trunkColor=trunk;changed();
   }
   function drawOutline(g){
     if(tool!=='select'||!valid())return;
     let box;
-    if(selected.generated||selected.object?.kind==='tree'){
+    if(selected.collection==='structures'){const ps=members().flatMap(o=>structureFaces(o,selected.region).flat()).filter(p=>p.visible!==false);if(ps.length){const xs=ps.map(p=>p.x),ys=ps.map(p=>p.y);box={x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};}}else if(selected.generated||selected.object?.kind==='tree'){
       const e=(scene.vegetation?.entries||[]).find(e=>selected.generated?e.layer===selected.layer&&e.index===selected.entry.index:e.object===selected.object);if(e)box=treeBox(e);
     }else{
       const hit=billboardHits.find(h=>h.layer===selected.layer&&(h.tunnel===selected.object||h.originalObject===selected.object||h.object===selected.object));box=hit?.box;
