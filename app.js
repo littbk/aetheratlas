@@ -5,7 +5,7 @@ rollSetting.innerHTML='<label for="roll">Rotação Z <span id="rollValue">0°</s
 document.querySelector('label[for="tilt"]').closest('.setting').after(rollSetting);
 const canvas=$('map'),ctx=canvas.getContext('2d');
 const colors=[['Pradaria','#87a56b'],['Floresta','#336349'],['Areia','#d3c591'],['Montanha','#9aab9a'],['Neve','#dee3d4'],['Água','#347787'],['Lava','#d84a1c']];
-const toolList=[['pan','✥','Navegar'],['select','↖','Seletor'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['submap','↗','Entrada submapa'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['water','≈','Água'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['text','T','Texto'],['erase','▱','Borracha']];
+const toolList=[['pan','✥','Navegar'],['select','↖','Seletor'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['submap','↗','Entrada submapa'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['water','≈','Água'],['waterRemove','−','Remover água'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['text','T','Texto'],['erase','▱','Borracha']];
 const indoorToolList=[['wall','━','Muro'],['room','▣','Sala'],['corridor','▤','Corredor'],['floor','▦','Piso ladrilhado'],['rect','▱','Retângulo'],['rectFill','■','Piso quadrado'],['ellipse','◯','Círculo'],['ellipseFill','●','Círculo preenchido'],['line','╱','Linha'],['door','▯','Porta'],['window','⊞','Janela'],['stairs','▥','Escada'],['pillar','◉','Pilar'],['pit','⬭','Fosso']];
 let layers=[],patches=[],playerLocation={x:4000,y:2200},active=0,tool='pan',zoom=1,ox=0,oy=0,grid=false,down=false,last=null,space=false,history=[],future=[],dirty=false,timer,submapEdit=null;
 let selectedBiome='grass', selectedBuilding=null, strokeDistance=0;
@@ -100,7 +100,7 @@ function demo(){textureDirty=true;activeRoute=null;tunnelStart=null;layers=[laye
 {kind:'text',x:1210,y:625,size:28,rotation:0,text:'Mar das Estrelas',color:'#c9ded5'}];Terrain.seed(layers[1].terrain,layers[1].c);layers[2].tunnels.push({a:{x:650,y:365},b:{x:850,y:400},width:19,depth:90});active=1;history=[];future=[];dirty=false;$('saved').textContent='Mapa de exemplo · salve para guardar';render();fit();}
 function point(e){
   const r=canvas.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;
-  let p=scene.gl?scene.pick(sx,sy):null;
+  let p=scene.gl?scene.pick(sx,sy,tool==='water'||tool==='waterRemove'):null;
   if(!scene.gl){const a=-(yaw+roll)*Math.PI/180,x=(sx-ox)/zoom,y=(sy-oy)/zoom;if(camera().planet){const radius=470*zoom,lon=((x/radius-yaw*Math.PI/180)/(Math.PI*2)+.5)*AtlasScene.WORLD_WIDTH,lat=(.5-y/radius)*AtlasScene.WORLD_HEIGHT;p={worldX:lon,worldY:lat,x:lon-AtlasScene.REGION_X,y:lat-AtlasScene.REGION_Y};}else p={x:W/2+x*Math.cos(a)-y*Math.sin(a),y:H/2+x*Math.sin(a)+y*Math.cos(a)};}
   const hit=tool==='erase'?[...billboardHits].reverse().find(h=>h.layer===active&&sx>=h.box.x&&sx<=h.box.x+h.box.w&&sy>=h.box.y&&sy<=h.box.y+h.box.h):null;
   if(hit)p={x:hit.object.x,y:hit.object.y,worldX:hit.object.x+3200,worldY:hit.object.y+1650};
@@ -219,6 +219,10 @@ function beginPaint(p){
   }
   if(!p.inside)return false;
   if(layers[active].locked||!layers[active].visible){notify('Selecione uma camada visível e desbloqueada.');return false;}
+  if(tool==='waterRemove'){
+    let count=0;atRegion(p,q=>{const t=layers[active].terrain,cells=Terrain.waterRegion(t,q.x,q.y);if(!cells.length)return;remember();for(const k of cells)delete t.waterLevels[k];t.dirty=true;count=cells.length;});
+    if(count){changed();notify('Região de água removida. O terreno foi preservado. Ctrl+Z para desfazer.');}else notify('Clique numa região de água da camada selecionada.');return false;
+  }
   if(tool==='water'){
     let filled=null;atRegion(p,q=>{filled=Terrain.waterFill(layers,q.x,q.y,$('waterAuto').checked?null:Number($('waterLevel').value));if(!filled.cells.length)return;remember();const t=layers[active].terrain;for(const k of filled.cells)t.waterLevels[k]=filled.level;t.dirty=true;});
     if(filled?.cells.length){changed();notify('Água adicionada até o nível '+Math.round(filled.level)+'. Ctrl+Z para desfazer.');}else notify('Clique no fundo de uma depressão ou escolha um nível de água mais alto.');return false;
@@ -262,7 +266,7 @@ canvas.onpointermove=e=>{
   else if(panning){ox+=p.sx-last.sx;oy+=p.sy-last.sy;draw();}
   else if(constructionStart){constructionPreview={tool,a:constructionStart,b:p};draw();}
   else{
-    if(pending&&Math.hypot(p.sx-pending.sx,p.sy-pending.sy)>5){if(!['water','tunnel','marker','text','player','submap',...indoorToolList.map(v=>v[0])].includes(tool)){beginPaint(pending);pending=null;}}
+    if(pending&&Math.hypot(p.sx-pending.sx,p.sy-pending.sy)>5){if(!['water','waterRemove','tunnel','marker','text','player','submap',...indoorToolList.map(v=>v[0])].includes(tool)){beginPaint(pending);pending=null;}}
     if(strokeStarted&&p.inside&&!['marker','text','tunnel'].includes(tool))paint(last.inside?last:p,p);
     if(!p.inside&&activeRoute){finishRoute();}
   }

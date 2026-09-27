@@ -255,15 +255,17 @@ class AtlasScene {
       }
       gl.uniform1f(uniform('treeMode'),2);gl.drawArrays(gl.TRIANGLES,0,this.structures.vertices.length/15);
     }
+    this.pickCamera=this.flatRegion?{...camera,flatRegion:null}:{...camera};this.waterProjected=null;
     this.projected=[];
     for(let i=0;i<this.vertices.length;i+=6)this.projected.push(this.project(this.vertices[i],this.vertices[i+1],this.vertices[i+2],this.flatRegion?{...camera,flatRegion:null}:camera,this.spherical));
     return this.canvas;
   }
-  pick(x,y) {
+  pick(x,y,includeWater=false) {
     let nearest=null,best=Infinity;
-    for(let i=0;i<this.projected.length;i+=3){
-      if(this.spherical&&!this.projected[i].visible&&!this.projected[i+1].visible&&!this.projected[i+2].visible)continue;
-      const a=this.projected[i],b=this.projected[i+1],c=this.projected[i+2];
+    const meshes=[{projected:this.projected,vertices:this.vertices}];if(includeWater&&this.waterVertices?.length&&this.pickCamera){if(!this.waterProjected){this.waterProjected=[];for(let i=0;i<this.waterVertices.length;i+=6)this.waterProjected.push(this.project(this.waterVertices[i],this.waterVertices[i+1],this.waterVertices[i+2],this.pickCamera,this.spherical));}meshes.push({projected:this.waterProjected,vertices:this.waterVertices});}
+    for(const {projected,vertices} of meshes)for(let i=0;i<projected.length;i+=3){
+      if(this.spherical&&!projected[i].visible&&!projected[i+1].visible&&!projected[i+2].visible)continue;
+      const a=projected[i],b=projected[i+1],c=projected[i+2];
       if(x<Math.min(a.x,b.x,c.x)||x>Math.max(a.x,b.x,c.x)||y<Math.min(a.y,b.y,c.y)||y>Math.max(a.y,b.y,c.y))continue;
       const det=(b.y-c.y)*(a.x-c.x)+(c.x-b.x)*(a.y-c.y);if(Math.abs(det)<1e-8)continue;
       const u=((b.y-c.y)*(x-c.x)+(c.x-b.x)*(y-c.y))/det;
@@ -273,12 +275,12 @@ class AtlasScene {
       if(depth>=best)continue;best=depth;
       const k=i*6;
       if(this.spherical||this.flatRegion){
-        const px=(u*this.vertices[k+3]/a.w+v*this.vertices[k+9]/b.w+s*this.vertices[k+15]/c.w)/den;
-        const py=(u*this.vertices[k+4]/a.w+v*this.vertices[k+10]/b.w+s*this.vertices[k+16]/c.w)/den;
+        const px=(u*vertices[k+3]/a.w+v*vertices[k+9]/b.w+s*vertices[k+15]/c.w)/den;
+        const py=(u*vertices[k+4]/a.w+v*vertices[k+10]/b.w+s*vertices[k+16]/c.w)/den;
         const worldX=px*AtlasScene.WORLD_WIDTH,worldY=py*AtlasScene.WORLD_HEIGHT;
         nearest={x:worldX-AtlasScene.REGION_X,y:worldY-AtlasScene.REGION_Y,worldX,worldY};
-      }else nearest={x:(u*this.vertices[k]/a.w+v*this.vertices[k+6]/b.w+s*this.vertices[k+12]/c.w)/den,
-        y:(u*this.vertices[k+1]/a.w+v*this.vertices[k+7]/b.w+s*this.vertices[k+13]/c.w)/den};
+      }else nearest={x:(u*vertices[k]/a.w+v*vertices[k+6]/b.w+s*vertices[k+12]/c.w)/den,
+        y:(u*vertices[k+1]/a.w+v*vertices[k+7]/b.w+s*vertices[k+13]/c.w)/den};
     }
     return nearest;
   }

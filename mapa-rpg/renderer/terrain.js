@@ -69,6 +69,11 @@ const Terrain = (() => {
     }
     return new Float32Array(vertices);
   }
+  function waterRegion(t,x,y){
+    const levels=t.waterLevels||{},present=k=>Object.hasOwn(levels,k);let start=index(x,y);
+    if(!present(start)){const cx=start%width,cy=Math.floor(start/width),near=[];for(let j=Math.max(0,cy-1);j<=Math.min(height-1,cy+1);j++)for(let i=Math.max(0,cx-1);i<=Math.min(width-1,cx+1);i++)if(present(j*width+i))near.push(j*width+i);near.sort((a,b)=>Math.hypot(a%width*step+2-x,Math.floor(a/width)*step+2-y)-Math.hypot(b%width*step+2-x,Math.floor(b/width)*step+2-y));if(!near.length)return [];start=near[0];}
+    const seen=new Set([start]),queue=[start];for(let i=0;i<queue.length;i++){const k=queue[i];for(const n of [k%width?k-1:-1,k%width<width-1?k+1:-1,k>=width?k-width:-1,k<length-width?k+width:-1])if(n>=0&&!seen.has(n)&&present(n)){seen.add(n);queue.push(n);}}return queue;
+  }
   function sample(layers,x,y,limit=layers.length) {
     if(x<0||y<0||x>=1600||y>=1100){if(typeof WorldSurface!=='undefined'&&layers.some(l=>l.planet?.enabled)&&x>=-3200&&x<4800&&y>=-1650&&y<2750)return WorldSurface.sample(layers,x,y);return null;}
     const i=index(x,y);let value=0,known=false;
@@ -153,7 +158,7 @@ const Terrain = (() => {
   // Independent continuous masks avoid interpolating categorical biome IDs.
   function biomeTexture(t){const c=document.createElement('canvas');c.width=400;c.height=275;const g=c.getContext('2d'),im=g.createImageData(400,275);for(let i=0;i<length;i++){const h=t.heights[i],biome=t.biomes[i]||(h<0?6:h<45?3:h<700?1:h<1900?4:5),coverage=t.coverage[i];im.data[i*4]=biome===7?255:0;im.data[i*4+1]=biome===6?255:0;im.data[i*4+2]=biome===4||biome===5?255:0;im.data[i*4+3]=coverage;}g.putImageData(im,0,0);return c;}
 
-  return {create,copy,restore,serialize,validate,sample,waterFill,waterMesh,stamp,render,seed,index,length,setTheme,getTheme,defaultTheme,biomes,freezeTreeColors,freezeLayers,detailTexture,biomeTexture};
+  return {create,copy,restore,serialize,validate,sample,waterFill,waterMesh,waterRegion,stamp,render,seed,index,length,setTheme,getTheme,defaultTheme,biomes,freezeTreeColors,freezeLayers,detailTexture,biomeTexture};
 })();
 
 // Native canvas icons remain crisp at any marker size and need no external assets.
