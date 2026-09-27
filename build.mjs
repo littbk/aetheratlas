@@ -1,7 +1,7 @@
 import {mkdir,copyFile,cp,readFile,writeFile} from 'node:fs/promises';
 import {build} from 'esbuild';
 await mkdir('public',{recursive:true});
-const editor=['ui.css','ui.js','terrain.js','world-surface.js','vegetation.js','structures.js','scene.js','paths.js','billboards.js','navigation.js','region-view.js','drive-client.js','planet-guides.js','app.js','drive.js','vegetation-controls.js','selection.js','ads.js'];
+const editor=['ui.css','ui.js','terrain.js','world-surface.js','vegetation.js','structures.js','scene.js','paths.js','billboards.js','navigation.js','region-view.js','drive-client.js','planet-guides.js','app.js','drive.js','vegetation-controls.js','selection.js','ads.js','session.js'];
 for(const name of editor)await copyFile(name,'public/'+name);
 const index=(await readFile('index.html','utf8')).replace('</body>','<script type="module" src="/account.js"></script></body>');await writeFile('public/index.html',index);
 let player=await readFile('mapa-rpg/index.html','utf8');player=player.replace('src="/app.js"','src="/player.js"').replace('src="/ui.js"','src="/viewer-ui.js"');await writeFile('public/player.html',player);

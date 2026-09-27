@@ -94,3 +94,8 @@ O planeta inteiro é editável em resolução local, com regiões criadas confor
 ### Região em plano temporário
 
 Na navegação do mapa, use o ícone de seleção de região. Arraste sobre o planeta para delimitar a área ou clique para abrir uma região local. O editor permite editar esse mesmo terreno em plano; o visualizador permite explorá-lo. Clique novamente no ícone ou pressione Esc para voltar ao planeta. As edições permanecem no mundo original; essa vista não cria um submapa separado.
+
+
+A ferramenta Água tem uma cor por lago. Escolha Cor desta água antes de preencher; marque Recolorir lago existente ao clicar para mudar somente o lago da camada selecionada. As cores acompanham o JSON e os mapas publicados.
+
+O editor guarda uma cópia automática local do projeto e retoma o mapa/submapa, camada, câmera e zoom ao reabrir no mesmo navegador. O visualizador guarda a posição por link de mapa. A sessão usa IndexedDB e armazenamento local, funciona sem login e é separada entre a versão local e a online; apagar os dados do navegador apaga essa recuperação. Continue exportando ou salvando na conta/Drive para manter outra cópia.

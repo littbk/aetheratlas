@@ -220,11 +220,12 @@ function beginPaint(p){
   if(!p.inside)return false;
   if(layers[active].locked||!layers[active].visible){notify('Selecione uma camada visível e desbloqueada.');return false;}
   if(tool==='waterRemove'){
-    let count=0;atRegion(p,q=>{const t=layers[active].terrain,cells=Terrain.waterRegion(t,q.x,q.y);if(!cells.length)return;remember();for(const k of cells)delete t.waterLevels[k];t.dirty=true;count=cells.length;});
+    let count=0;atRegion(p,q=>{const t=layers[active].terrain,cells=Terrain.waterRegion(t,q.x,q.y);if(!cells.length)return;remember();for(const k of cells){delete t.waterLevels[k];delete t.waterColors[k];}t.dirty=true;count=cells.length;});
     if(count){changed();notify('Região de água removida. O terreno foi preservado. Ctrl+Z para desfazer.');}else notify('Clique numa região de água da camada selecionada.');return false;
   }
   if(tool==='water'){
-    let filled=null;atRegion(p,q=>{filled=Terrain.waterFill(layers,q.x,q.y,$('waterAuto').checked?null:Number($('waterLevel').value));if(!filled.cells.length)return;remember();const t=layers[active].terrain;for(const k of filled.cells)t.waterLevels[k]=filled.level;t.dirty=true;});
+    if($('waterRecolor').checked){let count=0;atRegion(p,q=>{const t=layers[active].terrain,cells=Terrain.waterRegion(t,q.x,q.y);if(!cells.length)return;remember();for(const k of cells)t.waterColors[k]=$('lakeColor').value;t.dirty=true;count=cells.length;});if(count){changed();notify('Cor da água alterada. Ctrl+Z desfaz.');}else notify('Clique em um lago da camada selecionada.');return false;}
+    let filled=null;atRegion(p,q=>{filled=Terrain.waterFill(layers,q.x,q.y,$('waterAuto').checked?null:Number($('waterLevel').value));if(!filled.cells.length)return;remember();const t=layers[active].terrain;for(const k of filled.cells){t.waterLevels[k]=filled.level;t.waterColors[k]=$('lakeColor').value;}t.dirty=true;});
     if(filled?.cells.length){changed();notify('Água adicionada até o nível '+Math.round(filled.level)+'. Ctrl+Z para desfazer.');}else notify('Clique no fundo de uma depressão ou escolha um nível de água mais alto.');return false;
   }
   if(tool==='tunnel'){addTunnel(p);return false;}

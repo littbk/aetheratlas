@@ -69,7 +69,7 @@ class AtlasScene {
       }
       void main(){
         if(surfaceVisible<.5)discard;if(flatMode>.5&&(texcoord.x<regionClip.x||texcoord.y<regionClip.y||texcoord.x>regionClip.z||texcoord.y>regionClip.w))discard;
-        if(waterMode>.5){vec2 waterPoint=texcoord*terrainSize*4.;float ripple=sin(waterPoint.x*.013+sin(waterPoint.y*.019)*1.4)*.012+sin(waterPoint.x*.009-waterPoint.y*.016)*.007;gl_FragColor=vec4((ocean+vec3(ripple))*sphereLight,1.);return;}
+        if(waterMode>.5){vec2 waterPoint=texcoord*terrainSize*4.;float ripple=sin(waterPoint.x*.013+sin(waterPoint.y*.019)*1.4)*.012+sin(waterPoint.x*.009-waterPoint.y*.016)*.007;gl_FragColor=vec4((canopyColor+vec3(ripple))*sphereLight,1.);return;}
         if(treeMode>1.5){
           vec3 normal=normalize(surfaceNormal),tangent=abs(normal.z)>.7?vec3(1.,0.,0.):normalize(vec3(-normal.y,normal.x,0.));
           vec3 bitangent=normalize(cross(normal,tangent));
@@ -112,7 +112,7 @@ class AtlasScene {
       }`));
     gl.linkProgram(this.program);
     if(!gl.getProgramParameter(this.program,gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(this.program));
-    this.waterBuffer=gl.createBuffer();this.buffer=gl.createBuffer(); this.treeBuffer=gl.createBuffer();this.structureBuffer=gl.createBuffer();this.texture=gl.createTexture();
+    this.waterBuffer=gl.createBuffer();this.waterColorBuffer=gl.createBuffer();this.buffer=gl.createBuffer(); this.treeBuffer=gl.createBuffer();this.structureBuffer=gl.createBuffer();this.texture=gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
@@ -159,8 +159,9 @@ class AtlasScene {
       const meshes=regions.map(region=>{const mesh=builder(region.layers,isPlanet),v=mesh.vertices;if(isPlanet)for(let i=0;i<v.length;i+=stride){v[i]+=region.gx*1600;v[i+1]+=region.gy*1100;v[i+3]=v[i]/8000;v[i+4]=v[i+1]/4400;if(regional){const r=camera.flatRegion;v[i]-=r.x-(1600-r.width)/2;v[i+1]-=r.y-(1100-r.height)/2;v[i+9]/=.37;}}return mesh;});
       const vertices=new Float32Array(meshes.reduce((n,m)=>n+m.vertices.length,0));let at=0;for(const m of meshes){vertices.set(m.vertices,at);at+=m.vertices.length;}return{vertices,entries:meshes.flatMap((m,i)=>(m.entries||[]).map(e=>({...e,localX:e.x,localY:e.y,region:{gx:regions[i].gx,gy:regions[i].gy},x:e.x+regions[i].gx*1600,y:e.y+regions[i].gy*1100}))),count:meshes.reduce((n,m)=>n+(m.count||0),0)};
     };
-    const water=[];for(const r of regions){const v=Terrain.waterMesh(r.layers,isPlanet);for(let i=0;i<v.length;i+=6){if(isPlanet){v[i]+=r.gx*1600;v[i+1]+=r.gy*1100;v[i+3]=v[i]/8000;v[i+4]=v[i+1]/4400;if(regional){const clip=camera.flatRegion;v[i]-=clip.x-(1600-clip.width)/2;v[i+1]-=clip.y-(1100-clip.height)/2;}}}water.push(v);}
+    const water=[],waterColors=[];for(const r of regions){const v=Terrain.waterMesh(r.layers,isPlanet);for(let i=0;i<v.length;i+=6){if(isPlanet){v[i]+=r.gx*1600;v[i+1]+=r.gy*1100;v[i+3]=v[i]/8000;v[i+4]=v[i+1]/4400;if(regional){const clip=camera.flatRegion;v[i]-=clip.x-(1600-clip.width)/2;v[i+1]-=clip.y-(1100-clip.height)/2;}}}water.push(v);waterColors.push(v.colors);}
     this.waterVertices=new Float32Array(water.reduce((n,v)=>n+v.length,0));let waterOffset=0;for(const v of water){this.waterVertices.set(v,waterOffset);waterOffset+=v.length;}gl.bindBuffer(gl.ARRAY_BUFFER,this.waterBuffer);gl.bufferData(gl.ARRAY_BUFFER,this.waterVertices,gl.STATIC_DRAW);
+    const colors=new Float32Array(waterColors.reduce((n,v)=>n+v.length,0));let colorOffset=0;for(const v of waterColors){colors.set(v,colorOffset);colorOffset+=v.length;}gl.bindBuffer(gl.ARRAY_BUFFER,this.waterColorBuffer);gl.bufferData(gl.ARRAY_BUFFER,colors,gl.STATIC_DRAW);
     this.vegetation=merge(Vegetation.build,10);
     gl.bindBuffer(gl.ARRAY_BUFFER,this.treeBuffer);gl.bufferData(gl.ARRAY_BUFFER,this.vegetation.vertices,gl.STATIC_DRAW);
     // Roads belong to the terrain atlas: a separate ribbon intersects the coarser
@@ -240,7 +241,7 @@ class AtlasScene {
     gl.uniform3f(uniform('ocean'),...water);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);gl.uniform1i(uniform('atlas'),0);
     gl.drawArrays(gl.TRIANGLES,0,this.vertices.length/6);
-    if(this.waterVertices?.length){gl.bindBuffer(gl.ARRAY_BUFFER,this.waterBuffer);for(const [name,size,offset] of [['position',3,0],['uv',2,12],['visible',1,20]]){const loc=gl.getAttribLocation(this.program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,24,offset);}gl.uniform1f(uniform('waterMode'),1);gl.drawArrays(gl.TRIANGLES,0,this.waterVertices.length/6);gl.uniform1f(uniform('waterMode'),0);}
+    if(this.waterVertices?.length){gl.bindBuffer(gl.ARRAY_BUFFER,this.waterBuffer);for(const [name,size,offset] of [['position',3,0],['uv',2,12],['visible',1,20]]){const loc=gl.getAttribLocation(this.program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,24,offset);}gl.bindBuffer(gl.ARRAY_BUFFER,this.waterColorBuffer);const tint=gl.getAttribLocation(this.program,'treeTint');gl.enableVertexAttribArray(tint);gl.vertexAttribPointer(tint,3,gl.FLOAT,false,12,0);gl.uniform1f(uniform('waterMode'),1);gl.drawArrays(gl.TRIANGLES,0,this.waterVertices.length/6);gl.uniform1f(uniform('waterMode'),0);}
     if(this.vegetation?.vertices.length){
       gl.bindBuffer(gl.ARRAY_BUFFER,this.treeBuffer);
       for(const [name,size,offset] of [['position',3,0],['uv',2,12],['visible',1,20],['treeTint',3,24],['treeLift',1,36]]){

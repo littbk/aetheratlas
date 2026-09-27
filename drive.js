@@ -116,7 +116,7 @@ async function connectDrive(renew=false,{save=false}={}){
   const timer=setInterval(()=>{if(popup.closed)cleanup();},1000);const cleanup=()=>{clearInterval(timer);window.removeEventListener('message',listener);$('driveConnect').disabled=false;};window.addEventListener('message',listener);
 }
 async function restoreDriveSession(){
-  try{await driveClient.authenticate();if(driveDefaultId&&!dirty&&!driveLocalProject)await openDriveProject(driveDefaultId,{automatic:true});else driveStatus('Drive conectado. Abra Meus mapas para escolher o arquivo que deseja editar.');}
+  try{await driveClient.authenticate();await window.atlasSessionReady;if(!window.atlasSessionRestored&&driveDefaultId&&!dirty&&!driveLocalProject)await openDriveProject(driveDefaultId,{automatic:true});else driveStatus('Drive conectado. Abra Meus mapas para escolher o arquivo que deseja editar.');}
   catch{driveStatus(location.protocol==='file:'?'Use a versão online para abrir e salvar mapas no Google Drive.':'Conecte sua conta para abrir e salvar mapas no Google Drive.');}
   updateDriveUI();
 }

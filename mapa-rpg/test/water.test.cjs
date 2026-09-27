@@ -19,3 +19,7 @@ test('remove water targets a connected lake and preserves terrain and other lake
 test('water tools pick the water surface above the bottom',()=>{
  const c={};vm.createContext(c);vm.runInContext(fs.readFileSync(path.join(__dirname,'../../scene.js'),'utf8')+'\nglobalThis.Scene=AtlasScene;',c);const scene=Object.create(c.Scene.prototype),mesh=z=>new Float32Array([0,0,z,0,0,1,100,0,z,0,0,1,0,100,z,0,0,1]);scene.vertices=mesh(0);scene.waterVertices=mesh(10);scene.project=(x,y,z)=>({x:x+z,y,w:1-z/100,visible:true});scene.projected=[scene.project(0,0,0),scene.project(100,0,0),scene.project(0,100,0)];scene.pickCamera={};scene.spherical=false;assert(Math.abs(scene.pick(30,20).x-30)<.001);assert(Math.abs(scene.pick(30,20,true).x-20)<.001);
 });
+
+test('lake colors survive save and undo, and reach the independent water mesh',()=>{
+ const {T,t,layers}=setup(),fill=T.waterFill(layers,44,44,10);for(const k of fill.cells){t.waterLevels[k]=10;t.waterColors[k]='#ff3366';}const restored=T.validate(T.serialize(t));assert.equal(restored.waterColors[4411],'#ff3366');const copy=T.copy(t);t.waterColors[4411]='#00ff00';assert.equal(T.restore(copy).waterColors[4411],'#ff3366');const mesh=T.waterMesh([{...layers[0],terrain:restored}]);assert.equal(mesh.colors.length,mesh.length/2);for(let i=0;i<mesh.colors.length;i+=3){assert.equal(mesh.colors[i],1);assert(Math.abs(mesh.colors[i+1]-.2)<.0001);assert(Math.abs(mesh.colors[i+2]-.4)<.0001);}const invalid=T.serialize(t);invalid.waterColors={4411:'red'};assert.throws(()=>T.validate(invalid));
+});

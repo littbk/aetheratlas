@@ -63,7 +63,7 @@ export class MapViewer {
     const patches=[];
     for(const p of project.world?.patches??[]){const image=new Image();image.src=p.image;await image.decode();patches.push({...p,image});}
     this.submaps=bundle?.submaps||[];
-    this.layers=layers;this.patches=patches;this.playerLocation=project.world?.playerLocation||{x:4000,y:2200};this.submapMode=false;this.stage.classList.remove('submap-mode');this.returnButton.hidden=true;
+    this.layers=layers;this.patches=patches;this.playerLocation=project.world?.playerLocation||{x:4000,y:2200};this.submapMode=false;this.sessionSubmapId=null;this.stage.classList.remove('submap-mode');this.returnButton.hidden=true;
     this.scene.update(this.texture,layers,{...this.camera(),terrainView:settings},patches); this.fit();this.guide.setSpinning(project.view?.planetSpin===true);
   }
   camera() { const planet=this.layers.some(l=>l.planet?.enabled)&&!this.flatRegion;return { ...this.c,flatRegion:this.flatRegion, relief: planet||this.c.tilt||this.submapMode ? this.c.relief : 0, planet }; }
@@ -119,7 +119,7 @@ export class MapViewer {
     if(this.navigation.walking)this.navigation.toggle(false);
     const mapProject=patch.projectId?this.submaps.find(s=>s.id===patch.projectId)?.project:patch.project;
     if(mapProject){
-      this.returnState=true;
+      this.sessionSubmapId=patch.id;this.returnState=true;
       this.layers=[];this.patches=[];this.playerLocation=null;this.texture=document.createElement('canvas');this.texture.width=1600;this.texture.height=1100;this.submapMode=true;this.stage.classList.add('submap-mode');this.scene.planetTexture=null;this.scene.vertices=[];this.scene.projected=[];this.scene.vegetation=null;this.scene.structures=null;
       await this.loadFlatSubmap(mapProject,patch.name);this.returnButton.hidden=false;this.draw();return true;
     }
@@ -127,7 +127,7 @@ export class MapViewer {
     const mapCanvas=document.createElement('canvas');mapCanvas.width=1600;mapCanvas.height=1100;const g=mapCanvas.getContext('2d');g.fillStyle='#102b34';g.fillRect(0,0,1600,1100);const scale=Math.min(1600/image.width,1100/image.height),width=image.width*scale,height=image.height*scale;g.drawImage(image,(1600-width)/2,(1100-height)/2,width,height);
     const layer={visible:true,opacity:1,planet:{enabled:false},c:mapCanvas,terrain:Terrain.create(),objects:[],routes:[],tunnels:[],structures:[],ink:null};
     this.texture.width=1600;this.texture.height=1100;this.texture.getContext('2d').drawImage(mapCanvas,0,0);
-    this.layers=[layer];this.patches=[];this.playerLocation=null;this.submapMode=true;this.stage.classList.add('submap-mode');
+    this.sessionSubmapId=patch.id;this.layers=[layer];this.patches=[];this.playerLocation=null;this.submapMode=true;this.stage.classList.add('submap-mode');
     this.c={...AtlasNavigation.submapCamera(),zoom:Math.min(this.stage.clientWidth/1600,this.stage.clientHeight/1100)*.9,cx:this.stage.clientWidth/2,cy:this.stage.clientHeight/2};
     this.initial={yaw:this.c.yaw,tilt:this.c.tilt,roll:this.c.roll,relief:this.c.relief};
     this.scene.planetTexture=null;this.scene.vertices=[];this.scene.projected=[];this.scene.vegetation=null;this.scene.structures=null;

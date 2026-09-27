@@ -1,6 +1,7 @@
 import {upload} from '@vercel/blob/client';
 const $=id=>document.getElementById(id);
 let user=null,mapId='',busy=false,config={};
+window.atlasAccountContext=()=>user&&mapId?{owner:user.id,mapId}:null;
 const api=async(url,options)=>{const r=await fetch(url,{cache:'no-store',...options}),data=await r.json();if(!r.ok)throw Error(data.error||'Não foi possível concluir.');return data;};
 const bar=document.createElement('div');bar.className='account-bar';bar.innerHTML='<button id="googleLogin">Entrar com Google</button><button id="cloudMaps" hidden>Meus mapas</button><button id="cloudSave" hidden>Salvar na conta</button><button id="googleLogout" hidden>Sair</button><span id="accountName"></span>';
 document.querySelector('header').after(bar);
@@ -34,4 +35,4 @@ $('cloudSave').onclick=()=>saveCloud();$('cloudMaps').onclick=showLibrary;$('pub
 // Opening a local file or creating a new world must not overwrite an earlier cloud map.
 const localOpen=$('file').onchange;$('file').onchange=async e=>{const result=await localOpen(e);if(result)mapId='';return result;};
 const newWorld=$('new').onclick;$('new').onclick=async e=>{const generation=driveGeneration;await newWorld(e);if(driveGeneration!==generation)mapId='';};
-api('/api/account').then(data=>{config=data;user=data.user;renderSession();if(new URLSearchParams(location.search).get('login')==='ok'&&user)notify('Bem-vindo, '+user.name+'. Seus mapas ficam na sua conta.');}).catch(()=>{renderSession();});
+api('/api/account').then(async data=>{config=data;user=data.user;await window.atlasSessionReady;const restored=window.atlasSessionCloud;if(user&&restored?.owner===user.id&&typeof restored.mapId==='string')mapId=restored.mapId;renderSession();if(new URLSearchParams(location.search).get('login')==='ok'&&user)notify('Bem-vindo, '+user.name+'. Seus mapas ficam na sua conta.');}).catch(()=>{renderSession();});

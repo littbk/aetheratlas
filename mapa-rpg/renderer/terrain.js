@@ -18,11 +18,11 @@ const Terrain = (() => {
   function create() {
     const canvas=document.createElement('canvas'); canvas.width=width; canvas.height=height;
     const surface=document.createElement('canvas');surface.width=1600;surface.height=1100;
-    return {heights:new Float32Array(length), coverage:new Uint8Array(length), biomes:new Uint8Array(length),waterLevels:{}, treeStyleIds:new Uint16Array(length),treeStyles:[],treeExclusions:new Set(),canvas, surface, dirty:true, view:''};
+    return {heights:new Float32Array(length), coverage:new Uint8Array(length), biomes:new Uint8Array(length),waterLevels:{},waterColors:{}, treeStyleIds:new Uint16Array(length),treeStyles:[],treeExclusions:new Set(),canvas, surface, dirty:true, view:''};
   }
-  function copy(t) { freezeTreeColors(t);return {waterLevels:{...(t.waterLevels||{})},heights:t.heights.slice(),coverage:t.coverage.slice(),biomes:t.biomes.slice(),treeStyleIds:t.treeStyleIds.slice(),treeStyles:t.treeStyles.map(s=>({...s})),treeExclusions:[...t.treeExclusions]}; }
-  function restore(data) { const t=create(); if(data){t.waterLevels={...(data.waterLevels||{})};t.heights.set(data.heights);t.coverage.set(data.coverage);t.biomes.set(data.biomes);if(data.treeStyleIds)t.treeStyleIds.set(data.treeStyleIds);t.treeStyles=(data.treeStyles||[]).map(s=>({...s}));t.treeExclusions=new Set(data.treeExclusions||[]);}return t; }
-  function serialize(t) {freezeTreeColors(t);return {waterLevels:{...(t.waterLevels||{})},heights:Array.from(t.heights,v=>Math.round(v*10)/10),coverage:Array.from(t.coverage),biomes:Array.from(t.biomes),treeStyleIds:Array.from(t.treeStyleIds),treeStyles:t.treeStyles.map(s=>({...s})),treeExclusions:[...t.treeExclusions]};}
+  function copy(t) { freezeTreeColors(t);return {waterLevels:{...(t.waterLevels||{})},waterColors:{...(t.waterColors||{})},heights:t.heights.slice(),coverage:t.coverage.slice(),biomes:t.biomes.slice(),treeStyleIds:t.treeStyleIds.slice(),treeStyles:t.treeStyles.map(s=>({...s})),treeExclusions:[...t.treeExclusions]}; }
+  function restore(data) { const t=create(); if(data){t.waterLevels={...(data.waterLevels||{})};t.waterColors={...(data.waterColors||{})};t.heights.set(data.heights);t.coverage.set(data.coverage);t.biomes.set(data.biomes);if(data.treeStyleIds)t.treeStyleIds.set(data.treeStyleIds);t.treeStyles=(data.treeStyles||[]).map(s=>({...s}));t.treeExclusions=new Set(data.treeExclusions||[]);}return t; }
+  function serialize(t) {freezeTreeColors(t);return {waterLevels:{...(t.waterLevels||{})},waterColors:{...(t.waterColors||{})},heights:Array.from(t.heights,v=>Math.round(v*10)/10),coverage:Array.from(t.coverage),biomes:Array.from(t.biomes),treeStyleIds:Array.from(t.treeStyleIds),treeStyles:t.treeStyles.map(s=>({...s})),treeExclusions:[...t.treeExclusions]};}
   function styleId(t,type){
     const key=type===2?'trees':biomes[type],rgb=type===2?hexRgb(theme.forest):type===13?hexRgb(theme.snow):type===8?hexRgb(theme.sand):hexRgb(theme[key]).map(v=>Math.round(v*.62));
     const style={foliage:theme[key],trunk:theme.trunk,ground:'#'+rgb.map(v=>v.toString(16).padStart(2,'0')).join('')};
@@ -41,6 +41,7 @@ const Terrain = (() => {
     }
     if(data.treeExclusions!==undefined&&(!Array.isArray(data.treeExclusions)||data.treeExclusions.length>length||data.treeExclusions.some(i=>!Number.isInteger(i)||i<0||i>=length)))throw Error('Árvores removidas inválidas.');
     if(data.waterLevels!==undefined&&(!data.waterLevels||Array.isArray(data.waterLevels)||typeof data.waterLevels!=='object'||Object.keys(data.waterLevels).length>length||Object.entries(data.waterLevels).some(([k,v])=>! /^(0|[1-9][0-9]*)$/.test(k)||+k>=length||!Number.isFinite(v)||v< -500||v>3000)))throw Error('Nível de água inválido.');
+    if(data.waterColors!==undefined&&(!data.waterColors||Array.isArray(data.waterColors)||typeof data.waterColors!=='object'||Object.keys(data.waterColors).length>length||Object.entries(data.waterColors).some(([k,v])=>!/^(0|[1-9][0-9]*)$/.test(k)||+k>=length||!hexRgb(v))))throw Error('Cor de água inválida.');
     return restore(data);
   }
   function index(x,y) {return Math.max(0,Math.min(height-1,Math.floor(y/step)))*width+Math.max(0,Math.min(width-1,Math.floor(x/step)));}
@@ -57,17 +58,17 @@ const Terrain = (() => {
     return {level,cells:queue};
   }
   function waterMesh(layers,planet=false){
-    const vertices=[],push=(x,y,h)=>{const wx=x+(planet?3200:0),wy=y+(planet?1650:0);vertices.push(wx,wy,Math.max(0,h)*.065+.06,wx/(planet?8000:1600),wy/(planet?4400:1100),1);};
+    const vertices=[],colors=[],push=(x,y,h,color)=>{const wx=x+(planet?3200:0),wy=y+(planet?1650:0);vertices.push(wx,wy,Math.max(0,h)*.065+.06,wx/(planet?8000:1600),wy/(planet?4400:1100),1);colors.push(...hexRgb(color).map(v=>v/255));};
     const groups=new Map();
-    for(const l of layers)if(l.visible&&l.opacity)for(const [key,level] of Object.entries(l.terrain.waterLevels||{})){const k=+key;if((sample(layers,k%width*step+2,Math.floor(k/width)*step+2)??0)>=level)continue;if(!groups.has(level))groups.set(level,new Set());groups.get(level).add(k);}
-    for(const [level,wet] of groups){
+    for(const l of layers)if(l.visible&&l.opacity)for(const [key,level] of Object.entries(l.terrain.waterLevels||{})){const k=+key;if((sample(layers,k%width*step+2,Math.floor(k/width)*step+2)??0)>=level)continue;const color=l.terrain.waterColors?.[k]||theme.water,groupKey=level+'|'+color;if(!groups.has(groupKey))groups.set(groupKey,new Set());groups.get(groupKey).add(k);}
+    for(const [key,wet] of groups){const [heightValue,color]=key.split('|'),level=Number(heightValue);
       const cells=new Map(),nodes=new Map();for(const k of wet){const x=k%width,y=Math.floor(k/width);for(const [dx,dy] of [[-1,-1],[0,-1],[-1,0],[0,0]])cells.set((x+dx)+','+(y+dy),[x+dx,y+dy]);}
       const node=(x,y)=>{const key=x+','+y;if(nodes.has(key))return nodes.get(key);const inside=x>=0&&x<width&&y>=0&&y<height,k=y*width+x,ground=inside?(sample(layers,x*step+2,y*step+2)??0):level+1,depth=level-ground;
         const p={x:Math.max(0,Math.min(1600,x*step+2)),y:Math.max(0,Math.min(1100,y*step+2)),value:inside&&wet.has(k)?Math.max(.001,depth):-Math.max(.001,Math.abs(depth))};nodes.set(key,p);return p;};
       const clip=triangle=>{const out=[];for(let i=0;i<3;i++){const a=triangle[i],b=triangle[(i+1)%3],ia=a.value>0,ib=b.value>0;if(ia)out.push(a);if(ia!==ib){const t=a.value/(a.value-b.value);out.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});}}return out;};
-      for(const [x,y] of cells.values()){const a=node(x,y),b=node(x+1,y),c=node(x,y+1),d=node(x+1,y+1);for(const triangle of [[a,b,c],[b,d,c]]){const polygon=clip(triangle);for(let i=1;i<polygon.length-1;i++)for(const p of [polygon[0],polygon[i],polygon[i+1]])push(p.x,p.y,level);}}
+      for(const [x,y] of cells.values()){const a=node(x,y),b=node(x+1,y),c=node(x,y+1),d=node(x+1,y+1);for(const triangle of [[a,b,c],[b,d,c]]){const polygon=clip(triangle);for(let i=1;i<polygon.length-1;i++)for(const p of [polygon[0],polygon[i],polygon[i+1]])push(p.x,p.y,level,color);}}
     }
-    return new Float32Array(vertices);
+    const mesh=new Float32Array(vertices);mesh.colors=new Float32Array(colors);return mesh;
   }
   function waterRegion(t,x,y){
     const levels=t.waterLevels||{},present=k=>Object.hasOwn(levels,k);let start=index(x,y);
@@ -90,7 +91,7 @@ const Terrain = (() => {
     for(let j=y0;j<=y1;j++)for(let i=x0;i<=x1;i++){
       const px=i*step+2,py=j*step+2,d=Math.hypot((px-x)/stretch,py-y)/radius;if(d>=1)continue;
       const k=j*width+i,fall=Math.pow(1-d*d,options.soft?2:0.4),a=Math.min(1,fall*strength);
-      if(options.mode==='erase'){delete t.waterLevels[k];t.coverage[k]=Math.round(t.coverage[k]*(1-a));if(t.coverage[k]<3){t.coverage[k]=0;t.heights[k]=0;t.treeStyleIds[k]=0;t.treeExclusions.delete(k);}continue;}
+      if(options.mode==='erase'){delete t.waterLevels[k];delete t.waterColors[k];t.coverage[k]=Math.round(t.coverage[k]*(1-a));if(t.coverage[k]<3){t.coverage[k]=0;t.heights[k]=0;t.treeStyleIds[k]=0;t.treeExclusions.delete(k);}continue;}
       const covered=t.coverage[k]>0,base=covered?t.heights[k]:(sample(layers,px,py,active)??0);
       let next=base,biome=t.biomes[k];
       if(options.mode==='mountain') {const peak=Math.max(0,1-d)*options.amount;next=base+(Math.max(0,peak-base)*a);biome=4;}
