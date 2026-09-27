@@ -15,8 +15,8 @@ class AtlasDriveClient {
   static escape(value){return String(value).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
   static async error(response,fallback){const data=await response.json().catch(()=>({}));return Error(data.error?.message||fallback+' (HTTP '+response.status+').');}
   async metadata(id){
-    const r=await this.request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(id)+'?'+new URLSearchParams({fields:'id,name,mimeType,modifiedTime,parents,trashed,size,capabilities(canEdit)',supportsAllDrives:'true'}));
-    if(!r.ok)throw await AtlasDriveClient.error(r,'Não foi possível acessar este arquivo');const file=await r.json();if(file.trashed)throw Error('Este arquivo está na lixeira.');return file;
+    const r=await this.request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(id)+'?'+new URLSearchParams({fields:'id,name,mimeType,modifiedTime,parents,trashed,size,isAppAuthorized,capabilities(canEdit)',supportsAllDrives:'true'}));
+    if(!r.ok)throw await AtlasDriveClient.error(r,'Não foi possível acessar este arquivo');const file=await r.json();if(file.trashed)throw Error('Este arquivo está na lixeira.');if(file.isAppAuthorized===false)file.capabilities={...file.capabilities,canEdit:false};return file;
   }
   async list({folder='',search='',pageToken='',folders=false}={}){
     const terms=['trashed = false',folders?"mimeType = 'application/vnd.google-apps.folder'":"mimeType != 'application/vnd.google-apps.folder'"];

@@ -46,3 +46,18 @@ test('current file changes preserve default and migrate legacy preference',()=>{
  r=preference({refreshToken:'test',fileId:'legacy-map-id'},{fileId:'another-map-id'});assert.equal(r.body.defaultFileId,'legacy-map-id');
 });
 test('invalid IDs and foreign origins rejected',()=>{const data={refreshToken:'test'};assert.equal(preference(data,{fileId:'../bad'}).code,400);assert.equal(preference(data,{defaultFileId:'valid-map-id'},'https://other.test').code,403);});
+
+test('manually uploaded files open with read access and require saving a copy',async()=>{
+ const c=new Client({session,fetch:async url=>{
+  const params=new URL(url).searchParams;
+  assert.ok(params.get('fields').includes('isAppAuthorized'));
+  return json({id:'manual',name:'Aeon.aether-atlas.json',isAppAuthorized:false,capabilities:{canEdit:true}});
+ }});
+ const file=await c.metadata('manual');assert.equal(file.capabilities.canEdit,false);
+});
+
+test('Drive authorization includes reading manually uploaded worlds',()=>{
+ const source=require('node:fs').readFileSync(require('node:path').join(__dirname,'api/drive/connect.js'),'utf8');
+ assert.ok(source.includes('https://www.googleapis.com/auth/drive.readonly'));
+ assert.ok(source.includes('https://www.googleapis.com/auth/drive.file'));
+});

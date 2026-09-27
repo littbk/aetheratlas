@@ -11,6 +11,11 @@ class AtlasNavigation {
     const panel = document.createElement('div'); panel.className = 'navigation-panel';
     panel.innerHTML = '<div><button type="button" data-nav="opposite" title="Lado oposto" aria-label="Lado oposto">⟳</button><button type="button" data-nav="focus" title="Focar local" aria-label="Focar local">⌖</button><button type="button" data-nav="walk" title="Explorar com personagem · WASD para andar, Shift para correr, Esc para sair" aria-label="Explorar com personagem" aria-pressed="false">♟</button></div>';
     stage.append(panel); this.panel = panel;
+    const touch=document.createElement('div');touch.className='navigation-touch';touch.hidden=true;
+    touch.innerHTML='<button type="button" data-key="KeyW" aria-label="Andar para frente">&#8593;</button><button type="button" data-key="KeyA" aria-label="Andar para esquerda">&#8592;</button><button type="button" data-key="KeyS" aria-label="Andar para tras">&#8595;</button><button type="button" data-key="KeyD" aria-label="Andar para direita">&#8594;</button>';
+    stage.append(touch);this.touchControls=touch;
+    for(const b of touch.children){b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);this.keys.add(b.dataset.key);this.start();});const release=()=>this.keys.delete(b.dataset.key);b.addEventListener('pointerup',release);b.addEventListener('pointercancel',release);b.addEventListener('lostpointercapture',release);}
+
     panel.querySelector('[data-nav="opposite"]').onclick = () => { if(this.walking)this.toggle(false);const c=read(); write({yaw:AtlasNavigation.angle(c.yaw+180)}); draw(); canvas.focus(); };
     panel.querySelector('[data-nav="focus"]').onclick = () => { this.focus(); draw(); canvas.focus(); };
     panel.querySelector('[data-nav="walk"]').onclick = () => this.toggle();
@@ -34,6 +39,7 @@ class AtlasNavigation {
       if(!this.saved.planet){this.position.x=Math.max(3200,Math.min(4800,this.position.x));this.position.y=Math.max(1650,Math.min(2750,this.position.y));}
       const c=this.read(); this.write({roll:0,zoom:Math.max(c.zoom,c.planet?1.3:.9)}); this.focus();
     } else if(!value && this.walking) { this.walking=false; this.write(this.saved); }
+    this.touchControls.hidden=!this.walking;
     this.panel.querySelector('[data-nav="walk"]').setAttribute('aria-pressed',String(this.walking));
     this.panel.querySelector('[data-nav="walk"]').title=this.walking?'Sair da exploração (Esc)':'Explorar com personagem · WASD para andar, Shift para correr, Esc para sair';
     this.panel.querySelector('[data-nav="walk"]').setAttribute('aria-label',this.walking?'Sair da exploração':'Explorar com personagem');

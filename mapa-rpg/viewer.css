@@ -83,6 +83,7 @@ html.embed-mode .gesture{display:none!important;}
 html.embed-mode #fullscreen{display:none!important;}
 .viewer-icon-button{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0!important;font-size:0!important;}
 .viewer-icon-button svg{display:block;width:19px;height:19px;pointer-events:none;}
+.navigation-panel{position:absolute;width:max-content;max-width:calc(100% - 20px)}
 .navigation-panel>div{display:flex;}
 .submap-return{position:absolute;top:60px;left:16px;z-index:4;}
 .camera-settings{position:absolute;border-radius:9px;}
@@ -115,3 +116,20 @@ body.modern-viewer .region-view-hint{position:absolute;top:70px;left:50%;transfo
 body.modern-viewer .location-blocked-message{position:absolute;left:50%;top:65px;transform:translateX(-50%);z-index:30;padding:12px 18px;border:1px solid #dfb36a;background:#1b2832;color:#ffe3b6;border-radius:10px;box-shadow:0 8px 25px #0006;font-size:14px;pointer-events:none}
 
 body.modern-viewer .brand{font:13px system-ui;letter-spacing:1.5px;gap:9px}body.modern-viewer .brand>span,body.modern-viewer .brand b{color:#9adbc8}body.modern-viewer .brand small{display:none}
+
+@media (max-width:740px){
+ body.modern-viewer header{padding:0 10px;gap:8px}
+ body.modern-viewer .brand{letter-spacing:1px;font-size:12px;min-width:0}
+ body.modern-viewer .brand small{letter-spacing:1px;font-size:7px}
+ body.modern-viewer .header-actions{gap:4px}
+ body.modern-viewer .navigation-panel .viewer-icon-button{width:44px!important;height:44px!important;min-width:44px;min-height:44px}
+ body.modern-viewer .map-name{top:76px}
+ body.modern-viewer .viewer-dock{width:calc(100% - 16px);gap:4px;bottom:calc(8px + env(safe-area-inset-bottom))}
+ body.modern-viewer .viewer-dock .viewer-icon-button{width:40px!important;height:44px!important;min-width:40px;min-height:44px}
+ body.modern-viewer .viewer-dock .controls{flex-wrap:wrap;justify-content:center;flex:1 1 100%}
+ body.modern-viewer .camera-settings{bottom:166px;max-height:calc(100% - 180px);overflow:auto}
+ body.modern-viewer .viewer footer{letter-spacing:0;font-size:8px;padding:0 8px;gap:8px}
+}
+
+.navigation-touch{display:none;position:absolute;left:12px;bottom:150px;z-index:7;gap:4px;touch-action:none}
+@media (pointer:coarse){.navigation-touch:not([hidden]){display:flex}.navigation-touch button{width:44px;height:44px;padding:0;background:#14212cf2;color:#c7d8e4;border:1px solid #54706f;border-radius:8px;touch-action:none}}

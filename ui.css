@@ -329,3 +329,29 @@ body.compact-ui .region-view-hint{position:absolute;top:70px;left:50%;transform:
 body.compact-ui .map-tag{left:178px}@media (max-width:860px){body.compact-ui .map-tag{left:170px}}
 
 @media(max-width:860px){body.compact-ui aside.left,body.compact-ui aside.right{position:fixed;z-index:22;overscroll-behavior:contain;box-shadow:0 0 40px #05182080}body.compact-ui aside.left{left:0}body.compact-ui aside.right{right:0}body.compact-ui #panelBackdrop{position:fixed;left:0;right:0;bottom:var(--ad-space);z-index:21;border:0}}
+
+@media (max-width:860px){
+ body.compact-ui .brand{flex:0 0 auto}
+ body.compact-ui .project{flex:1;min-width:0}
+ body.compact-ui .project input{width:100%;min-width:0}
+ body.compact-ui>header nav{justify-content:space-between;gap:2px}
+ body.compact-ui>header nav .icon-button{width:38px;min-width:38px;height:40px;min-height:40px}
+ body.compact-ui .mobile-toolbar{height:46px;min-height:46px}
+ body.compact-ui .mobile-toolbar .icon-button{width:44px;min-width:44px;height:40px;min-height:40px}
+ body.compact-ui .navigation-panel .icon-button{width:40px;min-width:40px;height:44px;min-height:44px}
+ body.compact-ui .map-tag{display:none}
+ body.compact-ui .mapbar{letter-spacing:0;gap:4px;padding:3px 8px}
+ body.compact-ui .mapbar>div{min-width:0}
+ body.compact-ui .mapbar>div:first-child{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+ body.compact-ui footer>span{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+ .drive-dialog{max-height:calc(100dvh - 24px);overflow:auto}
+ .drive-browser-tools{flex-wrap:wrap}
+ .drive-browser-tools input{flex:1 1 100%;min-width:0}
+ .drive-file-row{grid-template-columns:minmax(0,1fr) auto}
+ .drive-file-row>div{min-width:0;overflow-wrap:anywhere}
+ .drive-file-row>button:last-child{grid-column:2}
+}
+@media (max-width:380px){body.compact-ui>header nav .icon-button{width:34px;min-width:34px}}
+
+.navigation-touch{display:none;position:absolute;left:12px;bottom:150px;z-index:7;gap:4px;touch-action:none}
+@media (pointer:coarse){.navigation-touch:not([hidden]){display:flex}.navigation-touch button{width:44px;height:44px;padding:0;background:#14212cf2;color:#c7d8e4;border:1px solid #54706f;border-radius:8px;touch-action:none}}
