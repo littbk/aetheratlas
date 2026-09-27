@@ -1,4 +1,4 @@
-import { validateProject } from './schema.js';
+﻿import { validateProject } from './schema.js';
 
 export class MapViewer {
   constructor(canvas, stage, onChange) {
@@ -6,13 +6,20 @@ export class MapViewer {
     this.scene = new AtlasScene(); this.texture = document.createElement('canvas');
     this.texture.width = 1600; this.texture.height = 1100;
     this.layers = []; this.c = { yaw: -12, tilt: 38, roll: 0, relief: 1, zoom: 1, cx: 0, cy: 0 };
+    this.patches=[];this.submaps=[];this.submapMode=false;this.onReturnToMain=()=>{};this.clickStart=null;this.returnState=null;
+    this.returnButton=document.createElement('button');this.returnButton.type='button';this.returnButton.textContent='↩ Voltar ao planeta';this.returnButton.className='submap-return';this.returnButton.hidden=true;stage.append(this.returnButton);
+    this.returnButton.onclick=()=>this.onReturnToMain();
     this.mode = 'pan'; this.onChange = onChange; this.pointers = new Map();
     this.navigation=new AtlasNavigation({canvas,stage,read:()=>this.camera(),write:c=>Object.assign(this.c,c),draw:()=>this.draw(),scene:this.scene,layers:()=>this.layers,location:()=>this.playerLocation||{x:4000,y:2200}});
+    this.flatRegion=null;this.flatCamera=null;this.regionView=new AtlasRegionView({canvas,stage,scene:this.scene,read:()=>this.camera(),world:()=>this.layers.some(l=>l.planet?.enabled)&&!!this.scene.gl,active:()=>this.flatRegion,enter:r=>this.enterFlatRegion(r),exit:()=>this.leaveFlatRegion()});
+    this.blockedMessage=document.createElement('div');this.blockedMessage.className='location-blocked-message';this.blockedMessage.setAttribute('role','alert');this.blockedMessage.hidden=true;stage.append(this.blockedMessage);
     this.bind(); new ResizeObserver(() => { if (this.layers.length) this.fit(); }).observe(stage);
   }
   async load(project) {
+    this.flatRegion=null;this.flatCamera=null;this.regionView.cancel();this.navigation.panel.querySelector('[data-nav="walk"]').disabled=false;
     validateProject(project);
-    if(this.navigation.walking)this.navigation.toggle(false);
+    const bundle=project.format==='aether-atlas-world'?project:null;if(bundle)project=bundle.main;
+    if(this.navigation.walking)this.navigation.toggle(false);if(this.returnState){this.layers=[];this.patches=[];this.texture=document.createElement('canvas');this.texture.width=1600;this.texture.height=1100;this.returnState=null;this.scene.planetTexture=null;this.scene.vertices=[];this.scene.projected=[];this.scene.vegetation=null;this.scene.structures=null;}
     Terrain.setTheme(project.theme||Terrain.defaultTheme);
     const loadImage = async source => {
       const image = new Image(); image.src = source; await image.decode();
@@ -25,7 +32,7 @@ export class MapViewer {
       layers.push({ name: v.name, visible: v.visible, opacity: v.opacity, planet:v.planet||{enabled:project.world?.type==='planet'},
         c: await loadImage(v.image), ink: v.overlay ? await loadImage(v.overlay) : null,
         terrain: project.version >= 2 ? Terrain.validate(v.terrain) : Terrain.create(),
-        objects: Billboards.validate(v.objects ?? []), routes: MapPaths.validate(v.routes ?? []), tunnels: v.tunnels ?? [] });
+        objects: Billboards.validate(v.objects ?? []), routes: MapPaths.validate(v.routes ?? []), tunnels: v.tunnels ?? [], structures: Structures.validate(v.structures ?? []), tiles:await WorldSurface.restore(v.tiles) });
     }
     this.layers = layers;
     const camera = project.camera || {}, number = (v, fallback) => Number.isFinite(v) ? v : fallback;
@@ -54,11 +61,14 @@ export class MapViewer {
     g.globalAlpha=1;
     const patches=[];
     for(const p of project.world?.patches??[]){const image=new Image();image.src=p.image;await image.decode();patches.push({...p,image});}
-    this.scene.update(this.texture,layers,this.camera(),patches); this.fit();
+    this.submaps=bundle?.submaps||[];
+    this.layers=layers;this.patches=patches;this.playerLocation=project.world?.playerLocation||{x:4000,y:2200};this.submapMode=false;this.stage.classList.remove('submap-mode');this.returnButton.hidden=true;
+    this.scene.update(this.texture,layers,{...this.camera(),terrainView:settings},patches); this.fit();
   }
-  camera() { const planet=this.layers.some(l=>l.planet?.enabled);return { ...this.c, relief: planet||this.c.tilt ? this.c.relief : 0, planet }; }
+  camera() { const planet=this.layers.some(l=>l.planet?.enabled)&&!this.flatRegion;return { ...this.c,flatRegion:this.flatRegion, relief: planet||this.c.tilt ? this.c.relief : 0, planet }; }
   draw() {
     if (!this.layers.length) return;
+    this.regionView.sync();
     if(this.navigation.walking)this.navigation.center();
     const width=this.stage.clientWidth,height=this.stage.clientHeight,d=Math.min(devicePixelRatio||1,2);
     if (!width || !height) return;
@@ -68,19 +78,29 @@ export class MapViewer {
     if(result) g.drawImage(result,0,0,width,height);
     else { this.c.tilt=0; g.save();g.translate(this.c.cx,this.c.cy);g.rotate((this.c.yaw+this.c.roll)*Math.PI/180);g.scale(this.c.zoom,this.c.zoom);g.drawImage(this.texture,-800,-550);g.restore(); }
     Billboards.draw(g,Billboards.collect(this.layers,true),this.scene,this.camera(),this.layers,width,height);
+    Billboards.drawSubmapEntries(g,this.patches,this.scene,this.camera(),width,height);
     if(!this.navigation.walking)Billboards.drawPlayerPivot(g,this.scene,this.camera(),this.playerLocation,width,height,this.layers);
     this.navigation.drawCharacter(g);
     this.onChange(this.c,!!this.scene.gl);
   }
   fit(reset=false) {
-    if(reset&&this.initial) Object.assign(this.c,this.initial);
+    if(reset&&this.flatRegion)Object.assign(this.c,{yaw:0,tilt:0,roll:0});else if(reset&&this.initial) Object.assign(this.c,this.initial);
     if(this.camera().planet){this.c.zoom=Math.min(this.stage.clientWidth,this.stage.clientHeight)/1168*.78;this.c.cx=this.stage.clientWidth/2;this.c.cy=this.stage.clientHeight/2;this.draw();return;}
     const c={...this.camera(),cx:0,cy:0,zoom:1};
-    const points=this.layers.some(l=>l.planet?.enabled)?[[0,0],[400,0],[800,0],[1200,0],[1600,550],[1200,1100],[800,1100],[400,1100],[0,550]].map(([x,y])=>this.scene.project(x,y,0,c)):[[0,0],[1600,0],[0,1100],[1600,1100]].map(([x,y])=>this.scene.project(x,y,0,c));
+    const points=this.flatRegion?[[this.flatRegion.x,this.flatRegion.y],[this.flatRegion.x+this.flatRegion.width,this.flatRegion.y],[this.flatRegion.x,this.flatRegion.y+this.flatRegion.height],[this.flatRegion.x+this.flatRegion.width,this.flatRegion.y+this.flatRegion.height]].map(([x,y])=>this.scene.project(x-3200,y-1650,0,c)):this.layers.some(l=>l.planet?.enabled)?[[0,0],[400,0],[800,0],[1200,0],[1600,550],[1200,1100],[800,1100],[400,1100],[0,550]].map(([x,y])=>this.scene.project(x,y,0,c)):[[0,0],[1600,0],[0,1100],[1600,1100]].map(([x,y])=>this.scene.project(x,y,0,c));
     const xs=points.map(p=>p.x),ys=points.map(p=>p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
     this.c.zoom=Math.min(this.stage.clientWidth/(maxX-minX),this.stage.clientHeight/(maxY-minY))*.78;
     this.c.cx=this.stage.clientWidth/2-(minX+maxX)*this.c.zoom/2;
     this.c.cy=this.stage.clientHeight/2-(minY+maxY)*this.c.zoom/2; this.draw();
+  }
+  enterFlatRegion(region){
+    if(!this.layers.some(l=>l.planet?.enabled))return;if(this.navigation.walking)this.navigation.toggle(false);
+    this.flatCamera={...this.c};this.flatRegion={...region};Object.assign(this.c,{yaw:0,tilt:0,roll:0,relief:1});this.navigation.panel.querySelector('[data-nav="walk"]').disabled=true;
+    this.scene.update(this.texture,this.layers,this.camera(),this.patches);this.fit();this.regionView.sync();
+  }
+  leaveFlatRegion(){
+    if(!this.flatRegion)return;this.flatRegion=null;if(this.flatCamera)Object.assign(this.c,this.flatCamera);this.flatCamera=null;this.navigation.panel.querySelector('[data-nav="walk"]').disabled=false;
+    this.scene.update(this.texture,this.layers,this.camera(),this.patches);this.draw();this.regionView.sync();
   }
   zoom(factor,x=this.stage.clientWidth/2,y=this.stage.clientHeight/2) {
     const value=Math.max(.03,Math.min(5,this.c.zoom*factor)),ratio=value/this.c.zoom;
@@ -89,6 +109,39 @@ export class MapViewer {
   rotate(degrees) {this.c.yaw=AtlasNavigation.angle(this.c.yaw+degrees);this.draw();}
   tilt(degrees) {this.c.tilt=AtlasNavigation.pitch(degrees,this.camera().planet);this.draw();}
   rotateRoll(degrees) {this.c.roll=((degrees+180)%360+360)%360-180;this.draw();}
+  async openSubmap(patch){
+    if(!patch||patch.kind!=='submap')return false;
+    if(patch.locked){clearTimeout(this.blockedTimer);this.blockedMessage.textContent='localização bloqueada';this.blockedMessage.hidden=false;this.blockedTimer=setTimeout(()=>{this.blockedMessage.hidden=true;},3500);return false;}
+    this.blockedMessage.hidden=true;
+    if(this.flatRegion)this.leaveFlatRegion();
+    if(this.navigation.walking)this.navigation.toggle(false);
+    const mapProject=patch.projectId?this.submaps.find(s=>s.id===patch.projectId)?.project:patch.project;
+    if(mapProject){
+      this.returnState=true;
+      this.layers=[];this.patches=[];this.playerLocation=null;this.texture=document.createElement('canvas');this.texture.width=1600;this.texture.height=1100;this.submapMode=true;this.stage.classList.add('submap-mode');this.scene.planetTexture=null;this.scene.vertices=[];this.scene.projected=[];this.scene.vegetation=null;this.scene.structures=null;
+      await this.loadFlatSubmap(mapProject,patch.name);this.returnButton.hidden=false;this.draw();return true;
+    }
+    if(!patch.image)return false;const image=patch.image instanceof HTMLImageElement?patch.image:await this.decodeSubmap(patch.image);
+    const mapCanvas=document.createElement('canvas');mapCanvas.width=1600;mapCanvas.height=1100;const g=mapCanvas.getContext('2d');g.fillStyle='#102b34';g.fillRect(0,0,1600,1100);const scale=Math.min(1600/image.width,1100/image.height),width=image.width*scale,height=image.height*scale;g.drawImage(image,(1600-width)/2,(1100-height)/2,width,height);
+    const layer={visible:true,opacity:1,planet:{enabled:false},c:mapCanvas,terrain:Terrain.create(),objects:[],routes:[],tunnels:[],structures:[],ink:null};
+    this.texture.width=1600;this.texture.height=1100;this.texture.getContext('2d').drawImage(mapCanvas,0,0);
+    this.layers=[layer];this.patches=[];this.playerLocation=null;this.submapMode=true;this.stage.classList.add('submap-mode');
+    this.c={yaw:0,tilt:0,roll:0,relief:0,zoom:Math.min(this.stage.clientWidth/1600,this.stage.clientHeight/1100)*.9,cx:this.stage.clientWidth/2,cy:this.stage.clientHeight/2};
+    this.scene.planetTexture=null;this.scene.vertices=[];this.scene.projected=[];this.scene.vegetation=null;this.scene.structures=null;
+    this.scene.update(this.texture,this.layers,this.camera(),[]);
+    this.returnButton.hidden=false;document.getElementById('mapTitle').textContent=patch.name;document.getElementById('mapNote').textContent='Submapa plano';
+    this.draw();return true;
+  }
+  async returnToPlanet(){
+    if(!this.returnState)return this.onReturnToMain();this.returnState=null;this.layers=[];this.patches=[];this.playerLocation=null;this.texture=document.createElement('canvas');this.texture.width=1600;this.texture.height=1100;this.scene.planetTexture=null;this.scene.vertices=[];this.scene.projected=[];this.scene.vegetation=null;this.scene.structures=null;this.returnButton.hidden=true;await this.onReturnToMain();
+  }
+  async loadFlatSubmap(project,name){
+    const settings={texture:true,shade:true,contours:false,altitude:false,interval:100,planet:false,...project.view},texture=document.createElement('canvas');texture.width=1600;texture.height=1100;const g=texture.getContext('2d'),layers=[];
+    for(const v of project.layers){const image=await this.decodeSubmap(v.image),c=document.createElement('canvas');c.width=1600;c.height=1100;c.getContext('2d').drawImage(image,0,0);let ink=null;if(v.overlay){const overlay=await this.decodeSubmap(v.overlay);ink=document.createElement('canvas');ink.width=1600;ink.height=1100;ink.getContext('2d').drawImage(overlay,0,0);}layers.push({name:v.name,visible:v.visible,opacity:v.opacity,planet:{enabled:false},c,ink,terrain:project.version>=2?Terrain.validate(v.terrain):Terrain.create(),objects:Billboards.validate(v.objects||[]),routes:MapPaths.validate(v.routes||[]),tunnels:v.tunnels||[],structures:Structures.validate(v.structures||[])});}
+    for(const l of layers)if(l.visible){g.globalAlpha=l.opacity;g.drawImage(l.c,0,0);g.drawImage(Terrain.render(l.terrain,settings),0,0,1600,1100);MapPaths.draw(g,l.routes);if(l.ink)g.drawImage(l.ink,0,0);}g.globalAlpha=1;
+    this.texture=texture;this.layers=layers;this.patches=[];this.playerLocation=null;this.submapMode=true;this.stage.classList.add('submap-mode');Terrain.setTheme(project.theme||Terrain.defaultTheme);this.c={yaw:0,tilt:0,roll:0,relief:0,zoom:Math.min(this.stage.clientWidth/1600,this.stage.clientHeight/1100)*.9,cx:this.stage.clientWidth/2,cy:this.stage.clientHeight/2};this.scene.planetTexture=null;this.scene.update(texture,layers,this.camera(),[]);document.getElementById('mapTitle').textContent=name;document.getElementById('mapNote').textContent='Submapa plano';
+  }
+  decodeSubmap(source){return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=source;});}
   snapshotGesture() {
     const points=[...this.pointers.values()],p=points[0];
     if(!p) {this.gesture=null;return;}
@@ -99,10 +152,11 @@ export class MapViewer {
     const element=this.canvas;
     element.addEventListener('contextmenu',e=>e.preventDefault());
     element.addEventListener('wheel',e=>{e.preventDefault();const r=element.getBoundingClientRect();this.zoom(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top);},{passive:false});
-    element.addEventListener('pointerdown',e=>{e.preventDefault();element.setPointerCapture(e.pointerId);this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,button:e.button,altKey:e.altKey,space:this.space});this.snapshotGesture();});
+    element.addEventListener('pointerdown',e=>{e.preventDefault();element.setPointerCapture(e.pointerId);this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,button:e.button,altKey:e.altKey,space:this.space});this.clickStart=this.pointers.size===1?{id:e.pointerId,x:e.clientX,y:e.clientY}:null;this.snapshotGesture();});
     element.addEventListener('pointermove',e=>{
       if(!this.pointers.has(e.pointerId)||!this.gesture)return;
       this.pointers.set(e.pointerId,{...this.pointers.get(e.pointerId),x:e.clientX,y:e.clientY});
+      if(this.clickStart&&Math.hypot(e.clientX-this.clickStart.x,e.clientY-this.clickStart.y)>7)this.clickStart=null;
       const points=[...this.pointers.values()],p=points[0],q=points[1],g=this.gesture;
       if(q){
         const r=element.getBoundingClientRect(),mx=(p.x+q.x)/2-r.left,my=(p.y+q.y)/2-r.top;
@@ -114,7 +168,7 @@ export class MapViewer {
       else {this.c.cx=g.c.cx+p.x-g.x;this.c.cy=g.c.cy+p.y-g.y;}
       this.draw();
     });
-    const end=e=>{this.pointers.delete(e.pointerId);this.snapshotGesture();};
+    const end=e=>{if(e.type==='pointerup'&&this.clickStart?.id===e.pointerId){const r=element.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,p=this.scene.pick(x,y),submap=p&&this.camera().planet?Billboards.hitSubmap(x,y,this.patches,this.scene,this.camera()):null;this.clickStart=null;if(submap){this.openSubmap(submap);this.pointers.delete(e.pointerId);this.snapshotGesture();return;}}this.clickStart=null;this.pointers.delete(e.pointerId);this.snapshotGesture();};
     element.addEventListener('pointerup',end);element.addEventListener('pointercancel',end);element.addEventListener('lostpointercapture',end);
     element.addEventListener('keydown',e=>{
       if(e.code==='Space'){this.space=true;e.preventDefault();}if(e.key==='Home'){this.fit(true);e.preventDefault();}

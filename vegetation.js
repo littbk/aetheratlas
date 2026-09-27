@@ -26,7 +26,7 @@ const Vegetation=(()=>{
     layers.forEach((l,layer)=>{if(l.visible&&l.opacity>.05)for(const object of l.objects||[])if(object.kind==='tree')candidates.push({x:object.x,y:object.y,n:object.seed??random(object.x,object.y),type:Terrain.biomes.indexOf(object.species),layer,object,foliage:object.color,trunk:object.trunkColor,size:object.size});});
     for(const entry of candidates){
       const {x,y,n,type}=entry,base=surface(x,y),scale=planet?.37:1,key=type===2?'trees':Terrain.biomes[type],leaf=color(entry.foliage),trunk=color(entry.trunk),factor=entry.size/40;
-      const h=(type===8?31:type===9?28:20)*(0.8+n*.45)*factor,r=(type===12?10:7)*(0.85+n*.3)*factor;
+      const h=(type===8?31:type===9||type===13?28:20)*(0.8+n*.45)*factor,r=(type===12?10:7)*(0.85+n*.3)*factor;
       entry.base=base;entry.height=h*1.2*scale;entry.radius=r*(type===8?1.8:1.1);entries.push(entry);
       const vertex=(p,tint,shade)=>{
         const wx=x+p[0]+(planet?3200:0),wy=y+p[1]+(planet?1650:0);
@@ -51,8 +51,12 @@ const Vegetation=(()=>{
           triangle(top,left,right,leaf,.9);triangle(left,end,right,leaf,1.18);
         }
         rings([[h*.8,0,3],[h*.85,2.2,3],[h*.9,0,3]],5,trunk);
-      }else if(type===9){
-        for(let j=0;j<3;j++)rings([[h*(.25+j*.18),r*(1-j*.23)],[h*(.67+j*.18),0]],6,leaf);
+      }else if(type===9||type===13){
+        for(let j=0;j<3;j++){
+          const bottom=h*(.25+j*.18),top=h*(.67+j*.18),radius=r*(1-j*.23);
+          rings([[bottom,radius],[top,0]],8,leaf);
+          if(type===13){const snow=color(theme.snow);rings([[bottom+(top-bottom)*.16,radius*.85+.12],[top+.25,0]],8,snow);}
+        }
       }else if(type===10){
         rings([[h*.37,0],[h*.72,r],[h*1.2,0]],5,leaf);
       }else{

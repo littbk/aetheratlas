@@ -41,5 +41,20 @@ const MapPaths=(()=>{
       return {kind:r.kind,width:r.width,points};
     });
   }
-  return {draw,erase,validate,distance};
+  function build(layers,planet){
+    const vertices=[],hex=c=>c.match(/[0-9a-f]{2}/gi).map(v=>parseInt(v,16)/255);
+    const vertex=(p,color,kind,u,v,lift)=>{const x=p.x+(planet?3200:0),y=p.y+(planet?1650:0),h=Math.max(0,Terrain.sample(layers,p.x,p.y)||0)*.065;vertices.push(x,y,h,x/(planet?8000:1600),y/(planet?4400:1100),kind,...color,lift*(planet?.37:1),0,0,1,u,v);};
+    for(const layer of layers)if(layer.visible&&layer.opacity)for(const route of layer.routes||[]){
+      const points=[route.points[0]];
+      for(let i=1;i<route.points.length-1;i++){const a=points.at(-1),b=route.points[i],c={x:(b.x+route.points[i+1].x)/2,y:(b.y+route.points[i+1].y)/2},steps=Math.max(1,Math.ceil((Math.hypot(b.x-a.x,b.y-a.y)+Math.hypot(c.x-b.x,c.y-b.y))/6));for(let j=1;j<=steps;j++){const t=j/steps,q=1-t;points.push({x:q*q*a.x+2*q*t*b.x+t*t*c.x,y:q*q*a.y+2*q*t*b.y+t*t*c.y});}}
+      {const a=points.at(-1),b=route.points.at(-1),steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/6));for(let j=1;j<=steps;j++)points.push({x:a.x+(b.x-a.x)*j/steps,y:a.y+(b.y-a.y)*j/steps});}
+      for(const bank of [true,false]){let distance=0;for(let i=1;i<points.length;i++){
+        const a=points[i-1],b=points[i],len=Math.hypot(b.x-a.x,b.y-a.y);if(len<.01)continue;const width=route.width+(bank?4:0),nx=-(b.y-a.y)/len*width/2,ny=(b.x-a.x)/len*width/2;
+        const p=[{x:a.x+nx,y:a.y+ny},{x:b.x+nx,y:b.y+ny},{x:b.x-nx,y:b.y-ny},{x:a.x-nx,y:a.y-ny}],color=hex(bank?(route.kind==='river'?'#8fae96':'#7f8967'):route.kind==='river'?'#498e9f':'#d6c29b'),kind=route.kind==='river'&&!bank?10:9;
+        for(const k of [0,1,2,0,2,3])vertex(p[k],color,kind,distance+(k===1||k===2?len:0),k<2?0:width,bank?.2:.3);distance+=len;
+      }}
+    }
+    return{vertices:new Float32Array(vertices)};
+  }
+  return {draw,erase,validate,distance,build};
 })();

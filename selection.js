@@ -6,26 +6,26 @@ const Selector=(()=>{
   document.querySelector('#layersPanel .section-title').after(panel);
   const valid=()=>{
     if(!selected)return false;const l=layers[selected.layer];
-    if(!l||l!==selected.source||!l.visible)return false;
-    if(selected.generated)return !l.terrain.treeExclusions.has(selected.entry.index)&&(l.terrain.biomes[selected.entry.index]===2||l.terrain.biomes[selected.entry.index]>=8);
-    return l[selected.collection].includes(selected.object);
+    if(!l||!l.visible||(selected.region?WorldSurface.child(l,selected.region.gx,selected.region.gy):l)!==selected.source)return false;const storage=selected.source;
+    if(selected.generated)return !storage.terrain.treeExclusions.has(selected.entry.index)&&(storage.terrain.biomes[selected.entry.index]===2||storage.terrain.biomes[selected.entry.index]>=8);
+    return storage[selected.collection].includes(selected.object);
   };
   function clear(){selected=null;drag=null;panel.hidden=true;draw();}
-  const points=()=>selected.generated?[selected.entry]:selected.collection==='routes'?selected.object.points:selected.collection==='tunnels'?[selected.object.a,selected.object.b]:[selected.object];
+  const points=()=>selected.generated?[{x:selected.entry.localX??selected.entry.x,y:selected.entry.localY??selected.entry.y}]:selected.collection==='routes'?selected.object.points:selected.collection==='tunnels'?[selected.object.a,selected.object.b]:[selected.object];
   function bounds(){const p=points(),xs=p.map(p=>p.x),ys=p.map(p=>p.y);return {x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};}
   function center(){const b=bounds();return {x:(b.x0+b.x1)/2,y:(b.y0+b.y1)/2};}
   function sync(){
     if(!valid()){selected=null;panel.hidden=true;return;}
     panel.hidden=tool!=='select';
     const o=selected.object||selected.entry,c=center(),tree=selected.generated||o.kind==='tree';
-    const species={forest:'Floresta de copas',palms:'Coqueiro',pines:'Pinheiro',magic:'Árvore mágica',autumn:'Árvore outonal',jungle:'Árvore de selva'};
+    const species={forest:'Floresta de copas',palms:'Coqueiro',pines:'Pinheiro',magic:'Árvore mágica',autumn:'Árvore outonal',jungle:'Árvore de selva',snowForest:'Pinheiro nevado'};
     $('selectionName').textContent=tree?(species[o.species||Terrain.biomes[o.type]]||'Árvore'):o.text||({building:Buildings.names[o.building],marker:'Marcador',text:'Texto',river:'Rio',path:'Caminho'}[o.kind])||(selected.collection==='tunnels'?'Túnel':'Objeto');
     $('selectionX').value=Math.round(c.x);$('selectionY').value=Math.round(c.y);
     $('selectionLayer').replaceChildren();layers.forEach((l,i)=>{const option=new Option(l.name+(l.locked?' · bloqueada':''),i);option.disabled=l.locked; $('selectionLayer').add(option);});$('selectionLayer').value=selected.layer;
     $('selectionTint').hidden=selected.collection!=='objects'&&!selected.generated;
     $('selectionTrunkLabel').hidden=!tree;
     $('selectionColor').value=selected.generated?o.foliage:o.color||'#ffffff';$('selectionTrunk').value=selected.generated?o.trunk:o.trunkColor||'#70503b';
-    const locked=selected.source.locked;panel.querySelectorAll('input,select,button').forEach(el=>el.disabled=locked&&el.id!=='selectionClear');
+    const locked=layers[selected.layer].locked;panel.querySelectorAll('input,select,button').forEach(el=>el.disabled=locked&&el.id!=='selectionClear');
   }
   function treeBox(entry){
     const c=camera(),tc={...c,relief:1},z=entry.base*c.relief;
@@ -36,28 +36,28 @@ const Selector=(()=>{
   function hit(e){
     const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
     const icons=[...billboardHits].reverse();
-    for(const h of icons)if(x>=h.box.x&&x<=h.box.x+h.box.w&&y>=h.box.y&&y<=h.box.y+h.box.h)return {layer:h.layer,collection:h.tunnel?'tunnels':'objects',object:h.tunnel||h.object};
+    for(const h of icons)if(x>=h.box.x&&x<=h.box.x+h.box.w&&y>=h.box.y&&y<=h.box.y+h.box.h)return {layer:h.layer,collection:h.tunnel?'tunnels':'objects',object:h.tunnel||h.originalObject||h.object,region:h.region};
     let tree=null;
     for(const entry of scene.vegetation?.entries||[]){const box=treeBox(entry);if(box&&x>=box.x&&x<=box.x+box.w&&y>=box.y&&y<=box.y+box.h&&(!tree||box.depth<tree.depth))tree={entry,depth:box.depth};}
-    if(tree)return {layer:tree.entry.layer,collection:'objects',object:tree.entry.object,entry:tree.entry,generated:!tree.entry.object};
-    const p=point(e);if(!p.inside)return null;
-    for(let i=layers.length-1;i>=0;i--){const l=layers[i];if(!l.visible||l.opacity<=0)continue;
-      for(const t of l.tunnels)if(MapPaths.distance(p,t.a,t.b)<t.width/2+6)return {layer:i,collection:'tunnels',object:t};
-      for(const route of [...l.routes].reverse())for(let n=1;n<route.points.length;n++)if(MapPaths.distance(p,route.points[n-1],route.points[n])<route.width/2+6)return {layer:i,collection:'routes',object:route};
+    if(tree)return {layer:tree.entry.layer,collection:'objects',object:tree.entry.object,entry:tree.entry,generated:!tree.entry.object,region:tree.entry.region};
+    const original=point(e);if(!original.inside)return null;const region=worldMode()?WorldSurface.locate(original.x,original.y):null,p={x:original.x-(region?.gx||0)*1600,y:original.y-(region?.gy||0)*1100},regionLayers=region?WorldSurface.group(layers,region.gx,region.gy):layers;
+    for(let i=layers.length-1;i>=0;i--){const l=regionLayers[i];if(!l.visible||l.opacity<=0)continue;
+      for(const t of l.tunnels)if(MapPaths.distance(p,t.a,t.b)<t.width/2+6)return {layer:i,collection:'tunnels',object:t,region};
+      for(const route of [...l.routes].reverse())for(let n=1;n<route.points.length;n++)if(MapPaths.distance(p,route.points[n-1],route.points[n])<route.width/2+6)return {layer:i,collection:'routes',object:route,region};
     }
     return null;
   }
   function pick(e){
     const item=hit(e);if(!item){clear();return;}
-    selected={...item,source:layers[item.layer]};active=item.layer;
-    const p=point(e),c=center();drag={id:e.pointerId,start:p.inside?{x:p.x,y:p.y}:c,center:c,moved:false};
-    render();if(selected.source.locked)notify('Camada bloqueada: desbloqueie para editar este objeto.');
+    selected={...item,source:item.region?WorldSurface.child(layers[item.layer],item.region.gx,item.region.gy):layers[item.layer]};active=item.layer;
+    const p=point(e),c=center();drag={id:e.pointerId,start:p.inside?{x:p.x-(selected.region?.gx||0)*1600,y:p.y-(selected.region?.gy||0)*1100}:c,center:c,moved:false};
+    render();if(layers[selected.layer].locked)notify('Camada bloqueada: desbloqueie para editar este objeto.');
   }
-  function editable(){if(!valid())return false;if(selected.source.locked){notify('Desbloqueie a camada do objeto para editá-lo.');return false;}if(selected.generated&&selected.source.objects.length>=2000){notify('Limite de objetos da camada atingido.');return false;}return true;}
+  function editable(){if(!valid())return false;if(layers[selected.layer].locked){notify('Desbloqueie a camada do objeto para editá-lo.');return false;}if(selected.generated&&selected.source.objects.length>=2000){notify('Limite de objetos da camada atingido.');return false;}return true;}
   function detach(){
     if(!selected.generated)return;
     const e=selected.entry,l=selected.source;
-    const object={kind:'tree',species:Terrain.biomes[e.type],x:e.x,y:e.y,size:e.size,rotation:0,text:'',color:e.foliage,trunkColor:e.trunk,seed:e.n};
+    const object={kind:'tree',species:Terrain.biomes[e.type],x:e.localX??e.x,y:e.localY??e.y,size:e.size,rotation:0,text:'',color:e.foliage,trunkColor:e.trunk,seed:e.n};
     l.terrain.treeExclusions.add(e.index);l.terrain.dirty=true;l.objects.push(object);selected.object=object;selected.generated=false;
   }
   function shiftTo(x,y){
@@ -68,7 +68,7 @@ const Selector=(()=>{
   function move(e){
     if(!drag||drag.id!==e.pointerId||!editable())return;
     const p=point(e);if(!p.inside)return;
-    const dx=p.x-drag.start.x,dy=p.y-drag.start.y;if(!drag.moved&&Math.hypot(dx,dy)*zoom<3)return;
+    const dx=p.x-(selected.region?.gx||0)*1600-drag.start.x,dy=p.y-(selected.region?.gy||0)*1100-drag.start.y;if(!drag.moved&&Math.hypot(dx,dy)*zoom<3)return;
     if(!drag.moved){remember();detach();drag.moved=true;}
     shiftTo(drag.center.x+dx,drag.center.y+dy);textureDirty=true;draw();sync();
   }
@@ -76,7 +76,7 @@ const Selector=(()=>{
   function moveTo(x,y){if(!Number.isFinite(x)||!Number.isFinite(y)||!editable())return;remember();detach();shiftTo(x,y);changed();}
   function transfer(index){
     if(!editable()||index===selected.layer)return;
-    const dest=layers[index];if(!dest||dest.locked){notify('Escolha uma camada desbloqueada.');return;}
+    const parent=layers[index],dest=parent&&(selected.region?WorldSurface.child(parent,selected.region.gx,selected.region.gy,true):parent);if(!dest||parent.locked){notify('Escolha uma camada desbloqueada.');return;}
     const limit=selected.collection==='tunnels'?1000:2000;if(dest[selected.collection].length>=limit){notify('Limite de objetos da camada de destino atingido.');return;}
     remember();detach();const source=selected.source,collection=selected.collection,object=selected.object;
     source[collection].splice(source[collection].indexOf(object),1);dest[collection].push(object);selected.layer=index;selected.source=dest;active=index;changed();
@@ -91,8 +91,8 @@ const Selector=(()=>{
     if(selected.generated||selected.object?.kind==='tree'){
       const e=(scene.vegetation?.entries||[]).find(e=>selected.generated?e.layer===selected.layer&&e.index===selected.entry.index:e.object===selected.object);if(e)box=treeBox(e);
     }else{
-      const hit=billboardHits.find(h=>h.layer===selected.layer&&(h.tunnel===selected.object||h.object===selected.object));box=hit?.box;
-      if(!box){const points2d=points().map(p=>scene.project(p.x,p.y,Billboards.surfaceHeight(p.x,p.y,layers),camera())).filter(p=>p.visible!==false);if(!points2d.length)return;const xs=points2d.map(p=>p.x),ys=points2d.map(p=>p.y);box={x:Math.min(...xs)-6,y:Math.min(...ys)-6,w:Math.max(...xs)-Math.min(...xs)+12,h:Math.max(...ys)-Math.min(...ys)+12};}
+      const hit=billboardHits.find(h=>h.layer===selected.layer&&(h.tunnel===selected.object||h.originalObject===selected.object||h.object===selected.object));box=hit?.box;
+      if(!box){const points2d=points().map(p=>scene.project(p.x+(selected.region?.gx||0)*1600,p.y+(selected.region?.gy||0)*1100,Billboards.surfaceHeight(p.x+(selected.region?.gx||0)*1600,p.y+(selected.region?.gy||0)*1100,layers),camera())).filter(p=>p.visible!==false);if(!points2d.length)return;const xs=points2d.map(p=>p.x),ys=points2d.map(p=>p.y);box={x:Math.min(...xs)-6,y:Math.min(...ys)-6,w:Math.max(...xs)-Math.min(...xs)+12,h:Math.max(...ys)-Math.min(...ys)+12};}
     }
     if(!box)return;g.save();g.strokeStyle='#fff19a';g.lineWidth=2;g.setLineDash([5,3]);g.strokeRect(box.x-3,box.y-3,box.w+6,box.h+6);g.setLineDash([]);g.fillStyle='#fff19a';for(const x of [box.x-3,box.x+box.w+3])for(const y of [box.y-3,box.y+box.h+3])g.fillRect(x-3,y-3,6,6);g.restore();
   }

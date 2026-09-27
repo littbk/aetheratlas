@@ -6,7 +6,7 @@ const Billboards=(()=>{
     if(!Array.isArray(objects)||objects.length>2000)throw Error('Marcadores inválidos.');
     return objects.map(o=>{
       if(!o||!['building','marker','text','tree'].includes(o.kind)||![o.x,o.y,o.size,o.rotation].every(Number.isFinite)||o.x<0||o.y<0||o.x>=1600||o.y>=1100||o.size<8||o.size>160||Math.abs(o.rotation)>360||typeof o.text!=='string'||o.text.length>240||!/^#[0-9a-f]{6}$/i.test(o.color))throw Error('Marcador inválido.');
-      if(o.kind==='tree'&&(!['forest','palms','pines','magic','autumn','jungle'].includes(o.species)||!/^#[0-9a-f]{6}$/i.test(o.trunkColor)||!Number.isFinite(o.seed)||o.seed<0||o.seed>1))throw Error('Árvore inválida.');
+      if(o.kind==='tree'&&(!['forest','palms','pines','magic','autumn','jungle','snowForest'].includes(o.species)||!/^#[0-9a-f]{6}$/i.test(o.trunkColor)||!Number.isFinite(o.seed)||o.seed<0||o.seed>1))throw Error('Árvore inválida.');
       if(o.kind==='building'&&!Object.hasOwn(Buildings.names,o.building))throw Error('Construção inválida.');
       if(o.kind==='marker'&&!['◇','♜','▲','✦','♣'].includes(o.symbol))throw Error('Símbolo inválido.');
       return {kind:o.kind,x:o.x,y:o.y,size:o.size,rotation:o.rotation,text:o.text,color:o.color,...(o.kind==='tree'?{species:o.species,trunkColor:o.trunkColor,seed:o.seed}:{}),...(o.kind==='building'?{building:o.building}:{}),...(o.kind==='marker'?{symbol:o.symbol}:{})};
@@ -22,11 +22,12 @@ const Billboards=(()=>{
         if(underground)entries.push({object:{kind:'text',x:(tunnel.a.x+tunnel.b.x)/2,y:(tunnel.a.y+tunnel.b.y)/2,size:20,rotation:0,text:'Túnel · −'+tunnel.depth+' m',color:'#ecd6aa'},layer:i,opacity:layer.opacity,tunnel});
       }
     }
+    if(typeof WorldSurface!=='undefined'&&layers.some(l=>l.planet?.enabled))for(const region of WorldSurface.groups(layers))if(region.gx||region.gy)for(const entry of collect(region.layers,underground)){entries.push({...entry,originalObject:entry.object,region:{gx:region.gx,gy:region.gy},object:{...entry.object,x:entry.object.x+region.gx*1600,y:entry.object.y+region.gy*1100}});}
     return entries;
   }
   function surfaceHeight(x,y,layers){
     const x0=Math.floor(x/20)*20,y0=Math.floor(y/20)*20,u=(x-x0)/20,v=(y-y0)/20;
-    const h=(x,y)=>Math.max(0,Terrain.sample(layers,Math.min(x,1599),Math.min(y,1099))||0)*.065;
+    const h=(x,y)=>Math.max(0,Terrain.sample(layers,layers.some(l=>l.planet?.enabled)?x:Math.min(x,1599),layers.some(l=>l.planet?.enabled)?y:Math.min(y,1099))||0)*.065;
     const a=h(x0,y0),b=h(x0+20,y0),c=h(x0,y0+20),d=h(x0+20,y0+20);
     return u+v<=1?a+(b-a)*u+(c-a)*v:d+(c-d)*(1-u)+(b-d)*(1-v);
   }
@@ -97,5 +98,16 @@ const Billboards=(()=>{
     g.fillStyle='#ffe2a0';g.beginPath();g.arc(0,0,Math.max(2,size*.16),0,Math.PI*2);g.fill();
     g.font='bold 11px system-ui';g.textAlign='center';g.textBaseline='bottom';g.lineWidth=3;g.strokeStyle='#0a2630';g.strokeText('LOCAL ATUAL',0,-size-8);g.fillStyle='#fff1c9';g.fillText('LOCAL ATUAL',0,-size-8);g.restore();
   }
-  return {validate,collect,layout,draw,drawPlayerPivot,surfaceHeight};
+  function submapPosition(patch,scene,camera){return scene.project(patch.entry.x,patch.entry.y,0,camera,true);}
+  function drawSubmapEntries(g,patches,scene,camera,width,height){
+    for(const patch of patches){if(patch.kind!=='submap'||!patch.entry)continue;const p=submapPosition(patch,scene,camera);
+      if(p.visible===false||p.x<-50||p.x>width+50||p.y<-50||p.y>height+50)continue;
+      const r=Math.max(7,Math.min(16,11*Math.pow(camera.zoom,.45)));g.save();g.translate(p.x,p.y);g.shadowColor='#071923';g.shadowBlur=6;g.fillStyle='#214b58';g.strokeStyle='#ffe2a0';g.lineWidth=2;g.beginPath();g.arc(0,0,r,0,Math.PI*2);g.fill();g.stroke();g.shadowBlur=0;g.fillStyle='#fff1c9';g.font='bold '+Math.max(9,Math.round(r*1.2))+'px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('↗',0,0);g.font='11px system-ui';g.textBaseline='top';g.lineWidth=3;g.strokeStyle='#0a2630';g.strokeText(patch.name,0,r+3);g.fillStyle='#fff1c9';g.fillText(patch.name,0,r+3);g.restore();
+    }
+  }
+  function hitSubmap(x,y,patches,scene,camera){
+    for(const patch of patches){if(patch.kind!=='submap'||!patch.entry)continue;const p=submapPosition(patch,scene,camera),r=Math.max(18,28*camera.zoom/Math.max(.2,p.w));if(p.visible!==false&&Math.hypot(x-p.x,y-p.y)<=r)return patch;}
+    return null;
+  }
+  return {validate,collect,layout,draw,drawPlayerPivot,drawSubmapEntries,hitSubmap,surfaceHeight};
 })();

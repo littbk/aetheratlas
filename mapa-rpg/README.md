@@ -1,8 +1,11 @@
-# Atlas do Reino — visualização 3D da campanha
+﻿# Atlas do Reino — visualização 3D da campanha
 
 Projeto paralelo ao editor, publicado em https://aetheratlas-pnp8.vercel.app. Jogadores recebem o planeta esférico de 8.000 × 4.400 pixels salvo pelo Aether Atlas: camadas visíveis, mapas antigos encaixados, construções, textos, rios, caminhos e túneis. A câmera oferece mover, orbitar, zoom, inclinação, planta, relevo 3D e tela cheia. A interface não possui ferramentas de edição e só uma sessão de administrador pode mudar a publicação no servidor.
 
 O ponto **LOCAL ATUAL** é definido pelo mestre no editor. Ao abrir o visualizador, a câmera começa centrada nesse ponto; o botão de enquadramento volta a ele. O marcador indica a posição dos jogadores e fica oculto quando está no lado oposto do planeta.
+
+Submapas planos podem ser associados ao planeta por portais. Cada interior é um projeto plano separado com camadas próprias. Ao abrir um portal, o visualizador descarta as texturas e a geometria do planeta e carrega o projeto do interior; ao voltar, busca novamente o mundo publicado. Pacotes antigos com submapas em imagem seguem compatíveis.
+
 
 Para incorporar o mapa em outro aplicativo, use https://aetheratlas-pnp8.vercel.app/?embed=1. Esse modo ocupa toda a área disponível, oculta cabeçalho, administração, publicidade e molduras, e mantém os controles de navegação e câmera. O elemento iframe deve permitir tela cheia quando essa ferramenta for necessária. A câmera aceita rotação em Z pelo controle, Q/E, Shift + Orbitar ou torção de dois dedos. Planetas são desenhados como uma superfície esférica editável com os pincéis do mapa; os túneis ainda aparecem como portais e rota subterrânea, sem câmera em primeira pessoa para atravessá-los.
 
@@ -32,3 +35,7 @@ Execute `npm install`, `npm test` e `npm run build` nesta pasta. Os quatro arqui
 O Blob guarda os projetos originais privados, e as funções entregam apenas o projeto ativo aos jogadores. A leitura da publicação ignora o cache para refletir trocas e remoções. JSONs inválidos são recusados antes do upload no navegador e novamente antes de publicar no servidor. A navegação recorre à planta 2D quando WebGL não está disponível.
 
 Referências: [funções Vercel](https://vercel.com/docs/functions/runtimes/node-js), [uploads diretos ao Blob](https://vercel.com/docs/vercel-blob/client-upload), [SDK Blob](https://vercel.com/docs/vercel-blob/using-blob-sdk).
+
+### Região em plano temporário
+
+Na navegação do mapa, use o ícone de seleção de região. Arraste sobre o planeta para delimitar a área ou clique para abrir uma região local. O editor permite editar esse mesmo terreno em plano; o visualizador permite explorá-lo. Clique novamente no ícone ou pressione Esc para voltar ao planeta. As edições permanecem no mundo original; essa vista não cria um submapa separado.

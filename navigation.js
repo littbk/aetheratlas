@@ -40,6 +40,7 @@ class AtlasNavigation {
     this.redraw(); this.canvas.focus({preventScroll:true});
   }
   focus() {
+    const region=this.read().flatRegion;if(region){this.write({cx:this.stage.clientWidth/2,cy:this.stage.clientHeight/2});return;}
     const p=this.walking?this.position:this.location(),c=this.read();
     if(c.planet) this.write({yaw:-(p.x/8000-.5)*360,tilt:(p.y/4400-.5)*180,roll:0,cx:this.stage.clientWidth/2,cy:this.stage.clientHeight/2});
     else this.write({tilt:50,roll:0});

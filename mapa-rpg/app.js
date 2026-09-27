@@ -1,4 +1,4 @@
-import { upload } from '@vercel/blob/client';
+﻿import { upload } from '@vercel/blob/client';
 import { MapViewer } from './viewer.js';
 import { validateProject, MAX_PROJECT_BYTES } from './schema.js';
 
@@ -12,8 +12,10 @@ function ensureViewer() {
     $('roll').value = camera.roll; $('rollRead').textContent = `${Math.round(camera.roll)}°`;
     $('viewTop').classList.toggle('active',camera.tilt===0);$('view3d').classList.toggle('active',camera.tilt!==0);
     document.querySelector('.compass').style.transform = `rotate(${viewer.camera().planet?camera.roll:camera.yaw+camera.roll}deg)`;
-    $('viewStatus').textContent = webgl ? 'SOMENTE VISUALIZAÇÃO · RELEVO 3D' : 'VISUALIZAÇÃO PLANA · 3D INDISPONÍVEL NESTE NAVEGADOR';
+    document.querySelector('.compass').hidden=viewer.submapMode;
+    $('viewStatus').textContent = viewer.flatRegion?'REGIÃO EM PLANO · SOMENTE VISUALIZAÇÃO':webgl ? 'SOMENTE VISUALIZAÇÃO · RELEVO 3D' : 'VISUALIZAÇÃO PLANA · 3D INDISPONÍVEL NESTE NAVEGADOR';
   });
+  viewer.onReturnToMain=()=>viewer.returnToPlanet();
   return viewer;
 }
 async function request(url, options) {
@@ -76,7 +78,7 @@ $('publishForm').onsubmit=async event=>{
     if(!file||file.size>MAX_PROJECT_BYTES)throw new Error('Escolha um projeto JSON de até 80 MB.');
     $('adminStatus').textContent='Conferindo o projeto…';
     const input=JSON.parse(await file.text());let project;
-    if(input?.format==='aether-atlas-patch'&&input.version===1){
+    if(input?.format==='aether-atlas-world')project=validateProject(input);else if(input?.format==='aether-atlas-patch'&&input.version===1){
       const {map}=await request('/api/map');
       if(!map)throw new Error('Publique primeiro um mapa completo para criar a base do pacote incremental.');
       const base=await request(`${map.projectUrl}?v=${encodeURIComponent(map.updatedAt)}`);

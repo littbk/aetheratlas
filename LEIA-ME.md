@@ -1,4 +1,4 @@
-# Aether Atlas
+﻿# Aether Atlas
 
 Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depende de bibliotecas, fontes ou imagens externas.
 
@@ -21,6 +21,8 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 - Pradarias, copas de árvores, areia, rochas, neve e água têm detalhes procedurais alinhados ao mundo. Texturas, sombras e curvas de nível podem ser alternadas no painel direito.
 
 ## Construção e edição
+
+- **Submapas planos:** clique em **Criar submapa plano** para criar uma cidade, dungeon ou interior vazio com suas próprias camadas, terreno, marcadores e ferramentas. Desenhe normalmente; **Salvar submapa e voltar** grava o interior como projeto plano separado. Selecione-o na lista e use **Fixar entrada no planeta** para definir o portal clicável. O JSON e a publicação incluem o pacote do planeta e todos os submapas. Pacotes antigos com interiores embutidos continuam aceitos.
 
 - Em **Árvores e florestas**, escolha floresta de copas, coqueiral de praia, pinheiros, floresta mágica de cristais, floresta outonal ou selva tropical e pinte com **Pintar vegetação**. Cada tipo tem sua cor de copa; os troncos também aceitam qualquer cor.
 - **Novas copas** e **Novos troncos** configuram as próximas árvores. As árvores já pintadas preservam suas próprias cores, inclusive após salvar, reabrir ou mudar a paleta. Projetos antigos sem cores individuais passam a preservar a paleta que tinham ao serem abertos.
@@ -80,3 +82,9 @@ Referências: [AdSense e AdMob](https://support.google.com/adsense/answer/923465
 `planet_browser.py` verifica o planeta, a seleção, a ocultação dos marcadores, o encaixe de PNG, a reabertura do JSON e a exportação em alta resolução com Chrome headless. O script usa o módulo Python `websocket-client` apenas na validação.
 
 Os resultados ficam em `validation-results.json`. Layout e gestos foram verificados com emulação de celular; desempenho, downloads e gestos em Android/iPhone físicos ainda precisam ser conferidos no aparelho.
+
+O planeta inteiro é editável em resolução local, com regiões criadas conforme a pintura. As regiões externas guardam relevo, vegetação, marcadores e arquitetura no JSON e aparecem no visualizador. O pincel atravessa a emenda de longitude e ajusta sua largura próximo aos polos. Projetos antigos mantêm a região central na posição original.
+
+### Região em plano temporário
+
+Na navegação do mapa, use o ícone de seleção de região. Arraste sobre o planeta para delimitar a área ou clique para abrir uma região local. O editor permite editar esse mesmo terreno em plano; o visualizador permite explorá-lo. Clique novamente no ícone ou pressione Esc para voltar ao planeta. As edições permanecem no mundo original; essa vista não cria um submapa separado.

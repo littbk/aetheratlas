@@ -38,3 +38,26 @@ test('Projetos incompatíveis são recusados antes do upload',()=>{
   assert.throws(()=>validateProject({format:'image'}));
   assert.throws(()=>validateProject({format:'aether-atlas',version:4,width:1600,height:1100,layers:[{}]}));
 });
+test('Pacote com submapa plano separado aceita portal íntegro e rejeita referência quebrada',()=>{
+  const png='data:image/png;base64,AA==',terrain={heights:Array(110000).fill(0),coverage:Array(110000).fill(0),biomes:Array(110000).fill(0)};
+  const layer={name:'Terreno',visible:true,locked:false,opacity:1,image:png,terrain,objects:[],routes:[],tunnels:[],structures:[{points:[{x:10,y:10},{x:50,y:10}],fill:false,width:12,height:12,color:'#aa8844'}]};
+  const flat={format:'aether-atlas',version:4,width:1600,height:1100,title:'Dungeon',world:{type:'flat',width:8000,height:4400,patches:[]},layers:[layer]};
+  const main={...flat,title:'Reino',world:{type:'planet',width:8000,height:4400,playerLocation:{x:4000,y:2200},patches:[{id:'door-1',projectId:'room-1',name:'Dungeon',kind:'submap',entry:{x:4000,y:2200},x:3200,y:1650,width:1600,height:1100,image:png}]}};
+  const pack={format:'aether-atlas-world',version:1,main,submaps:[{id:'room-1',name:'Dungeon',project:flat}]};
+  assert.equal(validateProject(pack),pack);
+  assert.throws(()=>validateProject({...pack,main:{...main,layers:[{...layer,structures:[{...layer.structures[0],height:1000}]}]}}));
+  assert.throws(()=>validateProject({...pack,submaps:[]}));
+});
+test('Regiões globais aceitam relevo compacto e rejeitam dados corrompidos',()=>{
+  const encode=array=>Buffer.from(array.buffer).toString('base64');
+  const terrain={heights:Array(110000).fill(0),coverage:Array(110000).fill(0),biomes:Array(110000).fill(0)};
+  const tile={gx:2,gy:-2,image:'data:image/png;base64,AA==',terrain:{encoding:'atlas-terrain-v1',heights:encode(new Float32Array(110000)),coverage:encode(new Uint8Array(110000)),biomes:encode(new Uint8Array(110000)),treeStyleIds:encode(new Uint16Array(110000)),treeStyles:[],treeExclusions:[]}};
+  const project={format:'aether-atlas',version:4,width:1600,height:1100,world:{type:'planet'},layers:[{name:'Terreno',visible:true,locked:false,opacity:1,image:tile.image,terrain,tiles:[tile]}]};
+  assert.equal(validateProject(project),project);
+  const invalid=bad=>({...project,layers:[{...project.layers[0],tiles:[bad]}]});
+  assert.throws(()=>validateProject(invalid({...tile,gx:3})));
+  assert.throws(()=>validateProject(invalid({...tile,terrain:{...tile.terrain,heights:'AA=='}})));
+  const heights=new Float32Array(110000);heights[0]=NaN;
+  assert.throws(()=>validateProject(invalid({...tile,terrain:{...tile.terrain,heights:encode(heights)}})));
+  assert.throws(()=>validateProject({...project,layers:[{...project.layers[0],tiles:[tile,tile]}]}));
+});

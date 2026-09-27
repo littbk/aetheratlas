@@ -10,3 +10,6 @@
 .vercel/
 mapa.png
 upgrade.py
+
+**/*_browser.py
+**/__pycache__/
