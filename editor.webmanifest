@@ -1,0 +1,42 @@
+{
+  "id": "/?app=editor",
+  "name": "Aether Atlas · Editor",
+  "short_name": "Atlas Editor",
+  "description": "Crie seus mundos e mapas de campanha.",
+  "lang": "pt-BR",
+  "start_url": "/?app=editor",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#0d1b24",
+  "theme_color": "#0d1b24",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icons/atlas-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/atlas-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/atlas-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": [
+    "games",
+    "utilities"
+  ],
+  "prefer_related_applications": false
+}

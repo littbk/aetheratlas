@@ -99,3 +99,6 @@ Na navegação do mapa, use o ícone de seleção de região. Arraste sobre o pl
 A ferramenta Água tem uma cor por lago. Escolha Cor desta água antes de preencher; marque Recolorir lago existente ao clicar para mudar somente o lago da camada selecionada. As cores acompanham o JSON e os mapas publicados.
 
 O editor guarda uma cópia automática local do projeto e retoma o mapa/submapa, camada, câmera e zoom ao reabrir no mesmo navegador. O visualizador guarda a posição por link de mapa. A sessão usa IndexedDB e armazenamento local, funciona sem login e é separada entre a versão local e a online; apagar os dados do navegador apaga essa recuperação. Continue exportando ou salvando na conta/Drive para manter outra cópia.
+
+
+Apps Android (PWA): abra a versão HTTPS no Chrome e toque em Instalar app. Editor e visualizador possuem identidades próprias, com ícone 3D e inicialização em janela independente. Se o navegador não liberar o convite direto, use menu ⋮ → Adicionar à tela inicial → Instalar. O visualizador inicia no último link de mapa aberto neste navegador. O editor pode abrir a sessão local offline após a primeira visita online; Google, Drive, publicação e carregamento de mapas dos jogadores precisam de conexão. A instalação não exige APK ou Play Store.

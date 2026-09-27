@@ -1,5 +1,7 @@
 import {MapViewer} from './mapa-rpg/viewer.js';
-const $=id=>document.getElementById(id),share=new URLSearchParams(location.search).get('share');let viewer,version='',busy=false;
+const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);let share=params.get('share');
+try{if(share)localStorage.setItem('atlas-last-player-map',share);else if(params.get('app')==='viewer'){const last=localStorage.getItem('atlas-last-player-map');if(last&&/^[a-zA-Z0-9_-]{1,128}$/.test(last)){share=last;params.set('share',last);history.replaceState(null,'',location.pathname+'?'+params);}}}catch{}
+let viewer,version='',busy=false;
 const api=async url=>{const r=await fetch(url,{cache:'no-store'}),data=await r.json();if(!r.ok)throw Error(data.error||'Não foi possível abrir.');return data;};
 const admin=$('adminDialog');admin.remove();$('adminOpen').textContent='Criar meus mapas';$('adminOpen').onclick=()=>location.href='/';
 $('help').onclick=()=>$('guide').showModal();document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).close());

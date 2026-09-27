@@ -1,7 +1,7 @@
 import {mkdir,copyFile,cp,readFile,writeFile} from 'node:fs/promises';
 import {build} from 'esbuild';
 await mkdir('public',{recursive:true});
-const editor=['ui.css','ui.js','terrain.js','world-surface.js','vegetation.js','structures.js','scene.js','paths.js','billboards.js','navigation.js','region-view.js','drive-client.js','planet-guides.js','app.js','drive.js','vegetation-controls.js','selection.js','ads.js','session.js'];
+const editor=['ui.css','ui.js','terrain.js','world-surface.js','vegetation.js','structures.js','scene.js','paths.js','billboards.js','navigation.js','region-view.js','drive-client.js','planet-guides.js','app.js','drive.js','vegetation-controls.js','selection.js','ads.js','session.js','pwa.js','pwa.css','editor.webmanifest','viewer.webmanifest','favicon.ico'];
 for(const name of editor)await copyFile(name,'public/'+name);
 const index=(await readFile('index.html','utf8')).replace('</body>','<script type="module" src="/account.js"></script></body>');await writeFile('public/index.html',index);
 let player=await readFile('mapa-rpg/index.html','utf8');player=player.replace('src="/app.js"','src="/player.js"').replace('src="/ui.js"','src="/viewer-ui.js"');await writeFile('public/player.html',player);
@@ -9,4 +9,8 @@ await copyFile('planet-guides.js','public/planet-guides.js');
 await copyFile('mapa-rpg/viewer.css','public/viewer.css');await copyFile('mapa-rpg/ui.js','public/viewer-ui.js');await cp('mapa-rpg/renderer','public/renderer',{recursive:true});
 await writeFile('public/ads-config.js','window.ATLAS_ADS=Object.freeze({enabled:false,previewLocal:false});');
 await build({entryPoints:['account.js','player.js'],bundle:true,outdir:'public',format:'esm',target:['es2022'],minify:true});
+await cp('icons','public/icons',{recursive:true});
+const shell=['/','/index.html','/player.html','/account.js','/player.js','/viewer-ui.js','/viewer.css','/planet-guides.js','/ads-config.js',...editor.filter(n=>n!=='favicon.ico').map(n=>'/'+n),'/favicon.ico','/icons/atlas-32.png','/icons/atlas-64.png','/icons/atlas-180.png','/icons/atlas-192.png','/icons/atlas-512.png','/icons/atlas-maskable-512.png',...['terrain.js','world-surface.js','vegetation.js','structures.js','scene.js','paths.js','billboards.js','navigation.js','region-view.js'].map(n=>'/renderer/'+n)];
+const worker=(await readFile('sw.js','utf8')).replace('/*__SHELL_ASSETS__*/[]',JSON.stringify([...new Set(shell)]));
+const {createHash}=await import('node:crypto');const hash=createHash('sha256');for(const url of [...new Set(shell)])hash.update(await readFile('public/'+(url==='/'?'index.html':url.slice(1))));await writeFile('public/sw.js',worker.replace('__BUILD_ID__',hash.digest('hex').slice(0,16)));
 console.log('Editor, login Google e visualizador compilados para produção.');

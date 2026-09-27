@@ -4,15 +4,15 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0d1b24"><title>Atlas do Reino · Mapa da campanha</title>
   <link rel="stylesheet" href="/viewer.css"><script>if(new URLSearchParams(location.search).get("embed")==="1")document.documentElement.classList.add("embed-mode");</script><style>.atlas_ad_unit{display:block;width:320px;height:50px}@media(min-width:861px){.atlas_ad_unit{width:728px;height:90px}}@media(max-width:343px){.atlas_ad_unit{display:none}}</style>
-</head>
+<link rel="manifest" href="/viewer.webmanifest"><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="32x32" href="/icons/atlas-32.png"><link rel="apple-touch-icon" href="/icons/atlas-180.png"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="stylesheet" href="/pwa.css"></head>
 <body class="modern-viewer">
-  <header><a class="brand" href="/"><span>✦</span><div>ATLAS <b>DO REINO</b><small>MAPA DA CAMPANHA</small></div></a><div class="header-actions"><button id="help" class="ghost">Como explorar</button><button id="adminOpen" class="admin-button">Administração</button></div></header>
+  <header><a class="brand" href="/"><img class="atlas-brand-icon" src="/icons/atlas-64.png" alt="" width="40" height="40"><div>ATLAS <b>DO REINO</b><small>MAPA DA CAMPANHA</small></div></a><div class="header-actions"><button id="help" class="ghost">Como explorar</button><button id="adminOpen" class="admin-button">Administração</button></div></header>
   <main>
     <section id="empty" class="empty"><p class="eyebrow">SEU PRÓXIMO DESTINO</p><h1 id="emptyTitle">Carregando o mundo…</h1><p id="emptyNote">Preparando o mapa da campanha.</p><button id="retry" hidden>Tentar novamente</button></section>
     <section id="viewer" class="viewer" aria-label="Visualização do mapa 3D" hidden>
       <div id="stage" class="stage">
         <canvas id="mapCanvas" aria-label="Mapa interativo 3D" tabindex="0"></canvas>
-        <div class="vignette"></div><div class="compass" aria-hidden="true">N<span>✦</span>S</div>
+        <div class="vignette"></div><div class="compass" aria-hidden="true">N<img class="atlas-brand-icon" src="/icons/atlas-64.png" alt="" width="40" height="40">S</div>
         <div class="map-name"><p id="mapTitle"></p><small id="mapNote"></small></div>
         <div class="camera-settings" id="cameraPopover" hidden><label>Perspectiva <input id="tilt" type="range" min="-180" max="180" value="38"></label><output id="tiltRead">38°</output><label>Rotação Z <input id="roll" type="range" min="-180" max="180" value="0"></label><output id="rollRead">0°</output></div>
         <div class="viewer-dock" role="toolbar" aria-label="Ferramentas de visualização">
@@ -36,4 +36,4 @@
     </section>
   </dialog>
   <script src="/renderer/terrain.js"></script><script src="/renderer/world-surface.js"></script><script src="/renderer/vegetation.js"></script><script src="/renderer/structures.js"></script><script src="/renderer/scene.js"></script><script src="/renderer/paths.js"></script><script src="/renderer/billboards.js"></script><script src="/renderer/navigation.js"></script><script src="/renderer/region-view.js"></script><script src="/planet-guides.js"></script><script type="module" src="/app.js"></script><script src="/ui.js"></script><script src="/ads-config.js"></script><script src="/ads.js"></script>
-</body></html>
+<script src="/pwa.js"></script></body></html>
