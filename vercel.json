@@ -1,0 +1,70 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "public",
+  "functions": {
+    "api/platform.js": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/play",
+      "destination": "/player.html"
+    },
+    {
+      "source": "/api/auth/login",
+      "destination": "/api/platform?action=login"
+    },
+    {
+      "source": "/api/auth/callback",
+      "destination": "/api/platform?action=callback"
+    },
+    {
+      "source": "/api/account",
+      "destination": "/api/platform?action=session"
+    },
+    {
+      "source": "/api/account/logout",
+      "destination": "/api/platform?action=logout"
+    },
+    {
+      "source": "/api/worlds",
+      "destination": "/api/platform?action=worlds"
+    },
+    {
+      "source": "/api/world",
+      "destination": "/api/platform?action=world"
+    },
+    {
+      "source": "/api/cloud-upload",
+      "destination": "/api/platform?action=upload"
+    },
+    {
+      "source": "/api/map",
+      "destination": "/api/platform?action=map"
+    },
+    {
+      "source": "/api/project",
+      "destination": "/api/platform?action=project"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
+      ]
+    }
+  ]
+}

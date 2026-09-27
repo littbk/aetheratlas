@@ -372,3 +372,13 @@ body.compact-ui .map-tag{left:178px}@media (max-width:860px){body.compact-ui .ma
 @media (pointer:fine){.walk-stick{display:none}.walk-instruction::after{content:' · WASD: mover · Shift: correr · V: câmera'}}
 @media (max-width:860px){body.character-mode>header,body.character-mode .mobile-toolbar,body.character-mode .mapbar,body.character-mode footer,body.character-mode .ad-banner{display:none!important}body.character-mode>main{height:100dvh}body.character-mode aside.left,body.character-mode aside.right,body.character-mode #panelBackdrop{display:none!important}}
 @media (max-height:450px){.walk-stick{width:96px;height:96px;bottom:14px}.walk-actions{bottom:14px;flex-direction:row}.navigation-touch .walk-actions button{width:76px}}
+
+.account-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#14212c;color:#afc3ce;border-bottom:1px solid #344554;flex-shrink:0;font:11px system-ui}
+.account-bar button{background:#213849;color:#d5eee6;border-radius:7px;padding:8px 10px;min-height:36px}
+.account-bar span{margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cloud-dialog{width:min(640px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;background:#16232e;color:#d5eee6;border:1px solid #52706f;border-radius:12px;padding:20px}
+.cloud-dialog button,.cloud-dialog a{background:#213849;color:#d5eee6;border:1px solid #52706f;border-radius:7px;padding:9px 12px;font:12px system-ui;cursor:pointer;text-decoration:none}
+.cloud-heading{display:flex;justify-content:space-between;align-items:center}.cloud-heading h2{font:22px system-ui}
+.cloud-list article{display:flex;flex-wrap:wrap;gap:8px;padding:14px 0;border-top:1px solid #344554}
+.cloud-list strong{width:100%;overflow-wrap:anywhere}.cloud-list small{width:100%;color:#93b9ae}.cloud-status{color:#e2ce95}
+@media(max-width:860px){.account-bar{flex-wrap:wrap;gap:4px}.account-bar span{width:100%;margin:0;font-size:10px}body.compact-ui aside.left,body.compact-ui aside.right,body.compact-ui #panelBackdrop{top:170px}.character-mode .account-bar{display:none}}

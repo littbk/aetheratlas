@@ -1,0 +1,18 @@
+{
+  "name": "aether-atlas",
+  "private": true,
+  "version": "2.0.0",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "npm --prefix mapa-rpg test"
+  },
+  "dependencies": {
+    "@vercel/blob": "2.8.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

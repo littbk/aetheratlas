@@ -13,3 +13,5 @@ upgrade.py
 
 **/*_browser.py
 **/__pycache__/
+
+.npm-cache/

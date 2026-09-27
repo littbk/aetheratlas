@@ -61,3 +61,15 @@ test('Drive authorization includes reading manually uploaded worlds',()=>{
  assert.ok(source.includes('https://www.googleapis.com/auth/drive.readonly'));
  assert.ok(source.includes('https://www.googleapis.com/auth/drive.file'));
 });
+
+test('Save on Drive connects first and saves after Google authorization',async()=>{
+ const vm=require('node:vm'),fs=require('node:fs');const source=fs.readFileSync(require('node:path').join(__dirname,'drive.js'),'utf8');
+ const functionSource=source.slice(source.indexOf('async function connectDrive('),source.indexOf('async function restoreDriveSession('));
+ let listener,saves=0,auth=0;const popup={closed:false},button={disabled:false};const c={driveBusy:false,driveToken:'',driveGeneration:4,location:{protocol:'https:',origin:'https://atlas.test'},$:()=>button,window:{open:()=>popup,addEventListener:(_,fn)=>listener=fn,removeEventListener:()=>{}},setInterval:()=>1,clearInterval:()=>{},driveClient:{authenticate:async()=>{auth++;}},driveStatus:()=>{},notify:()=>{},saveToDrive:async()=>{saves++;},showDriveLibrary:()=>{throw Error('Saving must not open the library.');}};
+ vm.createContext(c);vm.runInContext(functionSource,c);await c.connectDrive(false,{save:true});assert.equal(saves,0);
+ await listener({origin:c.location.origin,source:popup,data:{type:'aether-drive-connected'}});assert.equal(auth,1);assert.equal(saves,1);
+});
+test('Drive authorization never saves a replacement map opened while connecting',async()=>{
+ const vm=require('node:vm'),fs=require('node:fs');const source=fs.readFileSync(require('node:path').join(__dirname,'drive.js'),'utf8');const functionSource=source.slice(source.indexOf('async function connectDrive('),source.indexOf('async function restoreDriveSession('));let listener,saves=0;const popup={closed:false};
+ const c={driveBusy:false,driveToken:'',driveGeneration:1,location:{protocol:'https:',origin:'https://atlas.test'},$:()=>({}),window:{open:()=>popup,addEventListener:(_,fn)=>listener=fn,removeEventListener:()=>{}},setInterval:()=>1,clearInterval:()=>{},driveClient:{authenticate:async()=>{}},driveStatus:()=>{},notify:()=>{},saveToDrive:async()=>saves++,showDriveLibrary:()=>{}};vm.createContext(c);vm.runInContext(functionSource,c);await c.connectDrive(false,{save:true});c.driveGeneration++;await listener({origin:c.location.origin,source:popup,data:{type:'aether-drive-connected'}});assert.equal(saves,0);
+});

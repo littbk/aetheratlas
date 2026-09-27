@@ -20,3 +20,8 @@ Thumbs.db
 desktop.ini
 
 .vercel
+
+/node_modules/
+/public/
+
+/.npm-cache/

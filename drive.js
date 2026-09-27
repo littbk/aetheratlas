@@ -74,7 +74,7 @@ async function saveToDrive({copy=false,name='',folder='',makeDefault=false,autom
     dirty=driveRevision!==revision;$('saved').textContent=dirty?'Novas alterações pendentes':'Salvo no Google Drive';
     try{await persistDrivePreference({fileId:result.id});}catch(error){driveLog('Arquivo salvo. '+error.message);}
     if(makeDefault){await persistDrivePreference({defaultFileId:result.id});driveDefaultId=result.id;driveDefaultName=driveCurrent.name;localStorage.setItem('aether-atlas-drive-default',result.id);localStorage.setItem('aether-atlas-drive-default-name',driveCurrent.name);}
-    driveStatus('Salvo: '+driveCurrent.name+(dirty?'. Há novas alterações aguardando envio.':'.'));if(copy&&driveDialog.open)driveDialog.close();return true;
+    driveStatus('Salvo: '+driveCurrent.name+(dirty?'. Há novas alterações aguardando envio.':'.'));if(!automatic)notify('Salvo no Google Drive: '+driveCurrent.name);if(copy&&driveDialog.open)driveDialog.close();return true;
   }catch(error){driveStatus((success?'Mapa salvo, mas a preferência não foi registrada: ':'Falha ao salvar: ')+error.message);notify(error.message);return success;}
   finally{driveBusy=false;$('driveProgress').hidden=true;updateDriveUI();if(success&&driveRevision!==revision)scheduleDriveSave();}
 }
@@ -105,12 +105,14 @@ async function loadDriveFiles(more=false){
 async function showDriveLibrary(copy=false){
   if(!driveDialog.open)driveDialog.showModal();$('driveCopyOptions').hidden=!copy;if(copy){$('driveCopyName').value=($('title').value.trim()||'Meu mapa')+' — cópia';$('driveCopyDefault').checked=false;}loadDriveFiles();
 }
-async function connectDrive(renew=false){
-  if(driveToken&&!renew)return showDriveLibrary();
-  if(location.protocol==='file:'){driveStatus('A conexão com o Google Drive está disponível na versão online do editor.');return;}
-  const popup=window.open('/api/drive/connect?popup=1','aether-drive-connect','width=560,height=720');if(!popup){driveStatus('Permita a janela de conexão do Google e tente novamente.');return;}
+async function connectDrive(renew=false,{save=false}={}){
+  if(driveBusy)return;
+  if(driveToken&&!renew)return save?saveToDrive():showDriveLibrary();
+  const generation=driveGeneration;
+  if(location.protocol==='file:'){driveStatus('A conexão com o Google Drive está disponível na versão online do editor.');notify('Use a versão online para salvar no Drive.');return;}
+  const popup=window.open('/api/drive/connect?popup=1','aether-drive-connect','width=560,height=720');if(!popup){driveStatus('Permita a janela de conexão do Google e tente novamente.');notify('Permita a janela de conexão do Google e tente novamente.');return;}
   $('driveConnect').disabled=true;
-  const listener=async event=>{if(event.origin!==location.origin||event.source!==popup||event.data?.type!=='aether-drive-connected')return;cleanup();try{await driveClient.authenticate(true);driveStatus('Drive conectado. Seu mapa atual foi preservado.');showDriveLibrary();}catch(error){driveStatus(error.message);}};
+  const listener=async event=>{if(event.origin!==location.origin||event.source!==popup||event.data?.type!=='aether-drive-connected')return;cleanup();try{await driveClient.authenticate(true);driveStatus('Drive conectado. Seu mapa atual foi preservado.');if(save){if(driveGeneration!==generation){notify('Drive conectado. O mapa mudou durante a conexão; clique em Salvar no Drive para salvar o mapa atual.');return;}await saveToDrive();}else showDriveLibrary();}catch(error){driveStatus(error.message);notify(error.message);}};
   const timer=setInterval(()=>{if(popup.closed)cleanup();},1000);const cleanup=()=>{clearInterval(timer);window.removeEventListener('message',listener);$('driveConnect').disabled=false;};window.addEventListener('message',listener);
 }
 async function restoreDriveSession(){
@@ -118,7 +120,7 @@ async function restoreDriveSession(){
   catch{driveStatus(location.protocol==='file:'?'Use a versão online para abrir e salvar mapas no Google Drive.':'Conecte sua conta para abrir e salvar mapas no Google Drive.');}
   updateDriveUI();
 }
-$('driveReconnect').onclick=()=>connectDrive(true);$('driveConnect').onclick=()=>connectDrive();$('driveSave').onclick=()=>saveToDrive();$('driveBrowse').onclick=()=>driveToken?showDriveLibrary():connectDrive();$('driveCopy').onclick=()=>showDriveLibrary(true);
+$('driveReconnect').onclick=()=>connectDrive(true);$('driveConnect').onclick=()=>connectDrive();$('driveSave').onclick=()=>driveToken?saveToDrive():connectDrive(false,{save:true});$('driveBrowse').onclick=()=>driveToken?showDriveLibrary():connectDrive();$('driveCopy').onclick=()=>showDriveLibrary(true);
 $('driveSetCurrentDefault').onclick=()=>setDriveDefault(driveCurrent);$('driveClearDefault').onclick=()=>setDriveDefault(null);
 $('driveClose').onclick=()=>driveDialog.close();$('driveRefresh').onclick=()=>loadDriveFiles();$('driveMore').onclick=()=>loadDriveFiles(true);
 $('driveSearch').oninput=()=>{clearTimeout(driveSearchTimer);driveSearchTimer=setTimeout(loadDriveFiles,300);};
