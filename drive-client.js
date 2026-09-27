@@ -1,7 +1,7 @@
 'use strict';
 class AtlasDriveClient {
   constructor({fetch:request=globalThis.fetch,session,onSession=()=>{},wait=ms=>new Promise(r=>setTimeout(r,ms))}) {
-    this.fetch=request;this.session=session;this.onSession=onSession;this.wait=wait;this.token='';this.expires=0;
+    this.fetch=(...args)=>Reflect.apply(request,globalThis,args);this.session=session;this.onSession=onSession;this.wait=wait;this.token='';this.expires=0;
   }
   async authenticate(force=false){
     if(!force&&this.token&&Date.now()<this.expires)return;

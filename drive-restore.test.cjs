@@ -3,6 +3,12 @@ const assert=require('node:assert/strict');
 const Client=require('./drive-client');
 const session=async()=>({configured:true,connected:true,accessToken:'token'});
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status});
+test('browser fetch receives its global receiver when listing maps and folders',async()=>{
+ let requests=0;const c=new Client({session,fetch:async function(url){
+   assert.equal(this,globalThis);assert.ok(url.startsWith('https://www.googleapis.com/drive/v3/files?'));requests++;return json({files:[]});
+ }});
+ await Promise.all([c.list(),c.list({folder:'root',folders:true})]);assert.equal(requests,2);
+});
 test('search escapes literals and preserves pagination',async()=>{
  const c=new Client({session,fetch:async url=>{const p=new URL(url).searchParams;assert.equal(p.get('pageToken'),'next');assert.ok(p.get('q').includes("name contains 'O\\'Brien\\\\magic'"));assert.ok(p.get('q').includes("'parent' in parents"));return json({files:[]});}});
  await c.list({folder:'parent',search:"O'Brien\\magic",pageToken:'next'});
