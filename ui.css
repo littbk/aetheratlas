@@ -355,3 +355,20 @@ body.compact-ui .map-tag{left:178px}@media (max-width:860px){body.compact-ui .ma
 
 .navigation-touch{display:none;position:absolute;left:12px;bottom:150px;z-index:7;gap:4px;touch-action:none}
 @media (pointer:coarse){.navigation-touch:not([hidden]){display:flex}.navigation-touch button{width:44px;height:44px;padding:0;background:#14212cf2;color:#c7d8e4;border:1px solid #54706f;border-radius:8px;touch-action:none}}
+
+/* Character exploration keeps movement and camera controls clear of map tools. */
+.navigation-touch{position:absolute;inset:0;pointer-events:none;display:none;z-index:12}
+.character-mode .navigation-touch:not([hidden]){display:block}
+.walk-stick{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:calc(22px + env(safe-area-inset-bottom));width:116px;height:116px;border-radius:50%;background:#14212cbb;border:2px solid #9adbc866;touch-action:none;pointer-events:auto;display:grid;place-items:center}
+.walk-knob{width:48px;height:48px;border-radius:50%;background:#9adbc8aa;border:2px solid #cff9eb;pointer-events:none}
+.walk-actions{position:absolute;right:max(14px,env(safe-area-inset-right));bottom:calc(25px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;pointer-events:auto}
+.navigation-touch .walk-actions button{width:96px;min-height:44px;height:44px;padding:6px;background:#14212cee;color:#d5eee6;border:1px solid #6aa795;border-radius:9px;font:12px system-ui;touch-action:manipulation}
+.navigation-touch .walk-actions button[aria-pressed=true]{background:#356553}
+.walk-instruction{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);color:#d5eee6;font:10px system-ui;white-space:nowrap;text-shadow:0 1px 3px #000}
+.character-mode .viewer-dock,.character-mode .zoom,.character-mode .view-switch,.character-mode .compass,.character-mode .map-name,.character-mode .map-tag,.character-mode .camera-settings,.character-mode .region-view-button{display:none!important}
+.character-mode .navigation-panel{display:none!important}
+.first-person{background:linear-gradient(#426f8a,#b1cfce 58%,#304d46)!important}
+.first-person::after{content:'+';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#ffffff99;font:20px system-ui;pointer-events:none}
+@media (pointer:fine){.walk-stick{display:none}.walk-instruction::after{content:' · WASD: mover · Shift: correr · V: câmera'}}
+@media (max-width:860px){body.character-mode>header,body.character-mode .mobile-toolbar,body.character-mode .mapbar,body.character-mode footer,body.character-mode .ad-banner{display:none!important}body.character-mode>main{height:100dvh}body.character-mode aside.left,body.character-mode aside.right,body.character-mode #panelBackdrop{display:none!important}}
+@media (max-height:450px){.walk-stick{width:96px;height:96px;bottom:14px}.walk-actions{bottom:14px;flex-direction:row}.navigation-touch .walk-actions button{width:76px}}

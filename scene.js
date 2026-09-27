@@ -19,6 +19,7 @@ class AtlasScene {
       attribute vec3 position; attribute vec2 uv; attribute float visible; attribute vec3 treeTint; attribute float treeLift; attribute vec3 archNormal; attribute vec2 archUV; varying vec3 canopyColor; varying highp vec3 architecturalPoint; varying vec3 surfaceNormal; varying highp vec2 materialUV; varying vec2 texcoord; varying float surfaceVisible; varying mediump float sphereLight;
       uniform vec2 viewport; uniform vec2 offset;
       uniform float zoom; uniform float yaw; uniform float tilt; uniform float roll; uniform float relief; uniform mediump float spherical;
+      uniform float firstPerson; uniform vec3 eyeOrigin; uniform vec3 eyeRight; uniform vec3 eyeUp; uniform vec3 eyeForward; uniform float focal;
       void main(){
         vec2 p=position.xy-vec2(800.,550.);
         float x; float py; float depth;
@@ -47,6 +48,12 @@ class AtlasScene {
         float w=1.-depth/2400.;
         gl_Position=vec4((rolledX*zoom+offset.x*w)*2./viewport.x,
           -(rolledY*zoom+offset.y*w)*2./viewport.y,-depth/2400.,w);
+        if(firstPerson>.5){
+          vec3 point=vec3(p,position.z*relief+treeLift);
+          if(spherical>.5){float lon=(uv.x-.5)*6.28318530718;float lat=(.5-uv.y)*3.14159265359;float r=470.+position.z*relief+treeLift;point=vec3(r*cos(lat)*sin(lon),-r*sin(lat),r*cos(lat)*cos(lon));}
+          vec3 delta=point-eyeOrigin;float distance=dot(delta,eyeForward);float nearPlane=.1;float farPlane=6000.;
+          gl_Position=vec4(dot(delta,eyeRight)*focal*2./viewport.x,dot(delta,eyeUp)*focal*2./viewport.y,((farPlane+nearPlane)/(farPlane-nearPlane))*distance-2.*farPlane*nearPlane/(farPlane-nearPlane),distance);
+        }
         surfaceNormal=archNormal;materialUV=archUV;architecturalPoint=vec3(position.xy,treeLift); texcoord=uv; surfaceVisible=visible; canopyColor=treeTint;
       }`));
     gl.attachShader(this.program,shader(gl.FRAGMENT_SHADER,`
@@ -184,6 +191,13 @@ class AtlasScene {
     const anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');if(anisotropy)gl.texParameterf(gl.TEXTURE_2D,anisotropy.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(8,gl.getParameter(anisotropy.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
   }
   project(x,y,z,camera,worldCoordinates=false) {
+    if(this.firstPerson){
+      const eye=this.firstPerson;let point=[x-800,y-550,z*camera.relief];
+      if(camera.planet){if(!worldCoordinates){x+=3200;y+=1650;}const lon=(x/8000-.5)*Math.PI*2,lat=(.5-y/4400)*Math.PI,r=470+z*camera.relief;point=[r*Math.cos(lat)*Math.sin(lon),-r*Math.sin(lat),r*Math.cos(lat)*Math.cos(lon)];}
+      const delta=point.map((v,i)=>v-eye.origin[i]),dot=v=>v.reduce((sum,n,i)=>sum+n*delta[i],0),depth=dot(eye.forward);
+      return {x:eye.width/2+dot(eye.right)*eye.focal/depth,y:eye.height/2-dot(eye.up)*eye.focal/depth,w:depth,visible:depth>.1};
+    }
+
     let regionVisible=true;
     if(camera.flatRegion){const r=camera.flatRegion;if(!worldCoordinates){x+=3200;y+=1650;}regionVisible=x>=r.x&&x<=r.x+r.width&&y>=r.y&&y<=r.y+r.height;x=x-r.x+(1600-r.width)/2;y=y-r.y+(1100-r.height)/2;}
     if(camera.planet){
@@ -209,7 +223,8 @@ class AtlasScene {
     for(const [name,size,offset] of [['position',3,0],['uv',2,12],['visible',1,20]]){
       const loc=gl.getAttribLocation(this.program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,24,offset);
     }
-    const uniform=name=>gl.getUniformLocation(this.program,name);const region=camera.flatRegion;gl.uniform1f(uniform('flatMode'),region?1:0);gl.uniform4f(uniform('regionClip'),region?region.x/8000:0,region?region.y/4400:0,region?(region.x+region.width)/8000:1,region?(region.y+region.height)/4400:1);
+    const uniform=name=>gl.getUniformLocation(this.program,name);
+    const eye=this.firstPerson;gl.uniform1f(uniform('firstPerson'),eye?1:0);if(eye){for(const [name,v] of [['eyeOrigin',eye.origin],['eyeRight',eye.right],['eyeUp',eye.up],['eyeForward',eye.forward]])gl.uniform3f(uniform(name),...v);gl.uniform1f(uniform('focal'),eye.focal);}const region=camera.flatRegion;gl.uniform1f(uniform('flatMode'),region?1:0);gl.uniform4f(uniform('regionClip'),region?region.x/8000:0,region?region.y/4400:0,region?(region.x+region.width)/8000:1,region?(region.y+region.height)/4400:1);
     for(const name of ['treeTint','treeLift']){const loc=gl.getAttribLocation(this.program,name);gl.disableVertexAttribArray(loc);if(name==='treeTint')gl.vertexAttrib3f(loc,0,0,0);else gl.vertexAttrib1f(loc,0);}
     for(const name of ['archNormal','archUV']){const loc=gl.getAttribLocation(this.program,name);gl.disableVertexAttribArray(loc);if(name==='archNormal')gl.vertexAttrib3f(loc,0,0,1);else gl.vertexAttrib2f(loc,0,0);}
     let unit=1;for(const [name,texture] of Object.entries(this.materialTextures)){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(uniform(name+'Map'),unit++);}
