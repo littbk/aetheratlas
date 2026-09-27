@@ -4,6 +4,10 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 
 ## Visual e câmera
 
+- O editor mostra um céu estrelado atrás do planeta. Quando o mapa é publicado com rotação ativa, o visualizador inicia com a mesma orientação do eixo e gira automaticamente; o jogador pode parar ou retomar a rotação no botão próprio.
+
+- Junto à grade e ao relevo 3D, **Polos e equador** liga ou desliga as marcações do Polo Norte, Polo Sul, eixo e equador. **Rotação do planeta** gira o globo lentamente; clique de novo para parar. A **engrenagem** nessa barra ajusta a inclinação lateral e a profundidade do eixo, com prévia imediata; a orientação é salva no JSON. A rotação para ao editar no mapa, entrar em uma região plana ou explorar com personagem.
+
 - No editor e no visualizador, **Lado oposto** gira 180° e **Focar local** encontra o ponto atual. A órbita do planeta atravessa os polos; mapas planos aceitam inclinação de −85° a 85°.
 - Clique no mapa para usar o teclado: **setas** giram e inclinam continuamente, **Q/E** giram a vista em Z, **WASD** desloca a câmera e **+/−** controla o zoom. **Espaço + arraste** ou o botão do meio desloca a vista. No modo Orbitar, dois dedos também mudam a direção e a inclinação.
 - **Explorar com personagem** ativa um viajante em terceira pessoa. **WASD** anda pela superfície, **Shift** corre e as **setas** ou o botão direito ajustam a câmera. A câmera acompanha o viajante; **Esc** restaura a vista anterior. A posição da exploração é temporária e não altera o marcador LOCAL ATUAL nem o projeto publicado. O movimento é livre, sem colisão com construções ou simulação de túneis.

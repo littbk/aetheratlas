@@ -1,10 +1,11 @@
 import {mkdir,copyFile,cp,readFile,writeFile} from 'node:fs/promises';
 import {build} from 'esbuild';
 await mkdir('public',{recursive:true});
-const editor=['ui.css','ui.js','terrain.js','world-surface.js','vegetation.js','structures.js','scene.js','paths.js','billboards.js','navigation.js','region-view.js','drive-client.js','app.js','drive.js','vegetation-controls.js','selection.js','ads.js'];
+const editor=['ui.css','ui.js','terrain.js','world-surface.js','vegetation.js','structures.js','scene.js','paths.js','billboards.js','navigation.js','region-view.js','drive-client.js','planet-guides.js','app.js','drive.js','vegetation-controls.js','selection.js','ads.js'];
 for(const name of editor)await copyFile(name,'public/'+name);
 const index=(await readFile('index.html','utf8')).replace('</body>','<script type="module" src="/account.js"></script></body>');await writeFile('public/index.html',index);
 let player=await readFile('mapa-rpg/index.html','utf8');player=player.replace('src="/app.js"','src="/player.js"').replace('src="/ui.js"','src="/viewer-ui.js"');await writeFile('public/player.html',player);
+await copyFile('planet-guides.js','public/planet-guides.js');
 await copyFile('mapa-rpg/viewer.css','public/viewer.css');await copyFile('mapa-rpg/ui.js','public/viewer-ui.js');await cp('mapa-rpg/renderer','public/renderer',{recursive:true});
 await writeFile('public/ads-config.js','window.ATLAS_ADS=Object.freeze({enabled:false,previewLocal:false});');
 await build({entryPoints:['account.js','player.js'],bundle:true,outdir:'public',format:'esm',target:['es2022'],minify:true});

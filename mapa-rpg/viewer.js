@@ -1,5 +1,11 @@
 ﻿import { validateProject } from './schema.js';
 
+export function initialCamera(project,planet){
+  const saved=project.camera||{},number=(v,fallback)=>Number.isFinite(v)?v:fallback;
+  const player=project.world?.playerLocation||{x:4000,y:2200};
+  return {yaw:AtlasNavigation.angle(number(saved.yaw,planet?-(player.x/8000-.5)*360:-12)),tilt:AtlasNavigation.pitch(number(saved.tilt,planet?(player.y/4400-.5)*180:38),planet),roll:((number(saved.roll,0)+180)%360+360)%360-180,relief:Math.max(0,Math.min(2,number(saved.relief,1)))};
+}
+
 export class MapViewer {
   constructor(canvas, stage, onChange) {
     this.canvas = canvas; this.stage = stage; this.ctx = canvas.getContext('2d');
@@ -11,12 +17,13 @@ export class MapViewer {
     this.returnButton.onclick=()=>this.onReturnToMain();
     this.mode = 'pan'; this.onChange = typeof onChange==='function'?onChange:()=>{}; this.pointers = new Map();
     this.navigation=new AtlasNavigation({canvas,stage,read:()=>this.camera(),write:c=>Object.assign(this.c,c),draw:()=>this.draw(),scene:this.scene,layers:()=>this.layers,location:()=>this.playerLocation||{x:4000,y:2200}});
+    this.guide=new AtlasPlanetGuides({scene:this.scene,read:()=>this.camera(),write:c=>Object.assign(this.c,c),redraw:()=>this.draw(),allowed:()=>this.camera().planet&&!!this.scene.gl&&!this.navigation.walking&&!this.submapMode,spinButton:document.getElementById('spinToggle')});
     this.flatRegion=null;this.flatCamera=null;this.regionView=new AtlasRegionView({canvas,stage,scene:this.scene,read:()=>this.camera(),world:()=>this.layers.some(l=>l.planet?.enabled)&&!!this.scene.gl,active:()=>this.flatRegion,enter:r=>this.enterFlatRegion(r),exit:()=>this.leaveFlatRegion()});
     this.blockedMessage=document.createElement('div');this.blockedMessage.className='location-blocked-message';this.blockedMessage.setAttribute('role','alert');this.blockedMessage.hidden=true;stage.append(this.blockedMessage);
     this.bind(); new ResizeObserver(() => { if (this.layers.length) this.fit(); }).observe(stage);
   }
   async load(project) {
-    this.flatRegion=null;this.flatCamera=null;this.regionView.cancel();this.navigation.panel.querySelector('[data-nav="walk"]').disabled=false;
+    this.guide.setSpinning(false);this.flatRegion=null;this.flatCamera=null;this.regionView.cancel();this.navigation.panel.querySelector('[data-nav="walk"]').disabled=false;
     validateProject(project);
     const bundle=project.format==='aether-atlas-world'?project:null;if(bundle)project=bundle.main;
     if(this.navigation.walking)this.navigation.toggle(false);if(this.returnState){this.layers=[];this.patches=[];this.texture=document.createElement('canvas');this.texture.width=1600;this.texture.height=1100;this.returnState=null;this.scene.planetTexture=null;this.scene.vertices=[];this.scene.projected=[];this.scene.vegetation=null;this.scene.structures=null;}
@@ -35,15 +42,9 @@ export class MapViewer {
         objects: Billboards.validate(v.objects ?? []), routes: MapPaths.validate(v.routes ?? []), tunnels: v.tunnels ?? [], structures: Structures.validate(v.structures ?? []), tiles:await WorldSurface.restore(v.tiles) });
     }
     this.layers = layers;
-    const camera = project.camera || {}, number = (v, fallback) => Number.isFinite(v) ? v : fallback;
-    this.c.yaw = AtlasNavigation.angle(number(camera.yaw, -12)); this.c.tilt = AtlasNavigation.pitch(number(camera.tilt, 38),layers.some(l=>l.planet?.enabled));
-    this.c.roll = ((number(camera.roll, 0)+180)%360+360)%360-180;
-    this.c.relief = Math.max(0, Math.min(2, number(camera.relief, 1)));
+    Object.assign(this.c,initialCamera(project,layers.some(l=>l.planet?.enabled)));
     this.playerLocation=project.world?.playerLocation||{x:4000,y:2200};
-    if(layers.some(l=>l.planet?.enabled)){
-      this.c.yaw=-(this.playerLocation.x/AtlasScene.WORLD_WIDTH-.5)*360;
-      this.c.tilt=(this.playerLocation.y/AtlasScene.WORLD_HEIGHT-.5)*180;
-    }
+    this.guide.marks=project.view?.planetGuides!==false;
     this.initial = { yaw: this.c.yaw, tilt: this.c.tilt, roll: this.c.roll, relief: this.c.relief };
     const settings = { texture: true, shade: true, contours: false, altitude: false, interval: 100, planet:project.world?.type==='planet' };
     for (const key of ['texture','shade','contours','altitude']) if (typeof project.view?.[key] === 'boolean') settings[key] = project.view[key];
@@ -63,7 +64,7 @@ export class MapViewer {
     for(const p of project.world?.patches??[]){const image=new Image();image.src=p.image;await image.decode();patches.push({...p,image});}
     this.submaps=bundle?.submaps||[];
     this.layers=layers;this.patches=patches;this.playerLocation=project.world?.playerLocation||{x:4000,y:2200};this.submapMode=false;this.stage.classList.remove('submap-mode');this.returnButton.hidden=true;
-    this.scene.update(this.texture,layers,{...this.camera(),terrainView:settings},patches); this.fit();
+    this.scene.update(this.texture,layers,{...this.camera(),terrainView:settings},patches); this.fit();this.guide.setSpinning(project.view?.planetSpin===true);
   }
   camera() { const planet=this.layers.some(l=>l.planet?.enabled)&&!this.flatRegion;return { ...this.c,flatRegion:this.flatRegion, relief: planet||this.c.tilt ? this.c.relief : 0, planet }; }
   draw() {
@@ -77,6 +78,7 @@ export class MapViewer {
     const result=this.scene.draw(width,height,d,this.camera());
     if(result) g.drawImage(result,0,0,width,height);
     else { this.c.tilt=0; g.save();g.translate(this.c.cx,this.c.cy);g.rotate((this.c.yaw+this.c.roll)*Math.PI/180);g.scale(this.c.zoom,this.c.zoom);g.drawImage(this.texture,-800,-550);g.restore(); }
+    this.guide.draw(g);
     Billboards.draw(g,Billboards.collect(this.layers,true),this.scene,this.camera(),this.layers,width,height);
     Billboards.drawSubmapEntries(g,this.patches,this.scene,this.camera(),width,height);
     if(!this.navigation.walking)Billboards.drawPlayerPivot(g,this.scene,this.camera(),this.playerLocation,width,height,this.layers);
@@ -152,7 +154,7 @@ export class MapViewer {
     const element=this.canvas;
     element.addEventListener('contextmenu',e=>e.preventDefault());
     element.addEventListener('wheel',e=>{e.preventDefault();const r=element.getBoundingClientRect();this.zoom(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top);},{passive:false});
-    element.addEventListener('pointerdown',e=>{e.preventDefault();element.setPointerCapture(e.pointerId);this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,button:e.button,altKey:e.altKey,space:this.space});this.clickStart=this.pointers.size===1?{id:e.pointerId,x:e.clientX,y:e.clientY}:null;this.snapshotGesture();});
+    element.addEventListener('pointerdown',e=>{if(this.guide.spinning)this.guide.setSpinning(false);e.preventDefault();element.setPointerCapture(e.pointerId);this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,button:e.button,altKey:e.altKey,space:this.space});this.clickStart=this.pointers.size===1?{id:e.pointerId,x:e.clientX,y:e.clientY}:null;this.snapshotGesture();});
     element.addEventListener('pointermove',e=>{
       if(!this.pointers.has(e.pointerId)||!this.gesture)return;
       this.pointers.set(e.pointerId,{...this.pointers.get(e.pointerId),x:e.clientX,y:e.clientY});
