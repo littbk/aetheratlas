@@ -9,9 +9,12 @@ test('browser fetch receives its global receiver when listing maps and folders',
  }});
  await Promise.all([c.list(),c.list({folder:'root',folders:true})]);assert.equal(requests,2);
 });
-test('search escapes literals and preserves pagination',async()=>{
- const c=new Client({session,fetch:async url=>{const p=new URL(url).searchParams;assert.equal(p.get('pageToken'),'next');assert.ok(p.get('q').includes("name contains 'O\\'Brien\\\\magic'"));assert.ok(p.get('q').includes("'parent' in parents"));return json({files:[]});}});
- await c.list({folder:'parent',search:"O'Brien\\magic",pageToken:'next'});
+test('search uses substring semantics and includes JSON suffix names',async()=>{
+ const c=new Client({session,fetch:async url=>{const p=new URL(url).searchParams;assert.equal(p.get('pageToken'),'next');assert.ok(p.get('q').includes("fullText contains 'final'"));assert.ok(p.get('q').includes("'parent' in parents"));assert.ok(p.get('q').includes("mimeType != 'application/vnd.google-apps.folder'"));return json({files:[{id:'json',name:'Aeron-final.json',mimeType:'application/octet-stream'},{id:'mime',name:'Aeron',mimeType:'application/json'},{id:'folder',name:'Final',mimeType:'application/vnd.google-apps.folder'},{id:'other',name:'final.png',mimeType:'image/png'}]});}});
+ const result=await c.list({folder:'parent',search:'final',pageToken:'next'});assert.deepEqual(result.files.map(f=>f.id),['json']);
+});
+test('map listing accepts JSON by name even when Drive reports generic binary MIME',async()=>{
+ const c=new Client({session,fetch:async()=>json({files:[{id:'map',name:'Aeron-final.json',mimeType:'application/octet-stream'},{id:'not-map',name:'Aeron-final.txt',mimeType:'text/plain'}]})});assert.deepEqual((await c.list()).files.map(f=>f.name),['Aeron-final.json']);
 });
 test('401 refreshes token and retries once',async()=>{
  let sessions=0,requests=0;const c=new Client({session:async()=>({...await session(),accessToken:String(++sessions)}),fetch:async()=>++requests===1?json({},401):json({id:'map'})});

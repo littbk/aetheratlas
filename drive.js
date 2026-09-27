@@ -98,7 +98,7 @@ async function loadDriveFiles(more=false){
   try{
     const [maps,folders]=await Promise.all([more&&!driveNextPage?Promise.resolve({files:[]}):driveClient.list({folder:driveFolder,search:$('driveSearch').value,pageToken:more?driveNextPage:''}),more&&!driveFolderPage?Promise.resolve({files:[]}):driveClient.list({folder:driveFolder||'root',folders:true,pageToken:more?driveFolderPage:''})]);
     if(serial!==driveListSerial)return;
-    driveFiles=more?[...driveFiles,...(folders.files||[]),...(maps.files||[])]:[...folders.files||[],...maps.files||[]];driveNextPage=maps.nextPageToken||'';driveFolderPage=folders.nextPageToken||'';renderDriveFiles();$('driveMore').hidden=!(driveNextPage||driveFolderPage);$('driveListStatus').textContent=driveFiles.length?'Escolha um mapa ou entre em uma pasta.':'Nenhum mapa encontrado. Você pode salvar o mapa atual nesta pasta.';
+    driveFiles=more?[...driveFiles,...(folders.files||[]),...(maps.files||[])]:[...folders.files||[],...maps.files||[]];driveFiles=[...new Map(driveFiles.map(file=>[file.id,file])).values()];driveNextPage=maps.nextPageToken||'';driveFolderPage=folders.nextPageToken||'';renderDriveFiles();$('driveMore').hidden=!(driveNextPage||driveFolderPage);$('driveListStatus').textContent=driveFiles.length?'Escolha um mapa ou entre em uma pasta.':'Nenhum mapa encontrado. Você pode salvar o mapa atual nesta pasta.';
   }catch(error){if(serial===driveListSerial){$('driveListStatus').textContent=error.message;$('driveFileList').replaceChildren();}}
   finally{if(serial===driveListSerial)$('driveMore').disabled=false;}
 }

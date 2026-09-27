@@ -19,12 +19,16 @@ class AtlasDriveClient {
     if(!r.ok)throw await AtlasDriveClient.error(r,'Não foi possível acessar este arquivo');const file=await r.json();if(file.trashed)throw Error('Este arquivo está na lixeira.');return file;
   }
   async list({folder='',search='',pageToken='',folders=false}={}){
-    const terms=['trashed = false',folders?"mimeType = 'application/vnd.google-apps.folder'":"(mimeType = 'application/json' or name contains '.json')"];
+    const terms=['trashed = false',folders?"mimeType = 'application/vnd.google-apps.folder'":"mimeType != 'application/vnd.google-apps.folder'"];
     if(folder)terms.push("'"+AtlasDriveClient.escape(folder)+"' in parents");
-    if(search.trim())terms.push("name contains '"+AtlasDriveClient.escape(search.trim().slice(0,100))+"'");
-    const params=new URLSearchParams({q:terms.join(' and '),orderBy:'folder,name',pageSize:'100',fields:'nextPageToken,files(id,name,mimeType,modifiedTime,parents,size,capabilities(canEdit))',spaces:'drive',includeItemsFromAllDrives:'true',supportsAllDrives:'true'});
+    // Drive's `name contains` only matches name prefixes. Filter client-side so
+    // searches find substrings such as `.json` in `Aeron-final.json`.
+    if(search.trim())terms.push("fullText contains '"+AtlasDriveClient.escape(search.trim().slice(0,100))+"'");
+    const params=new URLSearchParams({q:terms.join(' and '),orderBy:'folder,name',pageSize:'100',fields:'nextPageToken,files(id,name,mimeType,modifiedTime,parents,size,appProperties,capabilities(canEdit))',spaces:'drive',includeItemsFromAllDrives:'true',supportsAllDrives:'true'});
     if(pageToken)params.set('pageToken',pageToken);
-    const r=await this.request('https://www.googleapis.com/drive/v3/files?'+params);if(!r.ok)throw await AtlasDriveClient.error(r,'Não foi possível listar os mapas');return r.json();
+    const r=await this.request('https://www.googleapis.com/drive/v3/files?'+params);if(!r.ok)throw await AtlasDriveClient.error(r,'Não foi possível listar os mapas');const data=await r.json();
+    if(!folders){const term=search.trim().toLocaleLowerCase();data.files=(data.files||[]).filter(file=>file.mimeType==='application/json'||file.appProperties?.aetherAtlas==='project'||/\.json$/i.test(file.name||'')).filter(file=>!term||(file.name||'').toLocaleLowerCase().includes(term));}
+    return data;
   }
   async download(file){
     if(Number(file.size)>80*1024*1024)throw Error('Este projeto excede o limite de 80 MB.');

@@ -9,7 +9,7 @@ export class MapViewer {
     this.patches=[];this.submaps=[];this.submapMode=false;this.onReturnToMain=()=>{};this.clickStart=null;this.returnState=null;
     this.returnButton=document.createElement('button');this.returnButton.type='button';this.returnButton.textContent='↩ Voltar ao planeta';this.returnButton.className='submap-return';this.returnButton.hidden=true;stage.append(this.returnButton);
     this.returnButton.onclick=()=>this.onReturnToMain();
-    this.mode = 'pan'; this.onChange = onChange; this.pointers = new Map();
+    this.mode = 'pan'; this.onChange = typeof onChange==='function'?onChange:()=>{}; this.pointers = new Map();
     this.navigation=new AtlasNavigation({canvas,stage,read:()=>this.camera(),write:c=>Object.assign(this.c,c),draw:()=>this.draw(),scene:this.scene,layers:()=>this.layers,location:()=>this.playerLocation||{x:4000,y:2200}});
     this.flatRegion=null;this.flatCamera=null;this.regionView=new AtlasRegionView({canvas,stage,scene:this.scene,read:()=>this.camera(),world:()=>this.layers.some(l=>l.planet?.enabled)&&!!this.scene.gl,active:()=>this.flatRegion,enter:r=>this.enterFlatRegion(r),exit:()=>this.leaveFlatRegion()});
     this.blockedMessage=document.createElement('div');this.blockedMessage.className='location-blocked-message';this.blockedMessage.setAttribute('role','alert');this.blockedMessage.hidden=true;stage.append(this.blockedMessage);

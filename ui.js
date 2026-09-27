@@ -99,6 +99,6 @@
   document.addEventListener('pointerout',e=>{if(target&&!target.contains(e.relatedTarget))hide();});
   document.addEventListener('focusin',e=>show(e.target.closest('.icon-button')));
   document.addEventListener('focusout',hide);document.addEventListener('pointerdown',hide);document.addEventListener('keydown',e=>{if(e.key==='Escape')hide();});window.addEventListener('resize',hide);document.addEventListener('scroll',hide,true);
-  document.body.classList.add('compact-ui');
+  document.body.classList.add('compact-ui');document.documentElement.classList.remove('ui-loading');
   window.dispatchEvent(new Event('resize'));
 })();
