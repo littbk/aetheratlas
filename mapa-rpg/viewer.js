@@ -66,7 +66,7 @@ export class MapViewer {
     this.layers=layers;this.patches=patches;this.playerLocation=project.world?.playerLocation||{x:4000,y:2200};this.submapMode=false;this.stage.classList.remove('submap-mode');this.returnButton.hidden=true;
     this.scene.update(this.texture,layers,{...this.camera(),terrainView:settings},patches); this.fit();this.guide.setSpinning(project.view?.planetSpin===true);
   }
-  camera() { const planet=this.layers.some(l=>l.planet?.enabled)&&!this.flatRegion;return { ...this.c,flatRegion:this.flatRegion, relief: planet||this.c.tilt ? this.c.relief : 0, planet }; }
+  camera() { const planet=this.layers.some(l=>l.planet?.enabled)&&!this.flatRegion;return { ...this.c,flatRegion:this.flatRegion, relief: planet||this.c.tilt||this.submapMode ? this.c.relief : 0, planet }; }
   draw() {
     if (!this.layers.length) return;
     this.regionView.sync();
@@ -86,7 +86,7 @@ export class MapViewer {
     this.onChange(this.c,!!this.scene.gl);
   }
   fit(reset=false) {
-    if(reset&&this.flatRegion)Object.assign(this.c,{yaw:0,tilt:0,roll:0});else if(reset&&this.initial) Object.assign(this.c,this.initial);
+    if(reset&&this.flatRegion)Object.assign(this.c,{yaw:0,tilt:38,roll:0,relief:1});else if(reset&&this.initial) Object.assign(this.c,this.initial);
     if(this.camera().planet){this.c.zoom=Math.min(this.stage.clientWidth,this.stage.clientHeight)/1168*.78;this.c.cx=this.stage.clientWidth/2;this.c.cy=this.stage.clientHeight/2;this.draw();return;}
     const c={...this.camera(),cx:0,cy:0,zoom:1};
     const points=this.flatRegion?[[this.flatRegion.x,this.flatRegion.y],[this.flatRegion.x+this.flatRegion.width,this.flatRegion.y],[this.flatRegion.x,this.flatRegion.y+this.flatRegion.height],[this.flatRegion.x+this.flatRegion.width,this.flatRegion.y+this.flatRegion.height]].map(([x,y])=>this.scene.project(x-3200,y-1650,0,c)):this.layers.some(l=>l.planet?.enabled)?[[0,0],[400,0],[800,0],[1200,0],[1600,550],[1200,1100],[800,1100],[400,1100],[0,550]].map(([x,y])=>this.scene.project(x,y,0,c)):[[0,0],[1600,0],[0,1100],[1600,1100]].map(([x,y])=>this.scene.project(x,y,0,c));
@@ -97,7 +97,7 @@ export class MapViewer {
   }
   enterFlatRegion(region){
     if(!this.layers.some(l=>l.planet?.enabled))return;if(this.navigation.walking)this.navigation.toggle(false);
-    this.flatCamera={...this.c};this.flatRegion={...region};Object.assign(this.c,{yaw:0,tilt:0,roll:0,relief:1});this.navigation.panel.querySelector('[data-nav="walk"]').disabled=true;
+    this.flatCamera={...this.c};this.flatRegion={...region};Object.assign(this.c,{yaw:0,tilt:38,roll:0,relief:1});this.navigation.panel.querySelector('[data-nav="walk"]').disabled=true;
     this.scene.update(this.texture,this.layers,this.camera(),this.patches);this.fit();this.regionView.sync();
   }
   leaveFlatRegion(){
@@ -128,9 +128,10 @@ export class MapViewer {
     const layer={visible:true,opacity:1,planet:{enabled:false},c:mapCanvas,terrain:Terrain.create(),objects:[],routes:[],tunnels:[],structures:[],ink:null};
     this.texture.width=1600;this.texture.height=1100;this.texture.getContext('2d').drawImage(mapCanvas,0,0);
     this.layers=[layer];this.patches=[];this.playerLocation=null;this.submapMode=true;this.stage.classList.add('submap-mode');
-    this.c={yaw:0,tilt:0,roll:0,relief:0,zoom:Math.min(this.stage.clientWidth/1600,this.stage.clientHeight/1100)*.9,cx:this.stage.clientWidth/2,cy:this.stage.clientHeight/2};
+    this.c={...AtlasNavigation.submapCamera(),zoom:Math.min(this.stage.clientWidth/1600,this.stage.clientHeight/1100)*.9,cx:this.stage.clientWidth/2,cy:this.stage.clientHeight/2};
+    this.initial={yaw:this.c.yaw,tilt:this.c.tilt,roll:this.c.roll,relief:this.c.relief};
     this.scene.planetTexture=null;this.scene.vertices=[];this.scene.projected=[];this.scene.vegetation=null;this.scene.structures=null;
-    this.scene.update(this.texture,this.layers,this.camera(),[]);
+    this.scene.update(this.texture,this.layers,this.camera(),[]);this.fit();
     this.returnButton.hidden=false;document.getElementById('mapTitle').textContent=patch.name;document.getElementById('mapNote').textContent='Submapa plano';
     this.draw();return true;
   }
@@ -141,7 +142,7 @@ export class MapViewer {
     const settings={texture:true,shade:true,contours:false,altitude:false,interval:100,planet:false,...project.view},texture=document.createElement('canvas');texture.width=1600;texture.height=1100;const g=texture.getContext('2d'),layers=[];
     for(const v of project.layers){const image=await this.decodeSubmap(v.image),c=document.createElement('canvas');c.width=1600;c.height=1100;c.getContext('2d').drawImage(image,0,0);let ink=null;if(v.overlay){const overlay=await this.decodeSubmap(v.overlay);ink=document.createElement('canvas');ink.width=1600;ink.height=1100;ink.getContext('2d').drawImage(overlay,0,0);}layers.push({name:v.name,visible:v.visible,opacity:v.opacity,planet:{enabled:false},c,ink,terrain:project.version>=2?Terrain.validate(v.terrain):Terrain.create(),objects:Billboards.validate(v.objects||[]),routes:MapPaths.validate(v.routes||[]),tunnels:v.tunnels||[],structures:Structures.validate(v.structures||[])});}
     for(const l of layers)if(l.visible){g.globalAlpha=l.opacity;g.drawImage(l.c,0,0);g.drawImage(Terrain.render(l.terrain,settings),0,0,1600,1100);MapPaths.draw(g,l.routes);if(l.ink)g.drawImage(l.ink,0,0);Structures.drawPlan(g,l.structures);}g.globalAlpha=1;
-    this.texture=texture;this.layers=layers;this.patches=[];this.playerLocation=null;this.submapMode=true;this.stage.classList.add('submap-mode');Terrain.setTheme(project.theme||Terrain.defaultTheme);this.c={yaw:0,tilt:0,roll:0,relief:0,zoom:Math.min(this.stage.clientWidth/1600,this.stage.clientHeight/1100)*.9,cx:this.stage.clientWidth/2,cy:this.stage.clientHeight/2};this.scene.planetTexture=null;this.scene.update(texture,layers,this.camera(),[]);document.getElementById('mapTitle').textContent=name;document.getElementById('mapNote').textContent='Submapa plano';
+    this.texture=texture;this.layers=layers;this.patches=[];this.playerLocation=null;this.submapMode=true;this.stage.classList.add('submap-mode');Terrain.setTheme(project.theme||Terrain.defaultTheme);this.c={...AtlasNavigation.submapCamera(project.camera),zoom:Math.min(this.stage.clientWidth/1600,this.stage.clientHeight/1100)*.9,cx:this.stage.clientWidth/2,cy:this.stage.clientHeight/2};this.initial={yaw:this.c.yaw,tilt:this.c.tilt,roll:this.c.roll,relief:this.c.relief};this.scene.planetTexture=null;this.scene.update(texture,layers,this.camera(),[]);this.fit();document.getElementById('mapTitle').textContent=name;document.getElementById('mapNote').textContent='Submapa plano';
   }
   decodeSubmap(source){return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=source;});}
   snapshotGesture() {

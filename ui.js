@@ -6,7 +6,7 @@
     lock:'M6 10h12v11H6ZM8 10V6a4 4 0 0 1 8 0v4M12 14v3',unlock:'M6 10h12v11H6ZM8 10V6a4 4 0 0 1 8-1M12 14v3',viewOff:'M3 3l18 18M10 5c6-1 12 7 12 7l-4 4M6 6c-3 2-4 6-4 6s4 7 10 7l4-1',
     pan:'M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3',
     select:'m5 3 14 10-7 1-3 7Z',orbit:'M20 8a9 9 0 1 0 1 7M20 3v5h-5',player:'M12 3v3M12 18v3M3 12h3M18 12h3M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0',
-    brush:'m14 4 6 6M9 15l10-12 3 3-12 11M9 15c-5-2-2 6-7 6 8 2 10-2 7-6',raise:'M4 18h16M12 15V4M7 9l5-5 5 5',lower:'M4 18h16M12 4v11M7 10l5 5 5-5',
+    water:'M3 7c3-3 6 3 9 0s6-3 9 0M3 13c3-3 6 3 9 0s6-3 9 0M3 19c3-3 6 3 9 0s6-3 9 0',brush:'m14 4 6 6M9 15l10-12 3 3-12 11M9 15c-5-2-2 6-7 6 8 2 10-2 7-6',raise:'M4 18h16M12 15V4M7 9l5-5 5 5',lower:'M4 18h16M12 4v11M7 10l5 5 5-5',
     mountain:'m2 20 8-15 6 11 3-5 4 9ZM7 11l3 2 3-2',volcano:'m3 20 6-12h6l6 12ZM10 4l1-2M14 4l1-2M10 12h4',smooth:'M3 7c4-6 6 6 10 0s6 0 8 0M3 12c4-6 6 6 10 0s6 0 8 0M3 17c4-6 6 6 10 0s6 0 8 0',
     plateau:'m2 19 5-12h10l5 12M7 7h10',color:'M12 3c-3 5-7 8-7 12a7 7 0 0 0 14 0c0-4-4-7-7-12ZM9 16c0 2 1 3 3 3',river:'M7 2c12 5-8 7 4 12s-4 7-2 8M13 2c12 5-8 7 4 12s-4 7-2 8',path:'M5 3c16 3-14 9 6 12s-6 7-6 7',
     marker:'M19 9c0 5-7 12-7 12S5 14 5 9a7 7 0 1 1 14 0ZM14 9a2 2 0 1 1-4 0 2 2 0 0 1 4 0',text:'M4 5h16M12 5v16M8 21h8',erase:'m3 14 10-11 8 8-10 11H8ZM8 9l8 8M11 22h11',
@@ -49,9 +49,10 @@
   const mainTools=$('tools'),toolButtons=[...mainTools.children];mainTools.replaceChildren();
   const tools=ids=>{const grid=document.createElement('div');grid.className='tools ui-tool-grid';for(const id of ids){const button=toolButtons.find(b=>b.dataset.tool===id);if(button)grid.append(button);}return grid;};
   const explore=tools(['pan','select','orbit','player']);explore.id='tools';
-  const terrain=tools(['brush','raise','lower','mountain','volcano','smooth','plateau','color','river','path','erase']);
+  const terrain=tools(['brush','water','raise','lower','mountain','volcano','smooth','plateau','color','river','path','erase']);
   const places=tools(['marker','text','tunnel']);
   const worldTools=tools(['submap']);
+  const waterSettings=document.createElement('div');waterSettings.innerHTML='<label><input id="waterAuto" type="checkbox" checked> Preencher até a borda</label><label for="waterLevel">Nível manual da água</label><input id="waterLevel" type="number" min="-500" max="3000" step="1" value="0" disabled><p class="muted">Selecione Água e clique no fundo de um buraco. O preenchimento fica limitado à região atual. Use a borracha para remover água.</p>';waterSettings.querySelector('#waterAuto').onchange=e=>waterSettings.querySelector('#waterLevel').disabled=e.target.checked;
   const smart=detail('soft'),sculpt=detail('amount'),forest=detail('forestType'),world=detail('planetMode'),colors=detail('grassColor'),tunnels=detail('tunnelDepth');
   [smart,sculpt,forest,tunnels,colors].forEach(el=>{if(el)el.open=false;});world.open=true;
   const indoor=$('indoorTools'),palette=$('palette'),buildings=$('buildings');
@@ -65,7 +66,7 @@
   for(const id of ['architectureHeight','architectureWidth'])architectureSettings.querySelector('#'+id).addEventListener('input',e=>$(id+'Value').value=e.target.value);
   const placeControls=section('Marcador',setting('iconSize'),setting('rotation'),$('marker'),$('label'));
   const leftItems=[
-    ['terrain','Terreno','mountain',[section('Esculpir e pintar',terrain),section('Biomas',palette),smart,sculpt,forest]],
+    ['terrain','Terreno','mountain',[section('Esculpir e pintar',terrain),section('Biomas',palette),section('Preencher com água',waterSettings),smart,sculpt,forest]],
     ['architecture','Arquitetura','wall',[section('Ambientes e formas',indoor),section('Construção',architectureSettings)]],
     ['places','Locais','marker',[section('Locais e passagens',places),section('Construções',buildings),placeControls,tunnels]],
     ['world','Mundo e submapas','world',[section('Entrada de submapa',worldTools),world,colors]]

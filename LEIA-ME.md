@@ -26,7 +26,9 @@ Abra `index.html` no Chrome, Edge, Firefox ou Safari atual. O editor não depend
 
 ## Construção e edição
 
-- **Submapas planos:** clique em **Criar submapa plano** para criar uma cidade, dungeon ou interior vazio com suas próprias camadas, terreno, marcadores e ferramentas. Desenhe normalmente; **Salvar submapa e voltar** grava o interior como projeto plano separado. Selecione-o na lista e use **Fixar entrada no planeta** para definir o portal clicável. O JSON e a publicação incluem o pacote do planeta e todos os submapas. Pacotes antigos com interiores embutidos continuam aceitos.
+- **Água:** em Terreno, selecione Água e clique no fundo de uma depressão. **Preencher até a borda** calcula o nível mais baixo de saída; desmarque para informar uma altitude manual. Preenche apenas a área conectada abaixo desse nível na região atual. O fundo é preservado, a superfície aparece em 3D e acompanha o JSON e a publicação. Use a borracha para retirar água, ou Ctrl+Z para desfazer.
+
+- **Submapas planos:** a superfície não tem curvatura de planeta; relevo, árvores e arquitetura continuam em 3D, com câmera inclinada por padrão. clique em **Criar submapa plano** para criar uma cidade, dungeon ou interior vazio com suas próprias camadas, terreno, marcadores e ferramentas. Desenhe normalmente; **Salvar submapa e voltar** grava o interior como projeto plano separado. Selecione-o na lista e use **Fixar entrada no planeta** para definir o portal clicável. O JSON e a publicação incluem o pacote do planeta e todos os submapas. Pacotes antigos com interiores embutidos continuam aceitos.
 
 - Em **Árvores e florestas**, escolha floresta de copas, coqueiral de praia, pinheiros, floresta mágica de cristais, floresta outonal ou selva tropical e pinte com **Pintar vegetação**. Cada tipo tem sua cor de copa; os troncos também aceitam qualquer cor.
 - **Novas copas** e **Novos troncos** configuram as próximas árvores. As árvores já pintadas preservam suas próprias cores, inclusive após salvar, reabrir ou mudar a paleta. Projetos antigos sem cores individuais passam a preservar a paleta que tinham ao serem abertos.

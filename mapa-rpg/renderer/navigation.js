@@ -3,6 +3,11 @@
 class AtlasNavigation {
   static angle(v) { return ((v + 180) % 360 + 360) % 360 - 180; }
   static pitch(v, planet) { return planet ? AtlasNavigation.angle(v) : Math.max(-85, Math.min(85, v)); }
+  static submapCamera(saved={}) {
+    const number=(v,fallback)=>Number.isFinite(v)?v:fallback;
+    const relief=Math.max(.1,Math.min(2,number(saved.relief,1)||1));
+    return {yaw:AtlasNavigation.angle(number(saved.yaw,0)),tilt:AtlasNavigation.pitch(saved.relief===0?38:number(saved.tilt,38),false),roll:AtlasNavigation.angle(number(saved.roll,0)),relief};
+  }
   constructor({canvas, stage, read, write, draw, scene, layers, location}) {
     Object.assign(this, {canvas, stage, read, write, redraw:draw, scene, layers, location});
     this.keys = new Set(); this.walking = false; this.frame = 0; this.stride = 0;

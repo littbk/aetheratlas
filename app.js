@@ -5,7 +5,7 @@ rollSetting.innerHTML='<label for="roll">Rotação Z <span id="rollValue">0°</s
 document.querySelector('label[for="tilt"]').closest('.setting').after(rollSetting);
 const canvas=$('map'),ctx=canvas.getContext('2d');
 const colors=[['Pradaria','#87a56b'],['Floresta','#336349'],['Areia','#d3c591'],['Montanha','#9aab9a'],['Neve','#dee3d4'],['Água','#347787'],['Lava','#d84a1c']];
-const toolList=[['pan','✥','Navegar'],['select','↖','Seletor'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['submap','↗','Entrada submapa'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['text','T','Texto'],['erase','▱','Borracha']];
+const toolList=[['pan','✥','Navegar'],['select','↖','Seletor'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['submap','↗','Entrada submapa'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['water','≈','Água'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['text','T','Texto'],['erase','▱','Borracha']];
 const indoorToolList=[['wall','━','Muro'],['room','▣','Sala'],['corridor','▤','Corredor'],['floor','▦','Piso ladrilhado'],['rect','▱','Retângulo'],['rectFill','■','Piso quadrado'],['ellipse','◯','Círculo'],['ellipseFill','●','Círculo preenchido'],['line','╱','Linha'],['door','▯','Porta'],['window','⊞','Janela'],['stairs','▥','Escada'],['pillar','◉','Pilar'],['pit','⬭','Fosso']];
 let layers=[],patches=[],playerLocation={x:4000,y:2200},active=0,tool='pan',zoom=1,ox=0,oy=0,grid=false,down=false,last=null,space=false,history=[],future=[],dirty=false,timer,submapEdit=null;
 let selectedBiome='grass', selectedBuilding=null, strokeDistance=0;
@@ -16,11 +16,11 @@ mapTexture.width=W;mapTexture.height=H;
 let flatRegion=null,flatCamera=null;
 const worldMode=()=>layers.some(l=>l.planet?.enabled);
 let textureDirty=true, yaw=matchMedia('(max-width:860px)').matches?-65:-12, tilt=matchMedia('(max-width:860px)').matches?28:38, roll=0, relief=1, tunnelStart=null;
-const camera=()=>{const planet=worldMode()&&!flatRegion;return {yaw,tilt,roll,flatRegion,relief:planet||tilt?relief:0,zoom,cx:ox,cy:oy,planet};};
+const camera=()=>{const planet=worldMode()&&!flatRegion;return {yaw,tilt,roll,flatRegion,relief:planet||tilt||submapEdit?relief:0,zoom,cx:ox,cy:oy,planet};};
 const navigation=new AtlasNavigation({canvas,stage:$('viewport'),read:camera,write:c=>{if(c.yaw!==undefined)yaw=c.yaw;if(c.tilt!==undefined)tilt=c.tilt;if(c.roll!==undefined)roll=c.roll;if(c.zoom!==undefined)zoom=c.zoom;if(c.cx!==undefined)ox=c.cx;if(c.cy!==undefined)oy=c.cy;},draw,scene,layers:()=>layers,location:()=>playerLocation});
 const regionView=new AtlasRegionView({canvas,stage:$('viewport'),scene,read:camera,world:()=>worldMode()&&!!scene.gl,editable:true,active:()=>flatRegion,enter:enterFlatRegion,exit:leaveFlatRegion});
 const planetGuide=new AtlasPlanetGuides({scene,read:camera,write:c=>{if(c.yaw!==undefined)yaw=c.yaw;if(c.tilt!==undefined)tilt=c.tilt;if(c.roll!==undefined)roll=c.roll;},redraw:draw,allowed:()=>camera().planet&&!!scene.gl&&!navigation.walking,marksButton:$('planetGuides'),spinButton:$('planetSpin'),settingsButton:$('planetAxis'),axisPanel:$('planetAxisPanel')});
-function enterFlatRegion(region){if(!worldMode())return;if(navigation.walking)navigation.toggle(false);end();flatCamera={yaw,tilt,roll,relief,zoom,ox,oy};flatRegion={...region};yaw=0;tilt=0;roll=0;relief=1;navigation.panel.querySelector('[data-nav="walk"]').disabled=true;textureDirty=true;fit();regionView.sync();}
+function enterFlatRegion(region){if(!worldMode())return;if(navigation.walking)navigation.toggle(false);end();flatCamera={yaw,tilt,roll,relief,zoom,ox,oy};flatRegion={...region};yaw=0;tilt=38;roll=0;relief=1;navigation.panel.querySelector('[data-nav="walk"]').disabled=true;textureDirty=true;fit();regionView.sync();}
 function leaveFlatRegion(){if(!flatRegion)return;end();flatRegion=null;if(flatCamera)({yaw,tilt,roll,relief,zoom,ox,oy}=flatCamera);flatCamera=null;navigation.panel.querySelector('[data-nav="walk"]').disabled=false;textureDirty=true;draw();regionView.sync();}
 $('tilt').min=-180;$('tilt').max=180;
 function drawLayer(g,l){g.drawImage(l.c,0,0);g.drawImage(Terrain.render(l.terrain,viewSettings()),0,0,W,H);MapPaths.draw(g,l.routes);if(l.ink)g.drawImage(l.ink,0,0);Structures.drawPlan(g,l.structures);for(const tunnel of l.tunnels)drawTunnel(g,tunnel);}
@@ -219,6 +219,10 @@ function beginPaint(p){
   }
   if(!p.inside)return false;
   if(layers[active].locked||!layers[active].visible){notify('Selecione uma camada visível e desbloqueada.');return false;}
+  if(tool==='water'){
+    let filled=null;atRegion(p,q=>{filled=Terrain.waterFill(layers,q.x,q.y,$('waterAuto').checked?null:Number($('waterLevel').value));if(!filled.cells.length)return;remember();const t=layers[active].terrain;for(const k of filled.cells)t.waterLevels[k]=filled.level;t.dirty=true;});
+    if(filled?.cells.length){changed();notify('Água adicionada até o nível '+Math.round(filled.level)+'. Ctrl+Z para desfazer.');}else notify('Clique no fundo de uma depressão ou escolha um nível de água mais alto.');return false;
+  }
   if(tool==='tunnel'){addTunnel(p);return false;}
   if(tool==='text'&&!$('label').value.trim()){notify('Digite o nome ou texto no painel Ferramentas.');return false;}
   if(['marker','text'].includes(tool)&&layers[active].objects.length>=2000){notify('Limite de 2.000 marcadores por camada.');return false;}
@@ -258,7 +262,7 @@ canvas.onpointermove=e=>{
   else if(panning){ox+=p.sx-last.sx;oy+=p.sy-last.sy;draw();}
   else if(constructionStart){constructionPreview={tool,a:constructionStart,b:p};draw();}
   else{
-    if(pending&&Math.hypot(p.sx-pending.sx,p.sy-pending.sy)>5){if(!['tunnel','marker','text','player','submap',...indoorToolList.map(v=>v[0])].includes(tool)){beginPaint(pending);pending=null;}}
+    if(pending&&Math.hypot(p.sx-pending.sx,p.sy-pending.sy)>5){if(!['water','tunnel','marker','text','player','submap',...indoorToolList.map(v=>v[0])].includes(tool)){beginPaint(pending);pending=null;}}
     if(strokeStarted&&p.inside&&!['marker','text','tunnel'].includes(tool))paint(last.inside?last:p,p);
     if(!p.inside&&activeRoute){finishRoute();}
   }
@@ -319,7 +323,7 @@ async function hydrateSubmap(project,patch){
     for(const v of project.layers){if(typeof v.image!=='string'||!v.image.startsWith('data:image/png;base64,'))throw Error('Imagem de camada do submapa inválida.');const image=await decodeImage(v.image);if(image.width!==W||image.height!==H)throw Error('Dimensões de camada do submapa inválidas.');const l=layer(v.name||'Camada');l.c.getContext('2d').drawImage(image,0,0);l.visible=v.visible!==false;l.locked=!!v.locked;l.opacity=Number.isFinite(v.opacity)?v.opacity:1;l.planet={enabled:false};l.terrain=project.version>=2?Terrain.validate(v.terrain):Terrain.create();l.routes=MapPaths.validate(v.routes??[]);l.objects=Billboards.validate(v.objects??[]);l.tunnels=v.tunnels??[];l.structures=Structures.validate(v.structures??[]);if(v.overlay){const overlay=await decodeImage(v.overlay);l.ink=document.createElement('canvas');l.ink.width=W;l.ink.height=H;l.ink.getContext('2d').drawImage(overlay,0,0);}result.push(l);}
     return{layers:result,project};
   }
-  const image=patch.image instanceof HTMLImageElement?patch.image:await decodeImage(patch.data);const base=layer('Mapa base');base.c.getContext('2d').drawImage(image,0,0,W,H);return{layers:[base],project:null};
+  const image=patch.image instanceof HTMLImageElement?patch.image:await decodeImage(patch.data);const base=layer('Mapa base');base.planet={enabled:false};base.c.getContext('2d').drawImage(image,0,0,W,H);return{layers:[base],project:null};
 }
 async function enterSubmap(patch,initial=null){
   leaveFlatRegion();
@@ -328,7 +332,7 @@ async function enterSubmap(patch,initial=null){
   submapEdit={patch,parentProject,layers,patches,playerLocation,active,yaw,tilt,roll,relief,zoom,ox,oy,grid,tool,title:$('title').value,planetMode:$('planetMode').checked,theme,history,future,view:{textures:$('textures').checked,shade:$('shade').checked,contours:$('contours').checked,altitude:$('altitude').checked,interval:$('interval').value,underground:$('underground').checked}};
   layers=loaded.layers;patches=[];playerLocation={x:800,y:550};active=0;history=[];future=[];grid=false;$('grid').classList.remove('active');tunnelStart=null;activeRoute=null;
   $('planetMode').checked=false;$('planetMode').disabled=true;$('importSubmap').disabled=true;$('migrateProject').disabled=true;$('title').value=patch.name;tool='pan';document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool==='pan'));$('toolName').textContent='Submapa plano';$('finishSubmap').hidden=false;document.querySelector('.map-tag').classList.add('submap-edit-tag');
-  if(loaded.project?.camera){yaw=loaded.project.camera.yaw||0;tilt=loaded.project.camera.tilt||0;roll=loaded.project.camera.roll||0;relief=loaded.project.camera.relief||0;}else{yaw=0;tilt=0;roll=0;relief=0;}
+  ({yaw,tilt,roll,relief}=AtlasNavigation.submapCamera(loaded.project?.camera));$('relief').value=relief;
   $('textures').checked=loaded.project?.view?.texture!==false;$('shade').checked=loaded.project?.view?.shade!==false;$('contours').checked=!!loaded.project?.view?.contours;$('altitude').checked=!!loaded.project?.view?.altitude;
   $('interval').value=[50,100,250,500].includes(loaded.project?.view?.interval)?loaded.project.view.interval:100;
   refreshPatches();render();fit();changed();notify('Editando submapa plano. Use as ferramentas normalmente; ao terminar, salve e volte ao planeta.');

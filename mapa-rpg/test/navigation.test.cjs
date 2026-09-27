@@ -42,3 +42,10 @@ test('movement follows view heading and remains within flat map bounds',()=>{
  const flat=explorer();flat.firstPerson=false;flat.location=()=>flat.position;flat.read().tilt=85;flat.center();assert.equal(flat.read().tilt,55);
  const planet=explorer(true);planet.firstPerson=false;planet.location=()=>planet.position;planet.read().yaw=100;planet.read().tilt=100;planet.center();assert.equal(planet.read().yaw,45);assert.equal(planet.read().tilt,45);
  });
+
+test('flat submaps retain 3D relief and saved camera orientation',()=>{
+ const fresh=context.Nav.submapCamera();assert.equal(fresh.tilt,38);assert.equal(fresh.relief,1);
+ const legacy=context.Nav.submapCamera({yaw:20,tilt:0,roll:12,relief:0});assert.equal(legacy.relief,1);assert.equal(legacy.tilt,38);assert.equal(legacy.yaw,20);assert.equal(legacy.roll,12);
+ const saved=context.Nav.submapCamera({yaw:-30,tilt:55,roll:15,relief:1.5});assert.equal(saved.yaw,-30);assert.equal(saved.tilt,55);assert.equal(saved.roll,15);assert.equal(saved.relief,1.5);
+ const top=context.Nav.submapCamera({tilt:0,relief:1});assert.equal(top.tilt,0);assert.equal(top.relief,1);
+});

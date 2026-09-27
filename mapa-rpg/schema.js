@@ -35,6 +35,7 @@ export function validateProject(project) {
       for (let i = 0; i < 110000; i++) if (!inRange(t.heights[i], -500, 3000) ||
         !Number.isInteger(t.coverage[i]) || !inRange(t.coverage[i], 0, 255) ||
         !Number.isInteger(t.biomes[i]) || !inRange(t.biomes[i], 0, 13)) fail('Altitude ou bioma inválido.');
+      if(t.waterLevels!==undefined&&(!t.waterLevels||typeof t.waterLevels!=='object'||Array.isArray(t.waterLevels)||Object.keys(t.waterLevels).length>110000||Object.entries(t.waterLevels).some(([k,v])=>!/^(0|[1-9][0-9]*)$/.test(k)||+k>=110000||!inRange(v,-500,3000))))fail('Nível de água inválido.');
       if(t.treeStyles!==undefined||t.treeStyleIds!==undefined){
         if(!Array.isArray(t.treeStyles)||t.treeStyles.length>65535||t.treeStyles.some(s=>!s||!['foliage','trunk','ground'].every(k=>/^#[0-9a-f]{6}$/i.test(s[k])))||!Array.isArray(t.treeStyleIds)||t.treeStyleIds.length!==110000||t.treeStyleIds.some(id=>!Number.isInteger(id)||!inRange(id,0,t.treeStyles.length)))fail('Cores de vegetação inválidas.');
       }
