@@ -32,4 +32,16 @@ test('wall contact detects crossings, T junctions, thickness and transitive chai
 test('locked architecture remains unchanged on drag',()=>{
   const {c,wall,counts}=harness(),a=wall({x:100,y:100},{x:200,y:100});c.layers[0].structures=[a];c.layers[0].locked=true;c.Selector.pick({clientX:150,clientY:90,pointerId:1});c.Selector.move({clientX:180,clientY:110,pointerId:1});c.Selector.finish();assert.equal(a.points[0].x,100);assert.deepEqual(counts(),{undo:0,changes:0});
 });
+test('delete button removes the selected wall group with one undo snapshot',()=>{
+  const {c,wall,el,counts}=harness(),a=wall({x:100,y:100},{x:200,y:100}),b=wall({x:200,y:100},{x:200,y:200}),other=wall({x:400,y:100},{x:500,y:100});c.layers[0].structures=[a,b,other];
+  c.Selector.pick({clientX:150,clientY:90,pointerId:1});el('selectionDelete').onclick();assert.equal(c.layers[0].structures.length,1);assert.equal(c.layers[0].structures[0],other);assert.equal(c.Selector.selected,null);assert.deepEqual(counts(),{undo:1,changes:1});
+});
+test('deletion respects layer locks and deletes only the selected marker',()=>{
+  const {c,counts}=harness(),a={kind:'marker',x:100,y:100},b={kind:'marker',x:200,y:100};c.layers[0].objects=[a,b];c.billboardHits=[{layer:0,object:a,box:{x:90,y:90,w:20,h:20}}];
+  c.Selector.pick({clientX:100,clientY:100,pointerId:1});c.layers[0].locked=true;c.Selector.remove();assert.equal(c.layers[0].objects.length,2);assert.deepEqual(counts(),{undo:0,changes:0});c.layers[0].locked=false;c.Selector.remove();assert.equal(c.layers[0].objects.length,1);assert.equal(c.layers[0].objects[0],b);
+});
+test('generated tree deletion records an exclusion even when the object collection is full',()=>{
+  const {c,counts}=harness();c.layers[0].objects=Array.from({length:2000},()=>({}));c.layers[0].terrain={treeExclusions:new Set(),biomes:[]};c.layers[0].terrain.biomes[7]=2;c.scene.vegetation.entries=[{layer:0,index:7,x:100,y:100,base:0,height:20,radius:5}];
+  c.Selector.pick({clientX:100,clientY:90,pointerId:1});assert(c.Selector.selected.generated);c.Selector.remove();assert(c.layers[0].terrain.treeExclusions.has(7));assert.equal(c.layers[0].objects.length,2000);assert.deepEqual(counts(),{undo:1,changes:1});
+});
 

@@ -2,7 +2,7 @@
 const Selector=(()=>{
   let selected=null,drag=null;
   const panel=document.createElement('section');panel.className='selection-panel';panel.hidden=true;
-  panel.innerHTML='<h3>OBJETO SELECIONADO</h3><strong id="selectionName"></strong><p class="muted">Arraste no mapa ou informe a posição.</p><div class="selection-position"><label>X <input id="selectionX" type="number" min="0" max="1599" step="1"></label><label>Y <input id="selectionY" type="number" min="0" max="1099" step="1"></label></div><button id="selectionMove" type="button">Aplicar posição</button><label for="selectionLayer">Camada de destino</label><select id="selectionLayer"></select><button id="selectionTransfer" type="button">Mover para camada</button><div id="selectionTint"><label>Cor <input id="selectionColor" type="color"></label><label id="selectionTrunkLabel">Tronco <input id="selectionTrunk" type="color"></label></div><button id="selectionClear" type="button">Limpar seleção</button>';
+  panel.innerHTML='<h3>OBJETO SELECIONADO</h3><strong id="selectionName"></strong><p class="muted">Arraste no mapa ou informe a posição.</p><div class="selection-position"><label>X <input id="selectionX" type="number" min="0" max="1599" step="1"></label><label>Y <input id="selectionY" type="number" min="0" max="1099" step="1"></label></div><button id="selectionMove" type="button">Aplicar posição</button><label for="selectionLayer">Camada de destino</label><select id="selectionLayer"></select><button id="selectionTransfer" type="button">Mover para camada</button><div id="selectionTint"><label>Cor <input id="selectionColor" type="color"></label><label id="selectionTrunkLabel">Tronco <input id="selectionTrunk" type="color"></label></div><button id="selectionDelete" type="button">Excluir seleção</button><button id="selectionClear" type="button">Limpar seleção</button>';
   document.querySelector('#layersPanel .section-title').after(panel);
   const valid=()=>{
     if(!selected)return false;const l=layers[selected.layer];
@@ -22,6 +22,7 @@ const Selector=(()=>{
     const species={forest:'Floresta de copas',palms:'Coqueiro',pines:'Pinheiro',magic:'Árvore mágica',autumn:'Árvore outonal',jungle:'Árvore de selva',snowForest:'Pinheiro nevado'};
     $('selectionName').textContent=tree?(species[o.species||Terrain.biomes[o.type]]||'Árvore'):o.text||({building:Buildings.names[o.building],marker:'Marcador',text:'Texto',river:'Rio',path:'Caminho'}[o.kind])||(selected.collection==='tunnels'?'Túnel':'Objeto');
     if(selected.collection==='structures')$('selectionName').textContent=({wall:'Muro',room:'Sala',corridor:'Corredor',floor:'Piso',stairs:'Escada',door:'Porta',window:'Janela',pillar:'Pilar',pit:'Fosso'}[o.kind]||'Arquitetura')+(members().length>1?' · '+members().length+' peças':'');
+    $('selectionDelete').textContent=selected.members?.length>1?'Excluir grupo selecionado':'Excluir seleção';
     $('selectionX').value=Math.round(c.x);$('selectionY').value=Math.round(c.y);
     $('selectionLayer').replaceChildren();layers.forEach((l,i)=>{const option=new Option(l.name+(l.locked?' · bloqueada':''),i);option.disabled=l.locked; $('selectionLayer').add(option);});$('selectionLayer').value=selected.layer;
     $('selectionTint').hidden=!['objects','structures'].includes(selected.collection)&&!selected.generated;
@@ -107,6 +108,17 @@ const Selector=(()=>{
     if(!/^#[0-9a-f]{6}$/i.test(color)||!editable())return;
     remember();detach();for(const item of members())item.color=color;if(selected.object.kind==='tree'&&/^#[0-9a-f]{6}$/i.test(trunk))selected.object.trunkColor=trunk;changed();
   }
+  function remove(){
+    if(!valid())return;
+    if(layers[selected.layer].locked){notify('Desbloqueie a camada do objeto para excluí-lo.');return;}
+    finish();remember();const source=selected.source;
+    if(selected.generated){source.terrain.treeExclusions.add(selected.entry.index);source.terrain.dirty=true;}
+    else{
+      if(selected.collection==='structures')Structures.prepareEdit(source);
+      for(const item of members()){const index=source[selected.collection].indexOf(item);if(index>=0)source[selected.collection].splice(index,1);}
+    }
+    textureDirty=true;clear();changed();notify('Seleção excluída. Ctrl+Z para desfazer.');
+  }
   function drawOutline(g){
     if(tool!=='select'||!valid())return;
     let box;
@@ -123,13 +135,14 @@ const Selector=(()=>{
   $('selectionColor').onchange=() => recolor($('selectionColor').value,$('selectionTrunk').value);
   $('selectionTrunk').onchange=() => recolor($('selectionColor').value,$('selectionTrunk').value);
   $('selectionClear').onclick=clear;
+  $('selectionDelete').onclick=remove;
   const oldDown=canvas.onpointerdown,oldMove=canvas.onpointermove,oldUp=canvas.onpointerup,oldCancel=canvas.onpointercancel;
   canvas.onpointerdown=e=>{oldDown(e);if(tool==='select'&&!panning&&!orbiting&&!navigation.walking&&pointers.size===1)pick(e);else if(pointers.size>1)finish();};
   canvas.onpointermove=e=>{if(tool==='select'&&drag&&pointers.size===1&&!panning&&!orbiting){pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});move(e);}else oldMove(e);};
   canvas.onpointerup=e=>{finish();oldUp(e);};canvas.onpointercancel=e=>{finish();oldCancel(e);};
   canvas.addEventListener('lostpointercapture',finish);window.addEventListener('blur',finish);
   $('tools').addEventListener('click',finish,true);
-  window.addEventListener('keydown',e=>{if(e.key==='Escape')clear();});
+  window.addEventListener('keydown',e=>{if(e.key==='Escape')clear();if(e.key==='Delete'&&tool==='select'&&valid()&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.target?.closest?.('input,textarea,select,[contenteditable]')){e.preventDefault();remove();}});
   window.syncSelection=sync;window.drawSelection=drawOutline;
-  return {pick,move,finish,moveTo,transfer,recolor,clear,treeBox,get selected(){return selected;}};
+  return {pick,move,finish,moveTo,transfer,recolor,remove,clear,treeBox,get selected(){return selected;}};
 })();
