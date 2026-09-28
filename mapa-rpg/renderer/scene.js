@@ -60,16 +60,17 @@ class AtlasScene {
       precision highp float;
       varying vec2 texcoord; varying float surfaceVisible; varying mediump float sphereLight; uniform sampler2D atlas;
       uniform mediump float spherical; uniform vec3 ocean; uniform float treeMode; uniform float waterMode;
-      uniform sampler2D stoneMap; uniform sampler2D tileMap; uniform sampler2D woodMap; uniform sampler2D trimMap; uniform sampler2D shadowMap; uniform sampler2D terrainDetail; uniform sampler2D biomeMap; uniform vec2 terrainSize; uniform float textureDetail;
+      uniform sampler2D stoneMap; uniform sampler2D tileMap; uniform sampler2D woodMap; uniform sampler2D trimMap; uniform sampler2D shadowMap; uniform sampler2D terrainDetail; uniform sampler2D biomeMap; uniform vec2 terrainSize; uniform float textureDetail; uniform float fogPreview;
       uniform vec3 eyeDirection; uniform vec4 regionClip; uniform float flatMode;
       varying vec3 canopyColor; varying highp vec3 architecturalPoint; varying vec3 surfaceNormal; varying highp vec2 materialUV;
+      vec4 fogColor(vec4 color){if(texcoord.x<0.||texcoord.y<0.||texcoord.x>1.||texcoord.y>1.)return color;float fog=step(.5,1.-texture2D(shadowMap,texcoord).g);return mix(color,vec4(.055,.085,.11,1.),fog*(fogPreview>.5?.38:1.));}
       float groundShadow(){
         vec2 p=texcoord;
         if(p.x<0.||p.y<0.||p.x>1.||p.y>1.)return 1.;return texture2D(shadowMap,p).r;
       }
       void main(){
         if(surfaceVisible<.5)discard;if(flatMode>.5&&(texcoord.x<regionClip.x||texcoord.y<regionClip.y||texcoord.x>regionClip.z||texcoord.y>regionClip.w))discard;
-        if(waterMode>.5){vec2 waterPoint=texcoord*terrainSize*4.;float ripple=sin(waterPoint.x*.013+sin(waterPoint.y*.019)*1.4)*.012+sin(waterPoint.x*.009-waterPoint.y*.016)*.007;gl_FragColor=vec4((canopyColor+vec3(ripple))*sphereLight,1.);return;}
+        if(waterMode>.5){vec2 waterPoint=texcoord*terrainSize*4.;float ripple=sin(waterPoint.x*.013+sin(waterPoint.y*.019)*1.4)*.012+sin(waterPoint.x*.009-waterPoint.y*.016)*.007;gl_FragColor=fogColor(vec4((canopyColor+vec3(ripple))*sphereLight,1.));return;}
         if(treeMode>1.5){
           vec3 normal=normalize(surfaceNormal),tangent=abs(normal.z)>.7?vec3(1.,0.,0.):normalize(vec3(-normal.y,normal.x,0.));
           vec3 bitangent=normalize(cross(normal,tangent));
@@ -94,7 +95,7 @@ class AtlasScene {
           }else if(surfaceVisible>5.5&&surfaceVisible<6.5){
             result+=vec3(.2)*pow(max(0.,dot(reflect(-sun,normal),eyeDirection)),20.);
           }
-          gl_FragColor=vec4(result*sphereLight,1.);return;
+          gl_FragColor=fogColor(vec4(result*sphereLight,1.));return;
         }
         vec4 color=texture2D(atlas,texcoord);float shadow=groundShadow();
         if(treeMode<.5&&textureDetail>.5){
@@ -108,7 +109,7 @@ class AtlasScene {
           color.rgb=mix(color.rgb,ground,tag.a);
         }
         vec3 sea=ocean;if(textureDetail>.5)sea*=.94+texture2D(terrainDetail,texcoord*terrainSize/128.).g*.12;
-        gl_FragColor=treeMode>.5?vec4(canopyColor*sphereLight,1.):(spherical>.5||flatMode>.5?vec4(mix(sea,color.rgb,color.a)*sphereLight*shadow,1.):vec4(color.rgb*shadow,color.a));
+        gl_FragColor=fogColor(treeMode>.5?vec4(canopyColor*sphereLight,1.):(spherical>.5||flatMode>.5?vec4(mix(sea,color.rgb,color.a)*sphereLight*shadow,1.):vec4(color.rgb*shadow,color.a)));
       }`));
     gl.linkProgram(this.program);
     if(!gl.getProgramParameter(this.program,gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(this.program));
@@ -135,7 +136,7 @@ class AtlasScene {
     this.vertices=[]; this.projected=[];
     this.canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.gl=null;});
   }
-  update(texture,layers,camera={yaw:0},patches=[]) {
+  update(texture,layers,camera={yaw:0},patches=[]) {this.fogLayers=layers;
     if(!this.gl)return;
     const gl=this.gl, vertices=[], isPlanet=layers.some(l=>l.planet?.enabled), regional=isPlanet&&!!camera.flatRegion, spherical=isPlanet&&!regional;this.flatRegion=regional?camera.flatRegion:null;this.worldTexture=isPlanet;this.textureDetail=camera.terrainView?.texture!==false;
     const push=(x,y)=>{
@@ -171,6 +172,7 @@ class AtlasScene {
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.shadowTexture);
     const shadow=document.createElement('canvas');shadow.width=isPlanet?4000:1600;shadow.height=isPlanet?2200:1100;const sg=shadow.getContext('2d');sg.fillStyle='#fff';sg.fillRect(0,0,shadow.width,shadow.height);
     for(const region of regions)sg.drawImage(Structures.shadows(region.layers),isPlanet?region.x*.5:0,isPlanet?region.y*.5:0,isPlanet?800:1600,isPlanet?550:1100);
+    sg.globalCompositeOperation='screen';sg.fillStyle='#00ffff';sg.fillRect(0,0,shadow.width,shadow.height);sg.globalCompositeOperation='multiply';sg.imageSmoothingEnabled=false;for(const region of regions)for(const l of region.layers)if(l.visible!==false&&l.opacity!==0&&l.terrain.fog?.some(v=>v))sg.drawImage(Terrain.fogTexture(l.terrain,'#ff00ff'),isPlanet?region.x*.5:0,isPlanet?region.y*.5:0,isPlanet?800:1600,isPlanet?550:1100);sg.globalCompositeOperation='source-over';
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,shadow);
     const biome=document.createElement('canvas');biome.width=isPlanet?2000:400;biome.height=isPlanet?1100:275;const bg=biome.getContext('2d');bg.imageSmoothingEnabled=false;
     for(const r of regions)for(const l of r.layers)if(l.visible&&l.opacity){bg.globalAlpha=l.opacity;bg.drawImage(Terrain.biomeTexture(l.terrain),isPlanet?r.x/4:0,isPlanet?r.y/4:0);}
@@ -234,7 +236,7 @@ class AtlasScene {
     let unit=1;for(const [name,texture] of Object.entries(this.materialTextures)){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(uniform(name+'Map'),unit++);}
     gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,this.shadowTexture);gl.uniform1i(uniform('shadowMap'),unit++);gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,this.terrainDetailTexture);gl.uniform1i(uniform('terrainDetail'),unit++);gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,this.biomeTexture);gl.uniform1i(uniform('biomeMap'),unit);gl.uniform2f(uniform('terrainSize'),this.worldTexture?8000:1600,this.worldTexture?4400:1100);gl.uniform1f(uniform('textureDetail'),this.textureDetail?1:0);
     const t=camera.tilt*Math.PI/180,a=camera.yaw*Math.PI/180;gl.uniform3f(uniform('eyeDirection'),Math.sin(a)*Math.sin(t),Math.cos(a)*Math.sin(t),Math.cos(t));
-    gl.uniform1f(uniform('treeMode'),0);gl.uniform1f(uniform('waterMode'),0);
+    gl.uniform1f(uniform('fogPreview'),this.fogViewer?0:1);gl.uniform1f(uniform('treeMode'),0);gl.uniform1f(uniform('waterMode'),0);
     gl.uniform2f(uniform('viewport'),width,height);gl.uniform2f(uniform('offset'),camera.cx-width/2,camera.cy-height/2);
     for(const [name,value] of [['zoom',camera.zoom],['yaw',camera.yaw*Math.PI/180],['tilt',camera.tilt*Math.PI/180],['roll',(camera.roll||0)*Math.PI/180],['relief',camera.relief],['spherical',this.spherical?1:0]])gl.uniform1f(uniform(name),value);
     const water=Terrain.getTheme().water.match(/[0-9a-f]{2}/gi).map(v=>parseInt(v,16)/255);

@@ -102,3 +102,8 @@ O editor guarda uma cópia automática local do projeto e retoma o mapa/submapa,
 
 
 Apps Android (PWA): abra a versão HTTPS no Chrome e toque em Instalar app. Editor e visualizador possuem identidades próprias, com ícone 3D e inicialização em janela independente. Se o navegador não liberar o convite direto, use menu ⋮ → Adicionar à tela inicial → Instalar. O visualizador inicia no último link de mapa aberto neste navegador. O editor pode abrir a sessão local offline após a primeira visita online; Google, Drive, publicação e carregamento de mapas dos jogadores precisam de conexão. A instalação não exige APK ou Play Store.
+
+
+A estrela ao lado de Meus mapas define o mapa aberto como padrão deste navegador. ★ indica o padrão atual; clicar novamente remove a preferência. Um mapa padrão tem prioridade sobre a última sessão de outro mapa. O padrão funciona também com JSON local e com o projeto recuperado offline.
+
+FOG: na aba Terreno, selecione FOG e pinte com o tamanho de pincel escolhido. A máscara é translúcida no editor e opaca no visualizador, cobrindo terreno, água, arquitetura, vegetação e ocultando marcadores e entradas de submapas. Marque Revelar área para remover a máscara da camada selecionada. A máscara respeita a visibilidade da camada, é incluída no JSON, nos submapas e nas regiões do planeta e pode ser desfeita com Ctrl+Z. Salve/publique para atualizar o que os jogadores veem.

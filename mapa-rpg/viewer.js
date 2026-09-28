@@ -9,7 +9,7 @@ export function initialCamera(project,planet){
 export class MapViewer {
   constructor(canvas, stage, onChange) {
     this.canvas = canvas; this.stage = stage; this.ctx = canvas.getContext('2d');
-    this.scene = new AtlasScene(); this.texture = document.createElement('canvas');
+    this.scene = new AtlasScene();this.scene.fogViewer=true; this.texture = document.createElement('canvas');
     this.texture.width = 1600; this.texture.height = 1100;
     this.layers = []; this.c = { yaw: -12, tilt: 38, roll: 0, relief: 1, zoom: 1, cx: 0, cy: 0 };
     this.patches=[];this.submaps=[];this.submapMode=false;this.onReturnToMain=()=>{};this.clickStart=null;this.returnState=null;
@@ -77,7 +77,7 @@ export class MapViewer {
     const g=this.ctx; g.setTransform(d,0,0,d,0,0); g.clearRect(0,0,width,height);
     const result=this.scene.draw(width,height,d,this.camera());
     if(result) g.drawImage(result,0,0,width,height);
-    else { this.c.tilt=0; g.save();g.translate(this.c.cx,this.c.cy);g.rotate((this.c.yaw+this.c.roll)*Math.PI/180);g.scale(this.c.zoom,this.c.zoom);g.drawImage(this.texture,-800,-550);g.restore(); }
+    else { this.c.tilt=0; g.save();g.translate(this.c.cx,this.c.cy);g.rotate((this.c.yaw+this.c.roll)*Math.PI/180);g.scale(this.c.zoom,this.c.zoom);g.drawImage(this.texture,-800,-550);g.translate(-800,-550);Terrain.drawFog(g,this.layers,1);g.restore(); }
     this.guide.draw(g);
     Billboards.draw(g,Billboards.collect(this.layers,true),this.scene,this.camera(),this.layers,width,height);
     Billboards.drawSubmapEntries(g,this.patches,this.scene,this.camera(),width,height);

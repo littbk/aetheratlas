@@ -40,7 +40,7 @@ const Billboards=(()=>{
     }).filter(item=>item.anchor.visible!==false).sort((a,b)=>b.anchor.w-a.anchor.w||a.layer-b.layer);
   }
   function draw(g,entries,scene,camera,layers,width,height){
-    const items=layout(entries,scene,camera,layers),hits=[];
+    const items=layout(scene.fogViewer?entries.filter(e=>!Terrain.fogAt(layers,e.object.x,e.object.y)):entries,scene,camera,layers),hits=[];
     const occupied=items.filter(i=>i.object.kind!=='text'&&i.size>=6).map(i=>({x:i.anchor.x-i.size*.72,y:i.anchor.y-i.size*1.3-3,w:i.size*1.44,h:i.size*1.4}));
     for(const item of items){
       const o=item.object,p=item.anchor,size=item.size;
@@ -87,7 +87,7 @@ const Billboards=(()=>{
   }
   function drawPlayerPivot(g,scene,camera,location,width,height,layers=[]){
     if(!location)return;
-    const localX=location.x-AtlasScene.REGION_X,localY=location.y-AtlasScene.REGION_Y;
+    const localX=location.x-AtlasScene.REGION_X,localY=location.y-AtlasScene.REGION_Y;if(scene.fogViewer&&Terrain.fogAt(layers,localX,localY))return;
     const z=layers.length&&localX>=0&&localX<1600&&localY>=0&&localY<1100?surfaceHeight(localX,localY,layers):0;
     const p=camera.planet?scene.project(location.x,location.y,z,camera,true):scene.project(localX,localY,z,camera);
     if(p.visible===false||p.x<-80||p.x>width+80||p.y<-80||p.y>height+80)return;
@@ -100,13 +100,13 @@ const Billboards=(()=>{
   }
   function submapPosition(patch,scene,camera){return scene.project(patch.entry.x,patch.entry.y,0,camera,true);}
   function drawSubmapEntries(g,patches,scene,camera,width,height){
-    for(const patch of patches){if(patch.kind!=='submap'||!patch.entry)continue;const p=submapPosition(patch,scene,camera);
+    for(const patch of patches){if(patch.kind!=='submap'||!patch.entry)continue;if(scene.fogViewer&&Terrain.fogAt(scene.fogLayers||[],patch.entry.x-3200,patch.entry.y-1650))continue;const p=submapPosition(patch,scene,camera);
       if(p.visible===false||p.x<-50||p.x>width+50||p.y<-50||p.y>height+50)continue;
       const r=Math.max(7,Math.min(16,11*Math.pow(camera.zoom,.45)));g.save();g.translate(p.x,p.y);g.shadowColor='#071923';g.shadowBlur=6;g.fillStyle='#214b58';g.strokeStyle='#ffe2a0';g.lineWidth=2;g.beginPath();g.arc(0,0,r,0,Math.PI*2);g.fill();g.stroke();g.shadowBlur=0;g.fillStyle='#fff1c9';g.font='bold '+Math.max(9,Math.round(r*1.2))+'px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('↗',0,0);g.font='11px system-ui';g.textBaseline='top';g.lineWidth=3;g.strokeStyle='#0a2630';g.strokeText(patch.name,0,r+3);g.fillStyle='#fff1c9';g.fillText(patch.name,0,r+3);g.restore();
     }
   }
   function hitSubmap(x,y,patches,scene,camera){
-    for(const patch of patches){if(patch.kind!=='submap'||!patch.entry)continue;const p=submapPosition(patch,scene,camera),r=Math.max(18,28*camera.zoom/Math.max(.2,p.w));if(p.visible!==false&&Math.hypot(x-p.x,y-p.y)<=r)return patch;}
+    for(const patch of patches){if(patch.kind!=='submap'||!patch.entry)continue;if(scene.fogViewer&&Terrain.fogAt(scene.fogLayers||[],patch.entry.x-3200,patch.entry.y-1650))continue;const p=submapPosition(patch,scene,camera),r=Math.max(18,28*camera.zoom/Math.max(.2,p.w));if(p.visible!==false&&Math.hypot(x-p.x,y-p.y)<=r)return patch;}
     return null;
   }
   return {validate,collect,layout,draw,drawPlayerPivot,drawSubmapEntries,hitSubmap,surfaceHeight};

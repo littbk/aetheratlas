@@ -5,7 +5,7 @@ rollSetting.innerHTML='<label for="roll">Rotação Z <span id="rollValue">0°</s
 document.querySelector('label[for="tilt"]').closest('.setting').after(rollSetting);
 const canvas=$('map'),ctx=canvas.getContext('2d');
 const colors=[['Pradaria','#87a56b'],['Floresta','#336349'],['Areia','#d3c591'],['Montanha','#9aab9a'],['Neve','#dee3d4'],['Água','#347787'],['Lava','#d84a1c']];
-const toolList=[['pan','✥','Navegar'],['select','↖','Seletor'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['submap','↗','Entrada submapa'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['water','≈','Água'],['waterRemove','−','Remover água'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['text','T','Texto'],['erase','▱','Borracha']];
+const toolList=[['pan','✥','Navegar'],['select','↖','Seletor'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['submap','↗','Entrada submapa'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['fog','☁','FOG'],['water','≈','Água'],['waterRemove','−','Remover água'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['text','T','Texto'],['erase','▱','Borracha']];
 const indoorToolList=[['wall','━','Muro'],['room','▣','Sala'],['corridor','▤','Corredor'],['floor','▦','Piso ladrilhado'],['rect','▱','Retângulo'],['rectFill','■','Piso quadrado'],['ellipse','◯','Círculo'],['ellipseFill','●','Círculo preenchido'],['line','╱','Linha'],['door','▯','Porta'],['window','⊞','Janela'],['stairs','▥','Escada'],['pillar','◉','Pilar'],['pit','⬭','Fosso']];
 let layers=[],patches=[],playerLocation={x:4000,y:2200},active=0,tool='pan',zoom=1,ox=0,oy=0,grid=false,down=false,last=null,space=false,history=[],future=[],dirty=false,timer,submapEdit=null;
 let selectedBiome='grass', selectedBuilding=null, strokeDistance=0;
@@ -67,7 +67,7 @@ function draw(decorations=true){
   if(textureDirty)compose();
   const result=scene.draw(r.width,r.height,d,camera());
   if(result)ctx.drawImage(result,0,0,r.width,r.height);
-  else{tilt=0;ctx.save();ctx.translate(ox,oy);ctx.rotate((yaw+roll)*Math.PI/180);ctx.scale(zoom,zoom);ctx.drawImage(mapTexture,-W/2,-H/2);ctx.restore();$('cameraNote').textContent='Vista plana: aceleração 3D indisponível neste navegador.';}
+  else{tilt=0;ctx.save();ctx.translate(ox,oy);ctx.rotate((yaw+roll)*Math.PI/180);ctx.scale(zoom,zoom);ctx.drawImage(mapTexture,-W/2,-H/2);ctx.translate(-W/2,-H/2);Terrain.drawFog(ctx,layers,.35);ctx.restore();$('cameraNote').textContent='Vista plana: aceleração 3D indisponível neste navegador.';}
   if(decorations)planetGuide.draw(ctx);else planetGuide.sync();
   billboardHits=Billboards.draw(ctx,Billboards.collect(layers,$('underground').checked),scene,camera(),layers,r.width,r.height);
   if(!navigation.walking)Billboards.drawPlayerPivot(ctx,scene,camera(),playerLocation,r.width,r.height,layers);
@@ -130,6 +130,7 @@ function paint(a,b){
 }
 function paintLocal(a,b){
   textureDirty=true;
+  if(tool==='fog'){const distance=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.ceil(distance/Math.max(2,+$('size').value*.15)));for(let i=0;i<=steps;i++)Terrain.fogStamp(layers[active].terrain,a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,+$('size').value,$('fogReveal').checked,regionContext?.stretch||1);draw();return;}
   if(tool==='river'||tool==='path'){extendRoute(b);draw();return;}
   if(tool==='erase'&&b.hit){const l=layers[active];if(b.hit.tunnel)l.tunnels=l.tunnels.filter(t=>t!==b.hit.tunnel);else l.objects=l.objects.filter(o=>o!==b.hit.object);draw();return;}
   const smart=['brush','raise','mountain','volcano','lower','smooth','plateau','erase'].includes(tool);
