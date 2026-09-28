@@ -63,7 +63,9 @@ class AtlasScene {
       uniform sampler2D stoneMap; uniform sampler2D tileMap; uniform sampler2D woodMap; uniform sampler2D trimMap; uniform sampler2D shadowMap; uniform sampler2D terrainDetail; uniform sampler2D biomeMap; uniform vec2 terrainSize; uniform float textureDetail; uniform float fogPreview;
       uniform vec3 eyeDirection; uniform vec4 regionClip; uniform float flatMode;
       varying vec3 canopyColor; varying highp vec3 architecturalPoint; varying vec3 surfaceNormal; varying highp vec2 materialUV;
-      vec4 fogColor(vec4 color){if(texcoord.x<0.||texcoord.y<0.||texcoord.x>1.||texcoord.y>1.)return color;float fog=step(.5,1.-texture2D(shadowMap,texcoord).g);return mix(color,vec4(.055,.085,.11,1.),fog*(fogPreview>.5?.38:1.));}
+      float cloudHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+      float cloudNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(cloudHash(i),cloudHash(i+vec2(1.,0.)),f.x),mix(cloudHash(i+vec2(0.,1.)),cloudHash(i+vec2(1.,1.)),f.x),f.y);}
+      vec4 fogColor(vec4 color){if(texcoord.x<0.||texcoord.y<0.||texcoord.x>1.||texcoord.y>1.)return color;float fog=step(.5,1.-texture2D(shadowMap,texcoord).g);vec2 p=texcoord*terrainSize;float billow=cloudNoise(p*.016)*.55+cloudNoise(p*.041)*.3+cloudNoise(p*.096)*.15;float shade=.72+billow*.27;vec3 cloud=vec3(shade,shade+.018,shade+.035);return mix(color,vec4(cloud,1.),fog*(fogPreview>.5?.43:1.));}
       float groundShadow(){
         vec2 p=texcoord;
         if(p.x<0.||p.y<0.||p.x>1.||p.y>1.)return 1.;return texture2D(shadowMap,p).r;
