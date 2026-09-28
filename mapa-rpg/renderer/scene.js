@@ -115,7 +115,7 @@ class AtlasScene {
       }`));
     gl.linkProgram(this.program);
     if(!gl.getProgramParameter(this.program,gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(this.program));
-    this.waterBuffer=gl.createBuffer();this.waterColorBuffer=gl.createBuffer();this.buffer=gl.createBuffer(); this.treeBuffer=gl.createBuffer();this.structureBuffer=gl.createBuffer();this.texture=gl.createTexture();
+    this.waterBuffer=gl.createBuffer();this.waterColorBuffer=gl.createBuffer();this.buffer=gl.createBuffer(); this.treeBuffer=gl.createBuffer();this.structureBuffer=gl.createBuffer();this.buildingBuffer=gl.createBuffer();this.texture=gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
@@ -140,6 +140,7 @@ class AtlasScene {
   }
   update(texture,layers,camera={yaw:0},patches=[]) {this.fogLayers=layers;
     if(!this.gl)return;
+    Buildings3D.invalidate();
     const gl=this.gl, vertices=[], isPlanet=layers.some(l=>l.planet?.enabled), regional=isPlanet&&!!camera.flatRegion, spherical=isPlanet&&!regional;this.flatRegion=regional?camera.flatRegion:null;this.worldTexture=isPlanet;this.textureDetail=camera.terrainView?.texture!==false;
     const push=(x,y)=>{
       const localX=spherical?x-AtlasScene.REGION_X:x,localY=spherical?y-AtlasScene.REGION_Y:y;
@@ -171,6 +172,14 @@ class AtlasScene {
     // heightfield and exposes rectangular fragments on slopes.
     this.structures=merge(Structures.build,15);
     gl.bindBuffer(gl.ARRAY_BUFFER,this.structureBuffer);gl.bufferData(gl.ARRAY_BUFFER,this.structures.vertices,gl.STATIC_DRAW);
+    const buildingMeshes=regions.map(region=>{
+      const mesh=Buildings3D.build(region.layers,isPlanet),v=mesh.vertices;
+      if(isPlanet)for(let i=0;i<v.length;i+=15){v[i]+=region.gx*1600;v[i+1]+=region.gy*1100;v[i+3]=v[i]/8000;v[i+4]=v[i+1]/4400;if(regional){const r=camera.flatRegion;v[i]-=r.x-(1600-r.width)/2;v[i+1]-=r.y-(1100-r.height)/2;v[i+9]/=.37;}}
+      return{mesh,region};
+    });
+    const buildingVertices=new Float32Array(buildingMeshes.reduce((sum,{mesh})=>sum+mesh.vertices.length,0)),buildingEntries=[];let buildingOffset=0;
+    for(const {mesh,region} of buildingMeshes){buildingVertices.set(mesh.vertices,buildingOffset);for(const entry of mesh.entries)buildingEntries.push({...entry,first:entry.first+buildingOffset/15,object:{...entry.object,x:entry.object.x+region.gx*1600,y:entry.object.y+region.gy*1100}});buildingOffset+=mesh.vertices.length;}
+    this.buildings={vertices:buildingVertices,entries:buildingEntries};gl.bindBuffer(gl.ARRAY_BUFFER,this.buildingBuffer);gl.bufferData(gl.ARRAY_BUFFER,buildingVertices,gl.STATIC_DRAW);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.shadowTexture);
     const shadow=document.createElement('canvas');shadow.width=isPlanet?4000:1600;shadow.height=isPlanet?2200:1100;const sg=shadow.getContext('2d');sg.fillStyle='#fff';sg.fillRect(0,0,shadow.width,shadow.height);
     for(const region of regions)sg.drawImage(Structures.shadows(region.layers),isPlanet?region.x*.5:0,isPlanet?region.y*.5:0,isPlanet?800:1600,isPlanet?550:1100);
@@ -259,6 +268,14 @@ class AtlasScene {
         const loc=gl.getAttribLocation(this.program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,60,offset);
       }
       gl.uniform1f(uniform('treeMode'),2);gl.drawArrays(gl.TRIANGLES,0,this.structures.vertices.length/15);
+    }
+    if(this.buildings?.vertices.length){
+      gl.bindBuffer(gl.ARRAY_BUFFER,this.buildingBuffer);
+      for(const [name,size,offset] of [['position',3,0],['uv',2,12],['visible',1,20],['treeTint',3,24],['treeLift',1,36],['archNormal',3,40],['archUV',2,52]]){
+        const loc=gl.getAttribLocation(this.program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,60,offset);
+      }
+      gl.uniform1f(uniform('treeMode'),2);
+      for(const entry of this.buildings.entries)if(Buildings3D.near(entry.object,camera,this))gl.drawArrays(gl.TRIANGLES,entry.first,entry.count);
     }
     this.pickCamera=this.flatRegion?{...camera,flatRegion:null}:{...camera};this.waterProjected=null;
     this.projected=[];

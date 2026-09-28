@@ -1,5 +1,6 @@
 # Local browser profiles and generated validation artifacts
 .browser-*/
+.gizmo-probe/
 *-preview.png
 validation-results.json
 

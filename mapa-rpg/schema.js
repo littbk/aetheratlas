@@ -56,10 +56,11 @@ export function validateProject(project) {
     if (!Array.isArray(structures) || structures.length > 3000 || !Array.isArray(objects) || objects.length > 2000 || !Array.isArray(routes) || routes.length > 2000 ||
         !Array.isArray(tunnels) || tunnels.length > 1000) fail('Objetos do mapa inválidos.');
     const buildings = ['house','village','tower','castle','temple','bridge','camp','ruin','windmill','tunnel','cave'];
-    for (const o of objects) if (!o || !['building','marker','text','tree'].includes(o.kind) || !point(o) ||
-      !inRange(o.size,8,160) || !inRange(o.rotation,-360,360) || typeof o.text !== 'string' || o.text.length > 240 ||
+    for (const o of objects) if (!o || !['building','marker','text','tree','decor'].includes(o.kind) || !point(o) ||
+      (o.elevation!==undefined&&!inRange(o.elevation,-100,500)) || !inRange(o.size,8,160) || !inRange(o.rotation,-360,360) || typeof o.text !== 'string' || o.text.length > 240 ||
       !/^#[0-9a-f]{6}$/i.test(o.color) || (o.kind === 'building' && !buildings.includes(o.building)) ||
       (o.kind === 'tree' && (!['forest','palms','pines','magic','autumn','jungle','snowForest'].includes(o.species) || !/^#[0-9a-f]{6}$/i.test(o.trunkColor) || !inRange(o.seed,0,1))) ||
+      (o.kind === 'decor' && (!['grass','flower','rock','bush','mushroom'].includes(o.decor) || !inRange(o.seed,0,1))) ||
       (o.kind === 'marker' && !['◇','♜','▲','✦','♣'].includes(o.symbol))) fail('Marcador inválido.');
     let count = 0;
     for (const r of routes) if (!r || !['river','path'].includes(r.kind) || !inRange(r.width,1,180) ||
@@ -67,7 +68,7 @@ export function validateProject(project) {
     for (const t of tunnels) if (!t || !point(t.a) || !point(t.b) || !inRange(t.width,1,200) || !inRange(t.depth,5,500) ||
       (t.hollow !== undefined && typeof t.hollow !== 'boolean') || (t.route !== undefined && (!Array.isArray(t.route) || t.route.length < 2 || t.route.length > 1000 || !t.route.every(p => point(p) && inRange(p.z,-500,0))))) fail('Túnel inválido.');
     let structurePoints=0;
-    for(const item of structures)if(!item||(item.groupId!==undefined&&(typeof item.groupId!=='string'||item.groupId.length>100))||(item.planDynamic!==undefined&&typeof item.planDynamic!=='boolean')||(item.foundationPoints!==undefined&&(!Array.isArray(item.foundationPoints)||item.foundationPoints.length<3||item.foundationPoints.length>128||!item.foundationPoints.every(point)))||(item.base!==undefined&&!inRange(item.base,0,100))||(item.material!==undefined&&!['stone','tile','wood','glass','metal'].includes(item.material))||(item.kind!==undefined&&!['wall','room','corridor','floor','rect','rectFill','ellipse','ellipseFill','line','door','window','stairs','pillar','pit'].includes(item.kind))||!Array.isArray(item.points)||item.points.length<2||item.points.length>128||(structurePoints+=item.points.length)>100000||!item.points.every(point)||!inRange(item.width,1,180)||!inRange(item.height,-100,100)||typeof item.fill!=='boolean'||!/^#[0-9a-f]{6,8}$/i.test(item.color))fail('Construção 3D inválida.');
+    for(const item of structures)if(!item||(item.groupId!==undefined&&(typeof item.groupId!=='string'||item.groupId.length>100))||(item.planDynamic!==undefined&&typeof item.planDynamic!=='boolean')||(item.foundationPoints!==undefined&&(!Array.isArray(item.foundationPoints)||item.foundationPoints.length<3||item.foundationPoints.length>128||!item.foundationPoints.every(point)))||(item.elevation!==undefined&&!inRange(item.elevation,-100,500))||(item.base!==undefined&&!inRange(item.base,0,100))||(item.material!==undefined&&!['stone','tile','wood','glass','metal'].includes(item.material))||(item.kind!==undefined&&!['wall','room','corridor','floor','rect','rectFill','ellipse','ellipseFill','line','door','window','stairs','pillar','pit','bridgeWood','bridgeIron','bridgeSuspension'].includes(item.kind))||!Array.isArray(item.points)||item.points.length<2||item.points.length>128||(structurePoints+=item.points.length)>100000||!item.points.every(point)||!inRange(item.width,1,180)||!inRange(item.height,-100,100)||typeof item.fill!=='boolean'||!/^#[0-9a-f]{6,8}$/i.test(item.color))fail('Construção 3D inválida.');
   }
   return project;
 }

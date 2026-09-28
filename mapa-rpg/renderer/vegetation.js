@@ -24,12 +24,39 @@ const Vegetation=(()=>{
       candidates.push({x,y,n,type,layer,index:i,foliage:style.foliage,trunk:style.trunk,size:40});
     }
     layers.forEach((l,layer)=>{if(l.visible&&l.opacity>.05)for(const object of l.objects||[])if(object.kind==='tree')candidates.push({x:object.x,y:object.y,n:object.seed??random(object.x,object.y),type:Terrain.biomes.indexOf(object.species),layer,object,foliage:object.color,trunk:object.trunkColor,size:object.size});});
+    layers.forEach((l,layer)=>{if(l.visible&&l.opacity>.05)for(const object of l.objects||[])if(object.kind==='decor')candidates.push({x:object.x,y:object.y,n:object.seed,layer,object,size:object.size});});
     for(const entry of candidates){
-      const {x,y,n,type}=entry,base=surface(x,y),scale=planet?.37:1,key=type===2?'trees':Terrain.biomes[type],leaf=color(entry.foliage),trunk=color(entry.trunk),factor=entry.size/40;
+      if(entry.object?.kind==='decor'){
+        const o=entry.object,{x,y}=entry,base=surface(x,y)+(o.elevation||0),s=o.size/12,scale=planet?.37:1,turn=o.rotation*Math.PI/180,cs=Math.cos(turn),sn=Math.sin(turn);
+        entry.base=base;entry.height=(o.decor==='bush'?12:o.decor==='rock'?9:8)*s*scale;entry.radius=7*s;entries.push(entry);
+        const vertex=(p,tint,shade=1)=>{const wx=x+(p[0]*cs-p[1]*sn)+(planet?3200:0),wy=y+(p[0]*sn+p[1]*cs)+(planet?1650:0);vertices.push(wx,wy,base,wx/(planet?8000:1600),wy/(planet?4400:1100),1,...tint.map(v=>Math.max(0,Math.min(1,v*shade))),p[2]*scale);};
+        const tri=(a,b,c,tint,shade=1)=>{vertex(a,tint,shade);vertex(b,tint,shade);vertex(c,tint,shade);};
+        const rgb=value=>color(value),green=rgb('#59934d'),stem=rgb('#47744a'),tint=rgb(o.color),cream=rgb('#f0d7a0');
+        if(o.decor==='grass'||o.decor==='flower'){
+          for(let j=0;j<(o.decor==='grass'?7:5);j++){const a=j*2.399+o.seed*5,reach=(j%3)*1.4*s,px=Math.cos(a)*reach,py=Math.sin(a)*reach,h=(3.8+j%3*1.5)*s;
+            const lean=[Math.cos(a)*1.4*s,Math.sin(a)*1.4*s];tri([px-.8*s,py,0],[px+.8*s,py,0],[px+lean[0],py+lean[1],h],j%2?green:tint,.85+j*.04);
+          }
+          if(o.decor==='flower')for(let j=0;j<3;j++){const px=(j-1)*2.5*s,py=(j%2)*2*s,h=(5+j%2)*s;tri([px,py,h-1*s],[px,py,h+2*s],[px+1*s,py,h],stem);for(let k=0;k<5;k++){const a=k*Math.PI*2/5;tri([px,py,h+2*s],[px+Math.cos(a)*2.2*s,py+Math.sin(a)*2.2*s,h+1.7*s],[px+Math.cos(a+.9)*2.2*s,py+Math.sin(a+.9)*2.2*s,h+1.7*s],tint,1+(k%2)*.12);}tri([px-.7*s,py,h+2.1*s],[px+.7*s,py,h+2.1*s],[px,py+.7*s,h+2.1*s],cream);}
+        }else if(o.decor==='rock'){
+          const top=[0,0,7*s],mid=[[-5,-3,2],[-3,4,3],[3,5,2],[6,0,3],[3,-5,2]].map(p=>p.map(v=>v*s));
+          for(let j=0;j<5;j++){const a=mid[j],b=mid[(j+1)%5];tri(a,b,top,tint,.73+j*.085);tri([a[0]*1.15,a[1]*1.15,0],[b[0]*1.15,b[1]*1.15,0],b,tint,.58+j*.05);tri([a[0]*1.15,a[1]*1.15,0],b,a,tint,.63+j*.05);}
+        }else if(o.decor==='bush'){
+          for(let j=0;j<3;j++){const px=(j-1)*3*s,py=(j%2)*2*s,r=(4.5+j%2)*s,h=(5+j%2*2)*s;
+            for(let k=0;k<6;k++){const a=k*Math.PI/3,b=(k+1)*Math.PI/3;tri([px+Math.cos(a)*r,py+Math.sin(a)*r,1*s],[px+Math.cos(b)*r,py+Math.sin(b)*r,1*s],[px,py,h+4*s],j===1?green:tint,.75+k*.055);}
+          }
+        }else if(o.decor==='mushroom'){
+          for(let j=0;j<3;j++){const px=(j-1)*3.7*s,py=(j%2)*2*s,h=(3+j%2)*s,r=(2.5+j%2)*s;
+            for(let k=0;k<6;k++){const a=k*Math.PI/3,b=(k+1)*Math.PI/3;tri([px+Math.cos(a)*.5*s,py+Math.sin(a)*.5*s,0],[px+Math.cos(b)*.5*s,py+Math.sin(b)*.5*s,0],[px,py,h],cream,.83);tri([px+Math.cos(a)*r,py+Math.sin(a)*r,h],[px+Math.cos(b)*r,py+Math.sin(b)*r,h],[px,py,h+2*s],tint,.8+k*.055);}
+          }
+        }
+        count++;counts.decor=(counts.decor||0)+1;continue;
+      }
+      const {x,y,n,type}=entry,base=surface(x,y)+(entry.object?.elevation||0),scale=planet?.37:1,key=type===2?'trees':Terrain.biomes[type],leaf=color(entry.foliage),trunk=color(entry.trunk),factor=entry.size/40;
       const h=(type===8?31:type===9||type===13?28:20)*(0.8+n*.45)*factor,r=(type===12?10:7)*(0.85+n*.3)*factor;
       entry.base=base;entry.height=h*1.2*scale;entry.radius=r*(type===8?1.8:1.1);entries.push(entry);
+      const turn=(entry.object?.rotation||0)*Math.PI/180,cs=Math.cos(turn),sn=Math.sin(turn);
       const vertex=(p,tint,shade)=>{
-        const wx=x+p[0]+(planet?3200:0),wy=y+p[1]+(planet?1650:0);
+        const wx=x+p[0]*cs-p[1]*sn+(planet?3200:0),wy=y+p[0]*sn+p[1]*cs+(planet?1650:0);
         vertices.push(wx,wy,base,wx/(planet?8000:1600),wy/(planet?4400:1100),1,...tint.map(v=>Math.max(0,Math.min(1,v*shade))),p[2]*scale);
       };
       const triangle=(a,b,c,tint,shade=1)=>{vertex(a,tint,shade);vertex(b,tint,shade);vertex(c,tint,shade);};

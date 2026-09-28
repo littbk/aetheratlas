@@ -47,3 +47,16 @@ for(let i=0;i<doorway.length;i+=45){
 }
 assert.equal(blocked,false,'placing a door cuts the masonry behind it');
 
+context.Terrain.sample=(_,x)=>x<25?300:x>95?700:0;
+for(const kind of ['bridgeWood','bridgeIron','bridgeSuspension']){
+  const parts=context.Structures.capture(kind,[{points:[{x:20,y:100},{x:100,y:100}],stroke:'#927251',lineWidth:16}],50,{height:40,color:'#927251'});
+  assert.equal(parts.length,1,`${kind} is one selectable bridge`);
+  const restored=context.Structures.validate(JSON.parse(JSON.stringify(parts)));
+  const vertices=context.Structures.build([{structures:restored}],false).vertices;
+  assert(vertices.length>0&&Array.from(vertices).every(Number.isFinite),`${kind} builds finite geometry after save`);
+  const heights=Array.from({length:vertices.length/15},(_,i)=>vertices[i*15+9]);
+  assert(Math.max(...heights)>45,`${kind} follows the high landing`);
+  assert(Math.min(...heights)<25,`${kind} meets the low landing`);
+  if(kind==='bridgeSuspension')assert(Math.max(...heights)>55,'suspension towers and cables rise above deck');
+}
+

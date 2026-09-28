@@ -17,6 +17,7 @@ const Structures=(()=>{
     const points=primary.points;
     const groupId=globalThis.crypto?.randomUUID?.()||'construction-'+Date.now()+'-'+(++nextGroup);
     const piece=(points,fill,lift,width=thickness,tint=color,material=fill?floorMaterial:wallMaterial,close=true,base=0)=>({points:points.map(p=>({...p})),fill,height:lift,width,color:tint,material,kind,close,base,groupId,planDynamic:true});
+    if(['bridgeWood','bridgeIron','bridgeSuspension'].includes(kind))return[piece(points,false,height,thickness,color,kind==='bridgeWood'?'wood':'metal',false)];
     if(kind==='wall'||kind==='line')return[piece(points,false,kind==='line'?1:height,kind==='line'?Math.max(2,thickness*.3):thickness,color,wallMaterial,false)];
     if(kind==='room')return[piece(points,true,.8),piece(points,false,height)].map(p=>({...p,foundationPoints:points.map(v=>({...v}))}));
     if(kind==='corridor')return[piece(points,true,.8),piece([points[0],points[1]],false,height,thickness,color,wallMaterial,false),piece([points[3],points[2]],false,height,thickness,color,wallMaterial,false)];
@@ -117,7 +118,49 @@ const Structures=(()=>{
         face(a,tb,ta,shoulder,h,h,t,[[u,shoulder],[v,h],[u,h]]);material=m;distance+=len;
       }
     };
+    function bridge(part){
+      const [a,b]=part.points,dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);if(len<.01)return;
+      const ux=dx/len,uy=dy/len,nx=-uy,ny=ux,half=part.width/2,wood=part.kind==='bridgeWood';
+      const color=rgb(part.color),trim=wood?[.34,.22,.13]:[.27,.31,.34];
+      const terrain=t=>altitude(a.x+dx*t,a.y+dy*t),start=terrain(0)+1.2,end=terrain(1)+1.2;
+      const level=t=>Math.max(start+(end-start)*t,terrain(t)+part.height*.0325*Math.sin(Math.PI*t)**2);
+      const at=(t,side)=>({x:a.x+dx*t+nx*side,y:a.y+dy*t+ny*side});
+      const quad=(a,b,c,d,za,zb,zc,zd,t)=>{face(a,b,c,za,zb,zc,t,[[a.x,a.y],[b.x,b.y],[c.x,c.y]]);face(a,c,d,za,zc,zd,t,[[a.x,a.y],[c.x,c.y],[d.x,d.y]]);};
+      const strip=(t,u,side0,side1,z0,z1,depth,tint,mat)=>{
+        material=mat;const p=at(t,side0),q=at(u,side0),r=at(u,side1),s=at(t,side1);
+        quad(p,q,r,s,z0,z1,z1,z0,tint);
+        quad(s,r,q,p,z0-depth,z1-depth,z1-depth,z0-depth,tint);
+        quad(p,q,q,p,z0,z1,z1-depth,z0-depth,tint);
+        quad(s,r,r,s,z0-depth,z1-depth,z1,z0,tint);
+      };
+      const post=(t,side,bottom,top,radius,tint,mat)=>{
+        if(top<=bottom)return;material=mat;const p=at(t,side),poly=[{x:p.x+ux*radius+nx*radius,y:p.y+uy*radius+ny*radius},{x:p.x-ux*radius+nx*radius,y:p.y-uy*radius+ny*radius},{x:p.x-ux*radius-nx*radius,y:p.y-uy*radius-ny*radius},{x:p.x+ux*radius-nx*radius,y:p.y+uy*radius-ny*radius}];
+        prism(poly,top,tint,bottom,.12);
+      };
+      const n=Math.max(2,Math.min(60,Math.ceil(len/12)));
+      for(let i=0;i<n;i++){
+        const t=i/n,u=(i+1)/n,z=level(t),w=level(u);
+        strip(t,u,-half,half,z,w,wood?1.4:1.1,color,wood?4:6);
+        if(wood)strip(t,u,-half,half,z-.5,w-.5,.22,trim,4);
+        for(const side of [-1,1]){
+          const edge=side*half;
+          strip(t,u,edge-.45,edge+.45,z+3.7,w+3.7,.55,trim,wood?4:6);
+          if(!wood)strip(t,u,edge-.7,edge+.7,z-.65,w-.65,.65,trim,6);
+        }
+      }
+      for(let i=0;i<=n;i+=Math.max(1,Math.round(n/Math.max(2,len/18))))for(const side of [-1,1]){const t=i/n,z=level(t);post(t,side*half,z,z+4,.4,trim,wood?4:6);}
+      if(part.kind==='bridgeSuspension'){
+        const tower=Math.max(7,Math.min(23,part.height*.6));
+        const cable=t=>t<.18?level(0)+tower*t/.18:t>.82?level(1)+tower*(1-t)/.18:level(t)+tower*(.38+.62*(Math.abs(t-.5)/.32)**1.5);
+        for(const side of [-1,1]){
+          for(const t of [.18,.82])post(t,side*half,level(t),level(t)+tower,.8,trim,6);
+          for(let i=0;i<n;i++){const t=i/n,u=(i+1)/n;strip(t,u,side*half-.22,side*half+.22,cable(t),cable(u),.4,trim,6);}
+          for(let i=2;i<n;i+=2){const t=i/n;post(t,side*half,level(t)+3,cable(t),.18,trim,6);}
+        }
+      }else for(const t of [.2,.5,.8]){const z=level(t),g=terrain(t);if(z-g>2)for(const side of [-1,1])post(t,side*(half-.6),g,z,wood?.7:.55,trim,wood?4:6);}
+    }
     for(const layer of layers)if(layer.visible!==false&&layer.opacity!==0)for(const part of layer.structures||[]){
+      if(['bridgeWood','bridgeIron','bridgeSuspension'].includes(part.kind)){foundation=part.elevation||0;bridge(part);continue;}
       if(part.kind==='pit'&&part.fill)continue;
       if(part.kind&&!part.fill&&part.height===0)continue;
       const base=part.base||0,points=part.points,color=rgb(part.color),height=Math.max(0,Math.min(100,+part.height||.65));
@@ -130,6 +173,7 @@ const Structures=(()=>{
         const xs=groundPoints.map(p=>p.x),ys=groundPoints.map(p=>p.y);
         for(let y=Math.min(...ys);y<=Math.max(...ys);y+=24)for(let x=Math.min(...xs);x<=Math.max(...xs);x+=24)foundation=Math.max(foundation,altitude(x,y));
       }
+      foundation+=part.elevation||0;
       if(part.fill&&part.kind==='pillar'){
         const cx=points.reduce((s,p)=>s+p.x,0)/points.length,cy=points.reduce((s,p)=>s+p.y,0)/points.length;
         const scaled=k=>points.map(p=>({x:cx+(p.x-cx)*k,y:cy+(p.y-cy)*k}));material=8;
@@ -203,7 +247,7 @@ const Structures=(()=>{
   function validate(items){
     if(!Array.isArray(items)||items.length>3000)throw Error('Construções 3D inválidas.');
     return items.map(item=>{
-      if(!item||(item.groupId!==undefined&&(typeof item.groupId!=='string'||item.groupId.length>100))||(item.planDynamic!==undefined&&typeof item.planDynamic!=='boolean')||(item.foundationPoints!==undefined&&(!Array.isArray(item.foundationPoints)||item.foundationPoints.length<3||item.foundationPoints.length>128||item.foundationPoints.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)))||(item.base!==undefined&&(!Number.isFinite(item.base)||item.base<0||item.base>100))||(item.material!==undefined&&!['stone','tile','wood','glass','metal'].includes(item.material))||(item.kind!==undefined&&!['wall','room','corridor','floor','rect','rectFill','ellipse','ellipseFill','line','door','window','stairs','pillar','pit'].includes(item.kind))||!Array.isArray(item.points)||item.points.length<2||item.points.length>128||item.points.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)||!Number.isFinite(item.width)||item.width<1||item.width>180||!Number.isFinite(item.height)||item.height< -100||item.height>100||typeof item.fill!=='boolean'||!/^#[0-9a-f]{6,8}$/i.test(item.color))throw Error('Construção 3D inválida.');
+      if(!item||(item.groupId!==undefined&&(typeof item.groupId!=='string'||item.groupId.length>100))||(item.planDynamic!==undefined&&typeof item.planDynamic!=='boolean')||(item.foundationPoints!==undefined&&(!Array.isArray(item.foundationPoints)||item.foundationPoints.length<3||item.foundationPoints.length>128||item.foundationPoints.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)))||(item.elevation!==undefined&&(!Number.isFinite(item.elevation)||item.elevation< -100||item.elevation>500))||(item.base!==undefined&&(!Number.isFinite(item.base)||item.base<0||item.base>100))||(item.material!==undefined&&!['stone','tile','wood','glass','metal'].includes(item.material))||(item.kind!==undefined&&!['wall','room','corridor','floor','rect','rectFill','ellipse','ellipseFill','line','door','window','stairs','pillar','pit','bridgeWood','bridgeIron','bridgeSuspension'].includes(item.kind))||!Array.isArray(item.points)||item.points.length<2||item.points.length>128||item.points.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)||!Number.isFinite(item.width)||item.width<1||item.width>180||!Number.isFinite(item.height)||item.height< -100||item.height>100||typeof item.fill!=='boolean'||!/^#[0-9a-f]{6,8}$/i.test(item.color))throw Error('Construção 3D inválida.');
       return item;
     });
   }

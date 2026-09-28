@@ -5,10 +5,11 @@ rollSetting.innerHTML='<label for="roll">Rotação Z <span id="rollValue">0°</s
 document.querySelector('label[for="tilt"]').closest('.setting').after(rollSetting);
 const canvas=$('map'),ctx=canvas.getContext('2d');
 const colors=[['Pradaria','#87a56b'],['Floresta','#336349'],['Areia','#d3c591'],['Montanha','#9aab9a'],['Neve','#dee3d4'],['Água','#347787'],['Lava','#d84a1c']];
-const toolList=[['pan','✥','Navegar'],['select','↖','Seletor'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['submap','↗','Entrada submapa'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['fog','☁','FOG'],['water','≈','Água'],['waterRemove','−','Remover água'],['seaErase','◌','Borracha do mar'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['blend','〰','Misturar bordas'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['text','T','Texto'],['erase','▱','Borracha']];
-const indoorToolList=[['wall','━','Muro'],['room','▣','Sala'],['corridor','▤','Corredor'],['floor','▦','Piso ladrilhado'],['rect','▱','Retângulo'],['rectFill','■','Piso quadrado'],['ellipse','◯','Círculo'],['ellipseFill','●','Círculo preenchido'],['line','╱','Linha'],['door','▯','Porta'],['window','⊞','Janela'],['stairs','▥','Escada'],['pillar','◉','Pilar'],['pit','⬭','Fosso']];
+const toolList=[['pan','✥','Navegar'],['select','↖','Seletor'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['submap','↗','Entrada submapa'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['fog','☁','FOG'],['water','≈','Água'],['waterRemove','−','Remover água'],['seaErase','◌','Borracha do mar'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['blend','〰','Misturar bordas'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['settlement','⌂','Pincel de casas e vilas'],['text','T','Texto'],['erase','▱','Borracha']];
+const indoorToolList=[['wall','━','Muro'],['room','▣','Sala'],['corridor','▤','Corredor'],['floor','▦','Piso ladrilhado'],['rect','▱','Retângulo'],['rectFill','■','Piso quadrado'],['ellipse','◯','Círculo'],['ellipseFill','●','Círculo preenchido'],['line','╱','Linha'],['door','▯','Porta'],['window','⊞','Janela'],['stairs','▥','Escada'],['pillar','◉','Pilar'],['pit','⬭','Fosso'],['bridgeWood','▰','Ponte de madeira'],['bridgeIron','▰','Ponte de ferro'],['bridgeSuspension','⌢','Ponte suspensa']];
 let layers=[],patches=[],playerLocation={x:4000,y:2200},active=0,tool='pan',zoom=1,ox=0,oy=0,grid=false,down=false,last=null,space=false,history=[],future=[],dirty=false,timer,submapEdit=null;
 let selectedBiome='grass', selectedBuilding=null, strokeDistance=0;
+toolList.push(['decorate','✿','Decoração']);
 const viewSettings=()=>({texture:$('textures').checked,shade:$('shade').checked,contours:$('contours').checked,altitude:$('altitude').checked,interval:+$('interval').value,planetGuides:planetGuide.marks,planetSpin:planetGuide.spinning,autoGroupWalls:$('architectureAutoGroup')?.checked!==false,planet:$('planetMode')?.checked||false});
 let activeRoute=null,billboardHits=[];
 const scene=new AtlasScene(), mapTexture=document.createElement('canvas');
@@ -116,6 +117,18 @@ function inRegion(gx,gy,callback){
 }
 function atRegion(p,callback){if(!worldMode())return callback(p);const {gx,gy}=WorldSurface.locate(p.x,p.y);return inRegion(gx,gy,()=>callback({...p,x:p.x-gx*W,y:p.y-gy*H,hit:p.hit?{...p.hit,object:p.hit.originalObject||p.hit.object}:null}));}
 function paint(a,b){
+  if(tool==='decorate'&&worldMode()){
+    const distance=Math.hypot(b.x-a.x,b.y-a.y),spacing=Math.max(12,+$('decorRadius').value*.55);
+    if(!distance)atRegion(b,q=>paintLocal(q,q));
+    else{let at=spacing-strokeDistance;for(;at<=distance;at+=spacing){const p={...b,x:a.x+(b.x-a.x)*at/distance,y:a.y+(b.y-a.y)*at/distance};atRegion(p,q=>paintLocal(q,q));}strokeDistance=(strokeDistance+distance)%spacing;}
+    return;
+  }
+  if(tool==='settlement'&&worldMode()){
+    const radius=+$('settlementRadius')?.value||80;
+    const distance=Math.hypot(b.x-a.x,b.y-a.y),spacing=Math.max(12,radius*.5),steps=Math.max(1,Math.ceil(distance/spacing));
+    for(let i=0;i<=steps;i++){const p={...b,x:a.x+(b.x-a.x)*i/steps,y:a.y+(b.y-a.y)*i/steps};atRegion(p,q=>paintLocal(q,q));}
+    return;
+  }
   if(!worldMode())return paintLocal(a,b);
   let dx=b.x-a.x,dy=b.y-a.y;if(Math.abs(dx)>4000)dx-=Math.sign(dx)*8000;
   const spacing=Math.max(2,+$('size').value*.13),steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/spacing)),radius=+$('size').value/2;
@@ -130,6 +143,36 @@ function paint(a,b){
 }
 function paintLocal(a,b){
   textureDirty=true;
+  if(tool==='decorate'){
+    const objects=layers[active].objects,type=$('decorType').value,radius=+$('decorRadius').value,density=+$('decorDensity').value;
+    const size=type==='rock'?15:type==='bush'?19:type==='mushroom'?11:12;
+    const random=(x,y,n)=>{const v=Math.sin(x*127.1+y*311.7+n*73.7)*43758.5453;return v-Math.floor(v);};
+    const stamp=p=>{for(let i=0;i<density&&objects.length<2000;i++){
+      const angle=random(p.x,p.y,i*2)*Math.PI*2,reach=Math.sqrt(random(p.y,p.x,i*2+1))*radius*.5;
+      const x=p.x+Math.cos(angle)*reach,y=p.y+Math.sin(angle)*reach;
+      if(x<4||x>=1596||y<4||y>=1096)continue;
+      const seed=random(x,y,i+17);
+      objects.push({kind:'decor',decor:type,x,y,size:size*(.7+seed*.65),rotation:Math.round(random(y,x,i+5)*360),seed,text:'',color:$('decorColor').value});
+    }};
+    const distance=Math.hypot(b.x-a.x,b.y-a.y),spacing=Math.max(12,radius*.55);
+    if(!distance)stamp(b);else{let at=spacing-strokeDistance;for(;at<=distance;at+=spacing)stamp({x:a.x+(b.x-a.x)*at/distance,y:a.y+(b.y-a.y)*at/distance});strokeDistance=(strokeDistance+distance)%spacing;}
+    draw();return;
+  }
+  if(tool==='settlement'){
+    const type=$('settlementType')?.value||'house',size=+$('iconSize').value,radius=+$('settlementRadius')?.value||80,density=+$('settlementDensity')?.value||2,spacing=Math.max(18,radius*.52),distance=Math.hypot(b.x-a.x,b.y-a.y);
+    const random=(x,y,n)=>{const v=Math.sin(x*127.1+y*311.7+n*73.7)*43758.5453;return v-Math.floor(v);};
+    const stamp=p=>{const objects=layers[active].objects;if(objects.length>=2000)return;let placed=0;
+      for(let n=0;n<density*6&&placed<density&&objects.length<2000;n++){
+        const angle=random(p.x,p.y,n*2)*Math.PI*2,reach=n?Math.sqrt(random(p.y,p.x,n*2+1))*radius*.5:0,x=p.x+Math.cos(angle)*reach,y=p.y+Math.sin(angle)*reach;
+        const clearance=size*(type==='village'?1.65:.8);
+        if(x<clearance/2||x>=1600-clearance/2||y<clearance/2||y>=1100-clearance/2)continue;
+        if(objects.some(o=>o.kind==='building'&&['house','village','tower','castle'].includes(o.building)&&Math.hypot(o.x-x,o.y-y)<(o.size*(o.building==='village'?1.2:.65)+clearance)/2))continue;
+        objects.push({kind:'building',building:type,x,y,size,rotation:Math.round(random(x,y,n+23)*4)*90,text:'',color:'#f3e9c9'});placed++;
+      }
+    };
+    if(!distance)stamp(b);else{let at=spacing-strokeDistance;for(;at<=distance;at+=spacing)stamp({x:a.x+(b.x-a.x)*at/distance,y:a.y+(b.y-a.y)*at/distance});strokeDistance=(strokeDistance+distance)%spacing;}
+    draw();return;
+  }
   if(tool==='fog'){const distance=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.ceil(distance/Math.max(2,+$('size').value*.15)));for(let i=0;i<=steps;i++)Terrain.fogStamp(layers[active].terrain,a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,+$('size').value,$('fogReveal').checked,regionContext?.stretch||1);draw();return;}
   if(tool==='seaErase'){const distance=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.ceil(distance/Math.max(2,+$('size').value*.15)));for(let i=0;i<=steps;i++)Terrain.seaErase(layers,a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,+$('size').value,regionContext?.stretch||1);for(const layer of layers)if(!layer.locked){for(const surface of [layer.c,layer.ink])if(surface){const g=surface.getContext('2d');g.save();g.globalCompositeOperation='destination-out';g.lineCap='round';g.lineWidth=+$('size').value;g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x+.001,b.y);g.stroke();g.restore();}}draw();return;}
   if(tool==='river'||tool==='path'){extendRoute(b);draw();return;}
@@ -155,6 +198,7 @@ const architectureOptions=()=>({color:$('architectureColor')?.value||'#b6ad98',h
 const architectureSize=()=>($('architectureWidth')?+$('architectureWidth').value/.32:+$('size').value);
 function indoorParts(kind,a,b){
   const color=architectureOptions().color,thickness=Math.max(3,architectureSize()*.32),dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy),ux=len>1?dx/len:1,uy=len>1?dy/len:0,nx=-uy,ny=ux;
+  if(kind.startsWith('bridge'))return [{points:[a,len<8?{x:a.x+48,y:a.y}:b],stroke:color,lineWidth:thickness,material:kind==='bridgeWood'?'wood':'metal'}];
   if(len<8){b={x:a.x+48,y:a.y+32};}
   const x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y),w=Math.max(8,x1-x0),h=Math.max(8,y1-y0),cx=(x0+x1)/2,cy=(y0+y1)/2;
   const poly=(points,style={})=>({points:points.map(p=>Array.isArray(p)?{x:p[0],y:p[1]}:p),close:false,color,...style}),box=(fill=false,stroke=color,width=Math.max(2,+$('size').value*.12),fillColor=color)=>poly([[x0,y0],[x1,y0],[x1,y1],[x0,y1]],{close:true,fill:fill?fillColor:null,stroke,lineWidth:width});
@@ -192,7 +236,7 @@ function finishConstruction(a,b){
   constructionStart=null;constructionPreview=null;changed();return true;
 }
 function finishConstructionLocal(a,b){if(!layers[active]||!a?.inside||!b?.inside)return false;const parts=indoorParts(tool,a,b),layer=layers[active],geometry=Structures.capture(tool,parts,architectureSize(),architectureOptions());if(layer.structures.length+geometry.length>3000){notify('Limite de 3.000 peças arquitetônicas por camada.');return false;}if(tool==='pit')carvePit(layer,parts);layer.structures.push(...geometry);textureDirty=true;constructionStart=null;constructionPreview=null;changed();return true;}
-function drawConstructionPreview(g){if(!constructionPreview)return;const {tool,a,b}=constructionPreview,c=camera();g.save();g.globalAlpha=.65;g.setLineDash([5,4]);const meshes=Structures.capture(tool,indoorParts(tool,a,b),architectureSize(),architectureOptions());for(const part of meshes){const lift=part.height*(c.planet?.37:1),points=part.points.map(p=>scene.project(p.x,p.y,Math.max(0,Terrain.sample(layers,p.x,p.y)||0)*.065+lift,c));if(points.some(p=>p.visible===false))continue;g.beginPath();points.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));if(part.close)g.closePath();if(part.fill){g.fillStyle=part.color;g.fill();}else{g.strokeStyle=part.color;g.lineWidth=part.width*zoom;g.stroke();}}g.restore();}
+function drawConstructionPreview(g){if(!constructionPreview)return;const {tool,a,b}=constructionPreview,c=camera();g.save();g.globalAlpha=.65;g.setLineDash([5,4]);const meshes=Structures.capture(tool,indoorParts(tool,a,b),architectureSize(),architectureOptions());for(const part of meshes){if(tool.startsWith('bridge')){const [start,end]=part.points,ground=p=>Math.max(0,Terrain.sample(layers,p.x,p.y)||0)*.065,za=ground(start)+1.2,zb=ground(end)+1.2;const samples=Array.from({length:13},(_,i)=>{const t=i/12,p={x:start.x+(end.x-start.x)*t,y:start.y+(end.y-start.y)*t};return scene.project(p.x,p.y,Math.max(za+(zb-za)*t,ground(p)+part.height*.0325*Math.sin(Math.PI*t)**2)*(c.planet?.37:1),c);});if(samples.every(p=>p.visible!==false)){g.beginPath();samples.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.strokeStyle=part.color;g.lineWidth=Math.max(2,part.width*zoom);g.stroke();}continue;}const lift=part.height*(c.planet?.37:1),points=part.points.map(p=>scene.project(p.x,p.y,Math.max(0,Terrain.sample(layers,p.x,p.y)||0)*.065+lift,c));if(points.some(p=>p.visible===false))continue;g.beginPath();points.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));if(part.close)g.closePath();if(part.fill){g.fillStyle=part.color;g.fill();}else{g.strokeStyle=part.color;g.lineWidth=part.width*zoom;g.stroke();}}g.restore();}
 function placeMarker(p){return atRegion(p,placeMarkerLocal);}
 function placeMarkerLocal(p){
   layers[active].objects.push({kind:selectedBuilding?'building':'marker',x:p.x,y:p.y,size:+$('iconSize').value,rotation:+$('rotation').value,text:$('label').value.trim().slice(0,240),color:'#f3e9c9',...(selectedBuilding?{building:selectedBuilding}:{symbol:$('marker').value})});
@@ -291,7 +335,7 @@ canvas.oncontextmenu=e=>e.preventDefault();
 canvas.addEventListener('wheel',e=>{e.preventDefault();const r=canvas.getBoundingClientRect();magnify(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top);},{passive:false});
 function normalizeAngle(v){return ((v+180)%360+360)%360-180;}
 toolList.forEach(([id,icon,name])=>{let b=document.createElement('button');b.innerHTML=`<span>${icon}</span>${name}`;b.dataset.tool=id;b.className=id===tool?'active':'';b.onclick=()=>{end();tunnelStart=null;tool=id;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===id));$('toolName').textContent=name;canvas.style.cursor=['pan','orbit'].includes(id)?'grab':'crosshair';$('status').textContent=id==='tunnel'?'Toque na entrada e depois na saída':id==='submap'?'Clique no planeta para fixar a entrada do submapa':name;draw();};$('tools').append(b);});
-indoorToolList.forEach(([id,icon,name])=>{const b=document.createElement('button');b.innerHTML=`<span>${icon}</span>${name}`;b.dataset.tool=id;b.title=name+' · arraste para desenhar';b.className='indoor-tool';b.onclick=()=>{end();selectedBuilding=null;tunnelStart=null;tool=id;document.querySelectorAll('[data-tool]').forEach(v=>v.classList.toggle('active',v===b));$('toolName').textContent=name;$('status').textContent=`${name}: arraste para definir tamanho e orientação`;canvas.style.cursor='crosshair';draw();};$('indoorTools').append(b);});
+indoorToolList.forEach(([id,icon,name])=>{const b=document.createElement('button');b.innerHTML=`<span>${icon}</span>${name}`;b.dataset.tool=id;b.title=name+' · arraste para desenhar';b.className='indoor-tool';b.onclick=()=>{end();selectedBuilding=null;tunnelStart=null;tool=id;if(id.startsWith('bridge'))$('architectureColor').value=id==='bridgeWood'?'#94704e':'#65747e';document.querySelectorAll('[data-tool]').forEach(v=>v.classList.toggle('active',v===b));$('toolName').textContent=name;$('status').textContent=`${name}: arraste para definir tamanho e orientação`;canvas.style.cursor='crosshair';draw();};$('indoorTools').append(b);});
 colors.forEach(([name,color],i)=>{const b=document.createElement('button');b.className='swatch'+(!i?' selected':'');b.innerHTML=`<i style="background:${color}"></i>${name}`;b.onclick=()=>{$('color').value=color;selectedBiome=['grass','forest','sand','rock','snow','water','lava'][i];if(i===1)selectedBiome=$('forestType')?.value||'forest';document.querySelectorAll('.swatch').forEach(v=>v.classList.remove('selected'));b.classList.add('selected');document.querySelector('[data-tool="brush"]').click();};$('palette').append(b);});
 $('grassColor').oninput=$('treeColor').oninput=$('waterColor').oninput=$('lavaColor').oninput=$('sandColor').oninput=$('rockColor').oninput=$('snowColor').oninput=$('forestColor').oninput=()=>{Terrain.freezeLayers(layers);Terrain.setTheme({...Terrain.getTheme(),grass:$('grassColor').value,trees:$('treeColor').value,water:$('waterColor').value,lava:$('lavaColor').value,sand:$('sandColor').value,rock:$('rockColor').value,snow:$('snowColor').value,forest:$('forestColor').value});changed();};
 $('planetMode').onchange=()=>{leaveFlatRegion();remember();layers.forEach(l=>l.planet={enabled:$('planetMode').checked});textureDirty=true;changed();notify($('planetMode').checked?'Planeta ativado. Os dados e marcadores do mapa foram preservados.':'Superfície plana restaurada.');fit();};
