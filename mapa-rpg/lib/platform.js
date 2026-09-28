@@ -32,10 +32,11 @@ export async function handle(request){
  if(method==='DELETE'){if(!previous)return json({error:'Mapa não encontrado.'},404);await write(worldPath(user.id,id),{...previous,publishedPath:null});return json({ok:true});}
  if(method!=='POST')return json({error:'Método não permitido.'},405);
  const data=await request.json().catch(()=>null);if(!data||!ownsUpload(user.id,id,data.projectPath))return json({error:'Projeto inválido ou pertencente a outra conta.'},400);
+ if(data.updatePublished===true&&!previous?.publishedPath)return json({error:'Este mapa não está publicado. Publique antes de atualizar os jogadores.'},409);
  const file=await get(data.projectPath,{...options(),useCache:false});if(!file||file.blob.size>MAX_PROJECT_BYTES)return json({error:'Projeto ausente ou maior que 80 MB.'},400);
  let project;try{project=validateProject(await new Response(file.stream).json());}catch(e){return json({error:e.message||'Projeto inválido.'},400);}
  const now=new Date().toISOString(),map={...previous,id,owner:user.id,draftPath:data.projectPath,shareId:previous?.shareId||randomUUID(),title:String(data.title||project.title||project.main?.title||'Meu mundo').trim().slice(0,90),note:String(data.note||'').trim().slice(0,240),updatedAt:now};
- if(data.publish===true){map.publishedTitle=map.title;map.publishedNote=map.note;map.publishedPath=data.projectPath;map.publishedAt=now;await write(`atlas/shares/${map.shareId}.json`,{owner:user.id,id});}
+ if(data.publish===true||data.updatePublished===true){map.publishedTitle=map.title;map.publishedNote=map.note;map.publishedPath=data.projectPath;map.publishedAt=now;if(data.publish===true)await write(`atlas/shares/${map.shareId}.json`,{owner:user.id,id});}
  await write(worldPath(user.id,id),map);
  await cleanup(user.id,id,[map.draftPath,map.publishedPath]).catch(()=>{});
  return json({ok:true,map:privateInfo(map)});
