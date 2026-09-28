@@ -153,3 +153,29 @@ body.modern-viewer .brand{font:13px system-ui;letter-spacing:1.5px;gap:9px}body.
 
 /* O visualizador compartilha o céu estrelado do editor atrás do canvas transparente. */
 body.modern-viewer .stage:not(.first-person){background-color:#071320;background-image:radial-gradient(circle at 7% 13%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 17% 34%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 23% 8%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 31% 72%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 39% 24%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 48% 11%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 57% 60%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 68% 17%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 76% 41%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 89% 9%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 94% 69%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 12% 82%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 26% 56%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 35% 91%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 44% 43%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 53% 78%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 64% 36%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 72% 89%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 82% 24%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 97% 54%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 4% 57%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 15% 64%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 29% 27%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 41% 5%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 59% 94%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 70% 6%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 85% 82%,#dceeffc8 0 1px,transparent 2px),radial-gradient(circle at 92% 36%,#dceeffc8 0 1px,transparent 2px),radial-gradient(ellipse at 52% 47%,#17344a 0%,#0b1b2d 59%,#050e1b 100%)}
+
+.region-view-controls{position:absolute;z-index:10;left:50%;bottom:75px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #77bca6;border-radius:14px;background:#132932f5;color:#e5f7ef;box-shadow:0 12px 30px #06131bb0;font:12px system-ui;white-space:nowrap}
+.region-view-controls[hidden]{display:none!important}
+.region-view-controls>div{display:flex;gap:3px;padding:3px;border-radius:9px;background:#091b22}
+.region-view-controls button{min-height:38px;padding:7px 10px;border:0;border-radius:7px;background:transparent;color:#cce3db;font:600 12px system-ui}
+.region-view-controls button[aria-pressed=true]{background:#9adbc8;color:#102b29}
+.region-view-controls .region-view-cancel{border:1px solid #6c918b}
+body.modern-viewer .region-view-selection{border:2px solid #c4ffe9;border-radius:7px;background:#9adbc833;box-shadow:0 0 0 9999px #07151b33}
+body.modern-viewer .region-view-hint{top:70px;padding:9px 14px;border-radius:12px;background:#102b32f5;color:#e1f8ec;box-shadow:0 8px 22px #07151b88;font-size:12px}
+.walk-stick{background:radial-gradient(circle,#244339cc,#10232bdf);border-color:#a1e0c0;box-shadow:0 8px 28px #06131b99}
+.walk-knob{background:#a8e8c9;border-color:#ecfff3;box-shadow:0 3px 12px #06131ba0;transition:transform 65ms linear}
+@media(max-width:860px){.region-view-controls{bottom:calc(76px + env(safe-area-inset-bottom));width:calc(100% - 24px);max-width:370px;justify-content:space-between;flex-wrap:wrap}.region-view-controls>span{width:100%;font-weight:700}.region-view-controls>div{flex:1;justify-content:space-between}.region-view-controls button{min-height:42px}}
+
+.region-view-outline{position:absolute;inset:0;width:100%;height:100%;z-index:9;overflow:visible;pointer-events:none}
+.region-view-outline[hidden]{display:none!important}
+.region-view-area{fill:#f5c6764d;stroke:#ffe2a4;stroke-width:2.5;stroke-linejoin:round;filter:drop-shadow(0 0 5px #f7b954)}
+.region-view-area.partial{fill:none;stroke-dasharray:7 5}
+.region-view-center{fill:#fff4d8;stroke:#a7552b;stroke-width:3;filter:drop-shadow(0 0 5px #f7b954)}
+.region-view-center[hidden]{display:none}
+.region-view-back{position:absolute;top:14px;right:14px;z-index:12;padding:10px 15px;border:1px solid #ffd290;border-radius:11px;background:#b75d2c;color:#fff9e8;box-shadow:0 6px 20px #2f160aaa;font:700 12px system-ui;cursor:pointer}
+.region-view-back:hover{background:#cb713b}
+.region-view-back[hidden]{display:none!important}
+.region-view-controls .region-view-confirm{background:#e2a963;color:#281c13;font-weight:700}
+.region-view-controls .region-view-confirm:disabled{opacity:.45}
+.region-view-controls .region-view-cancel{font-size:20px;line-height:1;min-width:38px}
+@media(max-width:860px){.region-view-back{top:12px;right:12px;min-height:44px;padding:10px 13px}.region-view-controls{max-width:380px}.region-view-controls>div{flex:1 1 100%;justify-content:space-around}.region-view-controls .region-view-confirm{flex:1}}

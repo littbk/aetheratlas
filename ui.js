@@ -115,6 +115,15 @@
   document.addEventListener('pointerout',e=>{if(target&&!target.contains(e.relatedTarget))hide();});
   document.addEventListener('focusin',e=>show(e.target.closest('.icon-button')));
   document.addEventListener('focusout',hide);document.addEventListener('pointerdown',hide);document.addEventListener('keydown',e=>{if(e.key==='Escape')hide();});window.addEventListener('resize',hide);document.addEventListener('scroll',hide,true);
+  const brushQuick=document.createElement('div');brushQuick.className='mobile-brush';brushQuick.setAttribute('role','group');brushQuick.setAttribute('aria-label','Tamanho rápido do pincel');
+  brushQuick.innerHTML='<button type="button" data-step="-1" aria-label="Diminuir pincel">−</button><output aria-live="off"></output><button type="button" data-step="1" aria-label="Aumentar pincel">+</button>';
+  $('viewport').append(brushQuick);
+  const brushTools=new Set(['brush','fog','seaErase','raise','lower','mountain','volcano','smooth','blend','plateau','color','river','path','erase']);
+  const syncBrushQuick=()=>{const current=document.querySelector('[data-tool].active')?.dataset.tool;brushQuick.hidden=!brushTools.has(current);brushQuick.querySelector('output').textContent=$('size').value+' px';};
+  for(const button of brushQuick.querySelectorAll('button'))button.onclick=()=>{const input=$('size'),step=button.dataset.step==='1'?8:-8;input.value=Math.max(+input.min,Math.min(+input.max,+input.value+step));input.dispatchEvent(new Event('input',{bubbles:true}));syncBrushQuick();};
+  $('size').addEventListener('input',syncBrushQuick);
+  document.addEventListener('click',e=>{if(e.target.closest('[data-tool]'))syncBrushQuick();});
+  syncBrushQuick();
   document.body.classList.add('compact-ui');document.documentElement.classList.remove('ui-loading');
   window.dispatchEvent(new Event('resize'));
 })();

@@ -17,6 +17,10 @@ mapTexture.width=W;mapTexture.height=H;
 let flatRegion=null,flatCamera=null;
 const worldMode=()=>layers.some(l=>l.planet?.enabled);
 let textureDirty=true, yaw=matchMedia('(max-width:860px)').matches?-65:-12, tilt=matchMedia('(max-width:860px)').matches?28:38, roll=0, relief=1, tunnelStart=null;
+let paintFrame=0;
+function schedulePaintDraw(){if(regionContext||paintFrame)return;paintFrame=requestAnimationFrame(()=>{paintFrame=0;draw();});}
+let cameraFrame=0;
+function scheduleCameraDraw(){if(cameraFrame)return;cameraFrame=requestAnimationFrame(()=>{cameraFrame=0;draw();});}
 const camera=()=>{const planet=worldMode()&&!flatRegion;return {yaw,tilt,roll,flatRegion,relief:planet||tilt||submapEdit?relief:0,zoom,cx:ox,cy:oy,planet};};
 const navigation=new AtlasNavigation({canvas,stage:$('viewport'),read:camera,write:c=>{if(c.yaw!==undefined)yaw=c.yaw;if(c.tilt!==undefined)tilt=c.tilt;if(c.roll!==undefined)roll=c.roll;if(c.zoom!==undefined)zoom=c.zoom;if(c.cx!==undefined)ox=c.cx;if(c.cy!==undefined)oy=c.cy;},draw,scene,layers:()=>layers,location:()=>playerLocation});
 const regionView=new AtlasRegionView({canvas,stage:$('viewport'),scene,read:camera,world:()=>worldMode()&&!!scene.gl,editable:true,active:()=>flatRegion,enter:enterFlatRegion,exit:leaveFlatRegion});
@@ -60,6 +64,8 @@ function compose(){
 }
 function draw(decorations=true){
   if(regionContext)return;
+  if(paintFrame){cancelAnimationFrame(paintFrame);paintFrame=0;}
+  if(cameraFrame){cancelAnimationFrame(cameraFrame);cameraFrame=0;}
   regionView.sync();
   if(navigation.walking)navigation.center();
   const r=$('viewport').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);if(!r.width||!r.height)return;
@@ -121,17 +127,17 @@ function paint(a,b){
     const distance=Math.hypot(b.x-a.x,b.y-a.y),spacing=Math.max(12,+$('decorRadius').value*.55);
     if(!distance)atRegion(b,q=>paintLocal(q,q));
     else{let at=spacing-strokeDistance;for(;at<=distance;at+=spacing){const p={...b,x:a.x+(b.x-a.x)*at/distance,y:a.y+(b.y-a.y)*at/distance};atRegion(p,q=>paintLocal(q,q));}strokeDistance=(strokeDistance+distance)%spacing;}
-    return;
+    schedulePaintDraw();return;
   }
   if(tool==='settlement'&&worldMode()){
     const radius=+$('settlementRadius')?.value||80;
     const distance=Math.hypot(b.x-a.x,b.y-a.y),spacing=Math.max(12,radius*.5),steps=Math.max(1,Math.ceil(distance/spacing));
     for(let i=0;i<=steps;i++){const p={...b,x:a.x+(b.x-a.x)*i/steps,y:a.y+(b.y-a.y)*i/steps};atRegion(p,q=>paintLocal(q,q));}
-    return;
+    schedulePaintDraw();return;
   }
   if(!worldMode())return paintLocal(a,b);
   let dx=b.x-a.x,dy=b.y-a.y;if(Math.abs(dx)>4000)dx-=Math.sign(dx)*8000;
-  const spacing=Math.max(2,+$('size').value*.13),steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/spacing)),radius=+$('size').value/2;
+  const spacing=Math.max(4,+$('size').value*.22),steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/spacing)),radius=+$('size').value/2;
   for(let i=0;i<=steps;i++){
     const p={...b,x:((a.x+dx*i/steps+3200)%8000+8000)%8000-3200,y:a.y+dy*i/steps};
     if(tool==='river'||tool==='path'){
@@ -139,7 +145,7 @@ function paint(a,b){
       inRegion(gx,gy,()=>{paintLocal({...p,x:p.x-gx*W,y:p.y-gy*H},{...p,x:p.x-gx*W,y:p.y-gy*H});if(activeRoute)activeRoute.region=key;});
     }else {const stretch=Math.min(12,1/Math.max(.08,Math.cos((.5-(p.y+1650)/4400)*Math.PI)));for(const r of WorldSurface.affected(p.x,p.y,radius,stretch))inRegion(r.gx,r.gy,()=>{regionContext.stretch=stretch;const q={...p,x:r.x,y:r.y,hit:p.hit?{...p.hit,object:p.hit.originalObject||p.hit.object}:null};paintLocal(q,q);});}
   }
-  draw();
+  schedulePaintDraw();
 }
 function paintLocal(a,b){
   textureDirty=true;
@@ -156,7 +162,7 @@ function paintLocal(a,b){
     }};
     const distance=Math.hypot(b.x-a.x,b.y-a.y),spacing=Math.max(12,radius*.55);
     if(!distance)stamp(b);else{let at=spacing-strokeDistance;for(;at<=distance;at+=spacing)stamp({x:a.x+(b.x-a.x)*at/distance,y:a.y+(b.y-a.y)*at/distance});strokeDistance=(strokeDistance+distance)%spacing;}
-    draw();return;
+    schedulePaintDraw();return;
   }
   if(tool==='settlement'){
     const type=$('settlementType')?.value||'house',size=+$('iconSize').value,radius=+$('settlementRadius')?.value||80,density=+$('settlementDensity')?.value||2,spacing=Math.max(18,radius*.52),distance=Math.hypot(b.x-a.x,b.y-a.y);
@@ -171,19 +177,19 @@ function paintLocal(a,b){
       }
     };
     if(!distance)stamp(b);else{let at=spacing-strokeDistance;for(;at<=distance;at+=spacing)stamp({x:a.x+(b.x-a.x)*at/distance,y:a.y+(b.y-a.y)*at/distance});strokeDistance=(strokeDistance+distance)%spacing;}
-    draw();return;
+    schedulePaintDraw();return;
   }
-  if(tool==='fog'){const distance=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.ceil(distance/Math.max(2,+$('size').value*.15)));for(let i=0;i<=steps;i++)Terrain.fogStamp(layers[active].terrain,a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,+$('size').value,$('fogReveal').checked,regionContext?.stretch||1);draw();return;}
-  if(tool==='seaErase'){const distance=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.ceil(distance/Math.max(2,+$('size').value*.15)));for(let i=0;i<=steps;i++)Terrain.seaErase(layers,a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,+$('size').value,regionContext?.stretch||1);for(const layer of layers)if(!layer.locked){for(const surface of [layer.c,layer.ink])if(surface){const g=surface.getContext('2d');g.save();g.globalCompositeOperation='destination-out';g.lineCap='round';g.lineWidth=+$('size').value;g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x+.001,b.y);g.stroke();g.restore();}}draw();return;}
-  if(tool==='river'||tool==='path'){extendRoute(b);draw();return;}
-  if(tool==='erase'&&b.hit){const l=layers[active];if(b.hit.tunnel)l.tunnels=l.tunnels.filter(t=>t!==b.hit.tunnel);else l.objects=l.objects.filter(o=>o!==b.hit.object);draw();return;}
+  if(tool==='fog'){const distance=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.ceil(distance/Math.max(3,+$('size').value*.2)));for(let i=0;i<=steps;i++)Terrain.fogStamp(layers[active].terrain,a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,+$('size').value,$('fogReveal').checked,regionContext?.stretch||1);schedulePaintDraw();return;}
+  if(tool==='seaErase'){const distance=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.ceil(distance/Math.max(3,+$('size').value*.2)));for(let i=0;i<=steps;i++)Terrain.seaErase(layers,a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,+$('size').value,regionContext?.stretch||1);for(const layer of layers)if(!layer.locked){for(const surface of [layer.c,layer.ink])if(surface){const g=surface.getContext('2d');g.save();g.globalCompositeOperation='destination-out';g.lineCap='round';g.lineWidth=+$('size').value;g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x+.001,b.y);g.stroke();g.restore();}}schedulePaintDraw();return;}
+  if(tool==='river'||tool==='path'){extendRoute(b);schedulePaintDraw();return;}
+  if(tool==='erase'&&b.hit){const l=layers[active];if(b.hit.tunnel)l.tunnels=l.tunnels.filter(t=>t!==b.hit.tunnel);else l.objects=l.objects.filter(o=>o!==b.hit.object);schedulePaintDraw();return;}
   const smart=['brush','raise','mountain','volcano','lower','smooth','blend','plateau','erase'].includes(tool);
   if(smart){
-    const spacing=Math.max(2,+$('size').value*.13),distance=Math.hypot(b.x-a.x,b.y-a.y);
+    const spacing=Math.max(4,+$('size').value*.22),distance=Math.hypot(b.x-a.x,b.y-a.y);
     const stamp=p=>Terrain.stamp(layers,active,p.x,p.y,{mode:tool,biome:selectedBiome,stretch:regionContext?.stretch||1,size:+$('size').value,strength:tool==='erase'?1:+$('strength').value/100,soft:$('soft').checked,integrate:$('integrate').checked,amount:tool==='mountain'||tool==='volcano'?Math.max(250,+$('amount').value*6):+$('amount').value,target:Math.max(-500,Math.min(3000,Number($('target').value)||0))});
     if(!distance)stamp(b);
     else {let at=spacing-strokeDistance;for(;at<=distance;at+=spacing)stamp({x:a.x+(b.x-a.x)*at/distance,y:a.y+(b.y-a.y)*at/distance});strokeDistance=(strokeDistance+distance)%spacing;}
-    if(tool!=='erase'){draw();return;}
+    if(tool!=='erase'){schedulePaintDraw();return;}
     layers[active].routes=MapPaths.erase(layers[active].routes,a,b,+$('size').value/2);
     layers[active].objects=layers[active].objects.filter(o=>MapPaths.distance(o,a,b)>+$('size').value/2);
     layers[active].tunnels=layers[active].tunnels.filter(t=>{const dx=t.b.x-t.a.x,dy=t.b.y-t.a.y,q=Math.max(0,Math.min(1,((b.x-t.a.x)*dx+(b.y-t.a.y)*dy)/(dx*dx+dy*dy)));return Math.hypot(b.x-t.a.x-q*dx,b.y-t.a.y-q*dy)>+$('size').value/2;});
@@ -192,7 +198,7 @@ function paintLocal(a,b){
   c.strokeStyle=$('color').value;c.lineWidth=+$('size').value;c.lineCap='round';c.lineJoin='round';
   c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x+.001,b.y);c.stroke();c.restore();
   if(tool==='erase'){const base=layers[active].c.getContext('2d');base.save();base.globalCompositeOperation='destination-out';base.lineCap='round';base.lineWidth=+$('size').value;base.beginPath();base.moveTo(a.x,a.y);base.lineTo(b.x+.001,b.y);base.stroke();base.restore();}
-  draw();
+  schedulePaintDraw();
 }
 const architectureOptions=()=>({color:$('architectureColor')?.value||'#b6ad98',height:+$('architectureHeight')?.value||26,material:$('architectureMaterial')?.value||'limestone'});
 const architectureSize=()=>($('architectureWidth')?+$('architectureWidth').value/.32:+$('size').value);
@@ -302,15 +308,15 @@ canvas.onpointermove=e=>{
     if(gesture){const f=next.d/Math.max(1,gesture.d),z=Math.max(.08,Math.min(5,zoom*f));
       ox=next.x-r.left-(gesture.x-r.left-ox)*z/zoom;oy=next.y-r.top-(gesture.y-r.top-oy)*z/zoom;zoom=z;
       roll=normalizeAngle(roll+Math.atan2(Math.sin(next.a-gesture.a),Math.cos(next.a-gesture.a))*180/Math.PI);
-      if(tool==='orbit'){yaw=normalizeAngle(yaw+(next.x-gesture.x)*.35);tilt=AtlasNavigation.pitch(tilt-(next.y-gesture.y)*.25,camera().planet);}draw();}
+      if(tool==='orbit'){yaw=normalizeAngle(yaw+(next.x-gesture.x)*.35);tilt=AtlasNavigation.pitch(tilt-(next.y-gesture.y)*.25,camera().planet);}scheduleCameraDraw();}
     gesture=next;return;
   }
   const p=point(e);$('coords').textContent=p.inside?`X: ${Math.round(p.x)} · Y: ${Math.round(p.y)}`:'Fora do mapa';
   const h=p.inside?Terrain.sample(layers,p.x,p.y):null;
   $('altitudeReadout').textContent=h===null?'— m':Math.round(h)+' m';$('terrainReadout').textContent=h===null?'Passe sobre uma área de terreno':h<0?'Abaixo do nível do mar':h<70?'Costa e baixada':h<700?'Planície e colinas':h<1900?'Montanha':'Alta montanha';
   if(!down||!pointers.has(e.pointerId))return;
-  if(orbiting){if(e.shiftKey)roll=normalizeAngle(roll+(p.sx-last.sx)*.35);else{yaw=normalizeAngle(yaw+(p.sx-last.sx)*.35);tilt=AtlasNavigation.pitch(tilt-(p.sy-last.sy)*.25,camera().planet);}draw();}
-  else if(panning){ox+=p.sx-last.sx;oy+=p.sy-last.sy;draw();}
+  if(orbiting){if(e.shiftKey)roll=normalizeAngle(roll+(p.sx-last.sx)*.35);else{yaw=normalizeAngle(yaw+(p.sx-last.sx)*.35);tilt=AtlasNavigation.pitch(tilt-(p.sy-last.sy)*.25,camera().planet);}scheduleCameraDraw();}
+  else if(panning){ox+=p.sx-last.sx;oy+=p.sy-last.sy;scheduleCameraDraw();}
   else if(constructionStart){constructionPreview={tool,a:constructionStart,b:p};draw();}
   else{
     if(pending&&Math.hypot(p.sx-pending.sx,p.sy-pending.sy)>5){if(!['water','waterRemove','tunnel','marker','text','player','submap',...indoorToolList.map(v=>v[0])].includes(tool)){beginPaint(pending);pending=null;}}

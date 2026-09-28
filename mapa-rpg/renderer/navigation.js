@@ -20,10 +20,13 @@ class AtlasNavigation {
     touch.innerHTML='<div class="walk-stick" role="group" aria-label="Controle de movimento"><span class="walk-knob"></span></div><div class="walk-actions"><button type="button" data-walk="run" aria-label="Correr" aria-pressed="false">Correr</button><button type="button" data-walk="view" aria-label="Alternar primeira e terceira pessoa" aria-pressed="false">1ª pessoa</button><button type="button" data-walk="exit">Sair</button></div><span class="walk-instruction">Arraste a tela para olhar</span>';
     stage.append(touch);this.touchControls=touch;touch.querySelector('[data-walk="view"]').disabled=!scene.gl;this.motion={x:0,y:0};this.heading=0;this.lookPitch=0;this.firstPerson=false;
     const stick=touch.querySelector('.walk-stick'),knob=touch.querySelector('.walk-knob');
-    const move=e=>{const r=stick.getBoundingClientRect(),x=(e.clientX-r.left-r.width/2)/40,y=(e.clientY-r.top-r.height/2)/40,n=Math.max(1,Math.hypot(x,y));this.motion={x:x/n,y:y/n};knob.style.transform=`translate(${this.motion.x*32}px,${this.motion.y*32}px)`;this.start();};
+    const move=e=>{const r=stick.getBoundingClientRect(),x=(e.clientX-r.left-r.width/2)/(r.width*.36),y=(e.clientY-r.top-r.height/2)/(r.height*.36),length=Math.hypot(x,y),scale=length>1?1/length:1,dead=.12;
+      this.motion=length<dead?{x:0,y:0}:{x:x*scale,y:y*scale};
+      knob.style.transform=`translate(${this.motion.x*r.width*.28}px,${this.motion.y*r.height*.28}px)`;
+      if(this.motion.x||this.motion.y)this.start();};
     stick.addEventListener('pointerdown',e=>{e.preventDefault();this.canvas.focus({preventScroll:true});this.stickPointer=e.pointerId;stick.setPointerCapture(e.pointerId);move(e);});
     stick.addEventListener('pointermove',e=>{if(this.stickPointer===e.pointerId)move(e);});
-    const release=()=>{this.stickPointer=null;this.motion={x:0,y:0};knob.style.transform='';};
+    const release=e=>{if(e&&this.stickPointer!==e.pointerId)return;this.stickPointer=null;this.motion={x:0,y:0};knob.style.transform='';};
     for(const name of ['pointerup','pointercancel','lostpointercapture'])stick.addEventListener(name,release);
     touch.querySelector('[data-walk="run"]').onclick=e=>{this.running=!this.running;e.currentTarget.setAttribute('aria-pressed',String(this.running));this.canvas.focus({preventScroll:true});};
     touch.querySelector('[data-walk="view"]').onclick=()=>this.setFirstPerson(!this.firstPerson);
