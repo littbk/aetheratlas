@@ -5,7 +5,7 @@ rollSetting.innerHTML='<label for="roll">Rotação Z <span id="rollValue">0°</s
 document.querySelector('label[for="tilt"]').closest('.setting').after(rollSetting);
 const canvas=$('map'),ctx=canvas.getContext('2d');
 const colors=[['Pradaria','#87a56b'],['Floresta','#336349'],['Areia','#d3c591'],['Montanha','#9aab9a'],['Neve','#dee3d4'],['Água','#347787'],['Lava','#d84a1c']];
-const toolList=[['pan','✥','Navegar'],['select','↖','Seletor'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['submap','↗','Entrada submapa'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['fog','☁','FOG'],['water','≈','Água'],['waterRemove','−','Remover água'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['text','T','Texto'],['erase','▱','Borracha']];
+const toolList=[['pan','✥','Navegar'],['select','↖','Seletor'],['orbit','⟳','Orbitar'],['player','⌖','LOCAL ATUAL'],['submap','↗','Entrada submapa'],['tunnel','∩','Túnel'],['brush','◉','Terreno'],['fog','☁','FOG'],['water','≈','Água'],['waterRemove','−','Remover água'],['seaErase','◌','Borracha do mar'],['raise','↟','Elevar'],['mountain','▲','Montanha'],['volcano','♨','Vulcão'],['lower','↧','Rebaixar'],['smooth','≋','Suavizar'],['blend','〰','Misturar bordas'],['plateau','▰','Platô'],['color','◌','Cor livre'],['river','≈','Rio'],['path','⌁','Caminho'],['marker','◇','Marcador'],['text','T','Texto'],['erase','▱','Borracha']];
 const indoorToolList=[['wall','━','Muro'],['room','▣','Sala'],['corridor','▤','Corredor'],['floor','▦','Piso ladrilhado'],['rect','▱','Retângulo'],['rectFill','■','Piso quadrado'],['ellipse','◯','Círculo'],['ellipseFill','●','Círculo preenchido'],['line','╱','Linha'],['door','▯','Porta'],['window','⊞','Janela'],['stairs','▥','Escada'],['pillar','◉','Pilar'],['pit','⬭','Fosso']];
 let layers=[],patches=[],playerLocation={x:4000,y:2200},active=0,tool='pan',zoom=1,ox=0,oy=0,grid=false,down=false,last=null,space=false,history=[],future=[],dirty=false,timer,submapEdit=null;
 let selectedBiome='grass', selectedBuilding=null, strokeDistance=0;
@@ -100,7 +100,7 @@ function demo(){textureDirty=true;activeRoute=null;tunnelStart=null;layers=[laye
 {kind:'text',x:1210,y:625,size:28,rotation:0,text:'Mar das Estrelas',color:'#c9ded5'}];Terrain.seed(layers[1].terrain,layers[1].c);layers[2].tunnels.push({a:{x:650,y:365},b:{x:850,y:400},width:19,depth:90});active=1;history=[];future=[];dirty=false;$('saved').textContent='Mapa de exemplo · salve para guardar';render();fit();}
 function point(e){
   const r=canvas.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;
-  let p=scene.gl?scene.pick(sx,sy,tool==='water'||tool==='waterRemove'):null;
+  let p=scene.gl?scene.pick(sx,sy,tool==='water'||tool==='waterRemove'||tool==='seaErase'):null;
   if(!scene.gl){const a=-(yaw+roll)*Math.PI/180,x=(sx-ox)/zoom,y=(sy-oy)/zoom;if(camera().planet){const radius=470*zoom,lon=((x/radius-yaw*Math.PI/180)/(Math.PI*2)+.5)*AtlasScene.WORLD_WIDTH,lat=(.5-y/radius)*AtlasScene.WORLD_HEIGHT;p={worldX:lon,worldY:lat,x:lon-AtlasScene.REGION_X,y:lat-AtlasScene.REGION_Y};}else p={x:W/2+x*Math.cos(a)-y*Math.sin(a),y:H/2+x*Math.sin(a)+y*Math.cos(a)};}
   const hit=tool==='erase'?[...billboardHits].reverse().find(h=>h.layer===active&&sx>=h.box.x&&sx<=h.box.x+h.box.w&&sy>=h.box.y&&sy<=h.box.y+h.box.h):null;
   if(hit)p={x:hit.object.x,y:hit.object.y,worldX:hit.object.x+3200,worldY:hit.object.y+1650};
@@ -131,9 +131,10 @@ function paint(a,b){
 function paintLocal(a,b){
   textureDirty=true;
   if(tool==='fog'){const distance=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.ceil(distance/Math.max(2,+$('size').value*.15)));for(let i=0;i<=steps;i++)Terrain.fogStamp(layers[active].terrain,a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,+$('size').value,$('fogReveal').checked,regionContext?.stretch||1);draw();return;}
+  if(tool==='seaErase'){const distance=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.max(1,Math.ceil(distance/Math.max(2,+$('size').value*.15)));for(let i=0;i<=steps;i++)Terrain.seaErase(layers,a.x+(b.x-a.x)*i/steps,a.y+(b.y-a.y)*i/steps,+$('size').value,regionContext?.stretch||1);for(const layer of layers)if(!layer.locked){for(const surface of [layer.c,layer.ink])if(surface){const g=surface.getContext('2d');g.save();g.globalCompositeOperation='destination-out';g.lineCap='round';g.lineWidth=+$('size').value;g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x+.001,b.y);g.stroke();g.restore();}}draw();return;}
   if(tool==='river'||tool==='path'){extendRoute(b);draw();return;}
   if(tool==='erase'&&b.hit){const l=layers[active];if(b.hit.tunnel)l.tunnels=l.tunnels.filter(t=>t!==b.hit.tunnel);else l.objects=l.objects.filter(o=>o!==b.hit.object);draw();return;}
-  const smart=['brush','raise','mountain','volcano','lower','smooth','plateau','erase'].includes(tool);
+  const smart=['brush','raise','mountain','volcano','lower','smooth','blend','plateau','erase'].includes(tool);
   if(smart){
     const spacing=Math.max(2,+$('size').value*.13),distance=Math.hypot(b.x-a.x,b.y-a.y);
     const stamp=p=>Terrain.stamp(layers,active,p.x,p.y,{mode:tool,biome:selectedBiome,stretch:regionContext?.stretch||1,size:+$('size').value,strength:tool==='erase'?1:+$('strength').value/100,soft:$('soft').checked,integrate:$('integrate').checked,amount:tool==='mountain'||tool==='volcano'?Math.max(250,+$('amount').value*6):+$('amount').value,target:Math.max(-500,Math.min(3000,Number($('target').value)||0))});

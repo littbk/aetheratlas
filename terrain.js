@@ -47,6 +47,7 @@ const Terrain = (() => {
   }
   function index(x,y) {return Math.max(0,Math.min(height-1,Math.floor(y/step)))*width+Math.max(0,Math.min(width-1,Math.floor(x/step)));}
   function fogStamp(t,x,y,size,reveal=false,stretch=1){const radius=Math.max(2,size/2);for(let j=Math.max(0,Math.floor((y-radius)/step));j<=Math.min(height-1,Math.ceil((y+radius)/step));j++)for(let i=Math.max(0,Math.floor((x-radius*stretch)/step));i<=Math.min(width-1,Math.ceil((x+radius*stretch)/step));i++)if(Math.hypot((i*step+2-x)/stretch,j*step+2-y)<=radius)t.fog[j*width+i]=reveal?0:255;t.dirty=true;}
+  function seaErase(layers,x,y,size,stretch=1){const radius=Math.max(2,size/2);let changed=false;for(const layer of layers){if(layer.locked)continue;const t=layer.terrain;let layerChanged=false;for(let j=Math.max(0,Math.floor((y-radius)/step));j<=Math.min(height-1,Math.ceil((y+radius)/step));j++)for(let i=Math.max(0,Math.floor((x-radius*stretch)/step));i<=Math.min(width-1,Math.ceil((x+radius*stretch)/step));i++){if(Math.hypot((i*step+2-x)/stretch,j*step+2-y)>radius)continue;const k=j*width+i;t.coverage[k]=0;t.heights[k]=0;t.biomes[k]=0;t.treeStyleIds[k]=0;t.treeExclusions.delete(k);delete t.waterLevels[k];delete t.waterColors[k];layerChanged=true;}if(layerChanged)t.dirty=true;changed=changed||layerChanged;}return changed;}
   function fogAt(layers,x,y){if(!Number.isFinite(x)||!Number.isFinite(y))return false;if(typeof WorldSurface!=='undefined'&&layers.some(l=>l.planet?.enabled)){const {gx,gy}=WorldSurface.locate(x,y);return fogAt(WorldSurface.group(layers,gx,gy),x-gx*1600,y-gy*1100);}if(x<0||y<0||x>=1600||y>=1100)return false;return layers.some(l=>l.visible!==false&&l.opacity!==0&&l.terrain?.fog?.[index(x,y)]===255);}
   function fogTexture(t,color){const c=document.createElement('canvas');c.width=width;c.height=height;const g=c.getContext('2d'),im=g.createImageData(width,height);if(color){const rgb=hexRgb(color);for(let k=0;k<length;k++)if(t.fog?.[k]){im.data.set(rgb,k*4);im.data[k*4+3]=255;}}else{const hash=(x,y)=>{const n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n);},noise=(x,y)=>{const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy);return (hash(ix,iy)*(1-sx)+hash(ix+1,iy)*sx)*(1-sy)+(hash(ix,iy+1)*(1-sx)+hash(ix+1,iy+1)*sx)*sy;};for(let k=0;k<length;k++)if(t.fog?.[k]){const x=k%width,y=Math.floor(k/width),billow=noise(x*.064,y*.064)*.55+noise(x*.164,y*.164)*.3+noise(x*.384,y*.384)*.15,shade=Math.round(184+billow*69),p=k*4;im.data[p]=shade;im.data[p+1]=Math.min(255,shade+5);im.data[p+2]=Math.min(255,shade+9);im.data[p+3]=255;}}g.putImageData(im,0,0);return c;}
   function drawFog(g,layers,alpha=1){g.save();g.imageSmoothingEnabled=false;g.globalAlpha=alpha;for(const l of layers)if(l.visible!==false&&l.opacity!==0&&l.terrain?.fog?.some(v=>v))g.drawImage(fogTexture(l.terrain),0,0,1600,1100);g.restore();}
@@ -92,10 +93,21 @@ const Terrain = (() => {
     const paintedBiome=biomes.indexOf(options.biome),paintedStyle=options.mode==='brush'&&(paintedBiome===2||paintedBiome>=8)?styleId(t,paintedBiome):0;
     const x0=Math.max(0,Math.floor((x-radius*stretch)/step)),x1=Math.min(width-1,Math.ceil((x+radius*stretch)/step));
     const y0=Math.max(0,Math.floor((y-radius)/step)),y1=Math.min(height-1,Math.ceil((y+radius)/step));
-    const old=options.mode==='smooth'?t.heights.slice():null;
+    const old=['smooth','blend'].includes(options.mode)?t.heights.slice():null,oldCoverage=options.mode==='blend'?t.coverage.slice():null;
     for(let j=y0;j<=y1;j++)for(let i=x0;i<=x1;i++){
       const px=i*step+2,py=j*step+2,d=Math.hypot((px-x)/stretch,py-y)/radius;if(d>=1)continue;
       const k=j*width+i,fall=Math.pow(1-d*d,options.soft?2:0.4),a=Math.min(1,fall*strength);
+      if(options.mode==='blend'){
+        let coverageSum=0,heightSum=0,count=0,nearestBiome=t.biomes[k],nearestDistance=Infinity;
+        for(let yy=Math.max(0,j-2);yy<=Math.min(height-1,j+2);yy++)for(let xx=Math.max(0,i-2);xx<=Math.min(width-1,i+2);xx++){
+          const q=yy*width+xx,c=oldCoverage[q],distance=Math.hypot(xx-i,yy-j);coverageSum+=c;heightSum+=c?old[q]:(sample(layers,xx*step+2,yy*step+2,active)??0);count++;
+          if(c&&distance<nearestDistance){nearestDistance=distance;nearestBiome=t.biomes[q];}
+        }
+        const nextCoverage=Math.round(oldCoverage[k]+(coverageSum/count-oldCoverage[k])*a);
+        t.coverage[k]=nextCoverage;t.heights[k]=Math.max(-500,Math.min(3000,(oldCoverage[k]?old[k]:(sample(layers,px,py,active)??0))*(1-a)+heightSum/count*a));
+        if(nextCoverage){t.biomes[k]=nearestBiome;}else{t.heights[k]=0;t.biomes[k]=0;t.treeStyleIds[k]=0;}
+        continue;
+      }
       if(options.mode==='erase'){delete t.waterLevels[k];delete t.waterColors[k];t.coverage[k]=Math.round(t.coverage[k]*(1-a));if(t.coverage[k]<3){t.coverage[k]=0;t.heights[k]=0;t.treeStyleIds[k]=0;t.treeExclusions.delete(k);}continue;}
       const covered=t.coverage[k]>0,base=covered?t.heights[k]:(sample(layers,px,py,active)??0);
       let next=base,biome=t.biomes[k];
@@ -164,7 +176,7 @@ const Terrain = (() => {
   // Independent continuous masks avoid interpolating categorical biome IDs.
   function biomeTexture(t){const c=document.createElement('canvas');c.width=400;c.height=275;const g=c.getContext('2d'),im=g.createImageData(400,275);for(let i=0;i<length;i++){const h=t.heights[i],biome=t.biomes[i]||(h<0?6:h<45?3:h<700?1:h<1900?4:5),coverage=t.coverage[i];im.data[i*4]=biome===7?255:0;im.data[i*4+1]=biome===6?255:0;im.data[i*4+2]=biome===4||biome===5?255:0;im.data[i*4+3]=coverage;}g.putImageData(im,0,0);return c;}
 
-  return {create,copy,restore,serialize,validate,sample,fogStamp,fogAt,fogTexture,drawFog,waterFill,waterMesh,waterRegion,stamp,render,seed,index,length,setTheme,getTheme,defaultTheme,biomes,freezeTreeColors,freezeLayers,detailTexture,biomeTexture};
+  return {create,copy,restore,serialize,validate,sample,fogStamp,seaErase,fogAt,fogTexture,drawFog,waterFill,waterMesh,waterRegion,stamp,render,seed,index,length,setTheme,getTheme,defaultTheme,biomes,freezeTreeColors,freezeLayers,detailTexture,biomeTexture};
 })();
 
 // Native canvas icons remain crisp at any marker size and need no external assets.

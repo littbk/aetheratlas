@@ -8,6 +8,7 @@
     select:'m5 3 14 10-7 1-3 7Z',orbit:'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0M8 12h8M12 8c-2 2-2 6 0 8 2-2 2-6 0-8M20 8a9 9 0 1 0 1 7M20 3v5h-5',opposite:'M20 8a9 9 0 1 0 1 7M20 3v5h-5',player:'M12 3v3M12 18v3M3 12h3M18 12h3M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0',
     fog:'M3 6h18M5 10h14M3 14h18M5 18h14',waterRemove:'M3 8c3-3 6 3 9 0s6-3 9 0M3 14c3-3 6 3 9 0M14 18h8',water:'M3 7c3-3 6 3 9 0s6-3 9 0M3 13c3-3 6 3 9 0s6-3 9 0M3 19c3-3 6 3 9 0s6-3 9 0',brush:'m14 4 6 6M9 15l10-12 3 3-12 11M9 15c-5-2-2 6-7 6 8 2 10-2 7-6',raise:'M4 18h16M12 15V4M7 9l5-5 5 5',lower:'M4 18h16M12 4v11M7 10l5 5 5-5',
     mountain:'m2 20 8-15 6 11 3-5 4 9ZM7 11l3 2 3-2',volcano:'m3 20 6-12h6l6 12ZM10 4l1-2M14 4l1-2M10 12h4',smooth:'M3 7c4-6 6 6 10 0s6 0 8 0M3 12c4-6 6 6 10 0s6 0 8 0M3 17c4-6 6 6 10 0s6 0 8 0',
+    seaErase:'M3 6c3-3 6 3 9 0s6-3 9 0M3 12c3-3 6 3 9 0s6-3 9 0M5 19h14M9 16l6 6',blend:'M3 7c5-5 8 5 13 0M3 12c5-5 8 5 13 0M3 17c5-5 8 5 13 0M18 5l3 2-3 2M18 10l3 2-3 2M18 15l3 2-3 2',
     plateau:'m2 19 5-12h10l5 12M7 7h10',color:'M12 3c-3 5-7 8-7 12a7 7 0 0 0 14 0c0-4-4-7-7-12ZM9 16c0 2 1 3 3 3',river:'M7 2c12 5-8 7 4 12s-4 7-2 8M13 2c12 5-8 7 4 12s-4 7-2 8',path:'M5 3c16 3-14 9 6 12s-6 7-6 7',
     marker:'M19 9c0 5-7 12-7 12S5 14 5 9a7 7 0 1 1 14 0ZM14 9a2 2 0 1 1-4 0 2 2 0 0 1 4 0',text:'M4 5h16M12 5v16M8 21h8',erase:'m3 14 10-11 8 8-10 11H8ZM8 9l8 8M11 22h11',
     submap:'M4 20V4h9M9 15 21 3M15 3h6v6',tunnel:'M4 21V12a8 8 0 0 1 16 0v9M8 21v-9a4 4 0 0 1 8 0v9M2 21h8M14 21h8',
@@ -49,7 +50,7 @@
   const mainTools=$('tools'),toolButtons=[...mainTools.children];mainTools.replaceChildren();
   const tools=ids=>{const grid=document.createElement('div');grid.className='tools ui-tool-grid';for(const id of ids){const button=toolButtons.find(b=>b.dataset.tool===id);if(button)grid.append(button);}return grid;};
   const explore=tools(['pan','select','orbit','player']);explore.id='tools';
-  const terrain=tools(['brush','fog','water','waterRemove','raise','lower','mountain','volcano','smooth','plateau','color','river','path','erase']);
+  const terrain=tools(['brush','fog','water','waterRemove','seaErase','raise','lower','mountain','volcano','smooth','blend','plateau','color','river','path','erase']);
   const places=tools(['marker','text','tunnel']);
   const worldTools=tools(['submap']);
   const waterSettings=document.createElement('div');waterSettings.innerHTML='<label><input id="waterAuto" type="checkbox" checked> Preencher até a borda</label><label for="lakeColor">Cor desta água</label><input id="lakeColor" type="color" value="#347787"><label><input id="waterRecolor" type="checkbox"> Recolorir lago existente ao clicar</label><label for="waterLevel">Nível manual da água</label><input id="waterLevel" type="number" min="-500" max="3000" step="1" value="0" disabled><p class="muted">Selecione Água e clique no fundo de um buraco. O preenchimento fica limitado à região atual. Selecione Remover água e clique no lago para apagar a região inteira, sem alterar o terreno.</p>';waterSettings.querySelector('#waterAuto').onchange=e=>waterSettings.querySelector('#waterLevel').disabled=e.target.checked;
@@ -65,8 +66,10 @@
   architectureSettings.querySelector('select').addEventListener('change',e=>{$('architectureColor').value=({limestone:'#b6ad98',slate:'#697784',sandstone:'#c3a476',brick:'#ac7561',wood:'#94704e'})[e.target.value];});
   for(const id of ['architectureHeight','architectureWidth'])architectureSettings.querySelector('#'+id).addEventListener('input',e=>$(id+'Value').value=e.target.value);
   const placeControls=section('Marcador',setting('iconSize'),setting('rotation'),$('marker'),$('label'));
+  const waterSection=section('Preencher com água',waterSettings),fogSection=section('FOG · visibilidade dos jogadores',(()=>{const panel=document.createElement('div');panel.innerHTML='<label><input id="fogReveal" type="checkbox"> Revelar área (remover FOG)</label><p class="muted">Pinte para esconder a área dos jogadores. Use o tamanho do pincel para ajustar a cobertura. No editor a máscara é translúcida. Ctrl+Z desfaz.</p>';return panel;})());
+  const syncPropertyPanels=()=>{const selected=document.querySelector('[data-tool].active')?.dataset.tool;waterSection.hidden=selected!=='water';fogSection.hidden=selected!=='fog';};
   const leftItems=[
-    ['terrain','Terreno','mountain',[section('Esculpir e pintar',terrain),section('Biomas',palette),section('Preencher com água',waterSettings),section('FOG · visibilidade dos jogadores',(()=>{const panel=document.createElement('div');panel.innerHTML='<label><input id="fogReveal" type="checkbox"> Revelar área (remover FOG)</label><p class="muted">Selecione FOG e pinte para esconder a área dos jogadores. Use o tamanho do pincel para ajustar a cobertura. No editor a máscara é translúcida. Ctrl+Z desfaz.</p>';return panel;})()),smart,sculpt,forest]],
+    ['terrain','Terreno','mountain',[section('Esculpir e pintar',terrain),section('Biomas',palette),waterSection,fogSection,smart,sculpt,forest]],
     ['architecture','Arquitetura','wall',[section('Ambientes e formas',indoor),section('Construção',architectureSettings)]],
     ['places','Locais','marker',[section('Locais e passagens',places),section('Construções',buildings),placeControls,tunnels]],
     ['world','Mundo e submapas','world',[section('Entrada de submapa',worldTools),world,colors]]
@@ -84,7 +87,7 @@
   const chooseRight=tabs(right,[['layers','Camadas','layers',[layerList,layerActions,opacity]],['camera','Câmera','camera',[cameraPanel]],['view','Visualização','view',[viewPanel]],['drive','Google Drive','cloud',[drive]]],'layers');
   if(selection)right.querySelector('.ui-scroll').prepend(selection);
   const toolGroups={};for(const [id] of leftItems)for(const b of $('ui-'+id).querySelectorAll('[data-tool]'))toolGroups[b.dataset.tool]=id;
-  document.addEventListener('click',e=>{const b=e.target.closest('[data-tool]');if(b){if(toolGroups[b.dataset.tool])leftTab(toolGroups[b.dataset.tool]);if(b.dataset.tool==='select')chooseRight('layers');}});
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-tool]');if(b){if(toolGroups[b.dataset.tool])leftTab(toolGroups[b.dataset.tool]);if(b.dataset.tool==='select')chooseRight('layers');syncPropertyPanels();}});syncPropertyPanels();
   for(const button of document.querySelectorAll('[data-tool]'))iconButton(button,button.dataset.tool,button.textContent.trim().replace(/^[^\p{L}]+/u,''));
   for(const button of palette.children){const name=button.textContent.trim();button.classList.add('icon-button','ui-swatch');button.setAttribute('aria-label',name);button.dataset.tooltip=name;}
   for(const button of buildings.children){const name=button.textContent.trim();button.classList.add('icon-button','ui-building');button.setAttribute('aria-label',name);button.dataset.tooltip='Inserir '+name;}
