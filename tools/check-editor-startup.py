@@ -54,6 +54,10 @@ try:
         state = js("({ready:document.body.classList.contains('compact-ui'),loading:document.documentElement.classList.contains('ui-loading'),layers:typeof layers==='undefined'?null:layers.length,buildings:document.querySelectorAll('.building-button').length})")
         controls = js("""(()=>{
             const results=[];
+            const add=document.getElementById('add'),label=add.querySelector('span');
+            document.getElementById('ui-tab-layers').click();
+            results.push(!!add.closest('#layersPanel')&&add.getBoundingClientRect().height>0&&label?.textContent==='Criar camada'&&getComputedStyle(label).display!=='none');
+            const oldLayers=layers.length;add.click();results.push(layers.length===oldLayers+1&&active===layers.length-1);undo();
             for(const name of ['marker','text','tunnel','settlement','select','brush']){
                 document.querySelector('[data-tool="'+name+'"]').click();
                 results.push(tool===name);
@@ -70,6 +74,7 @@ try:
             const variant=document.getElementById('selectionBuildingVariant'),palette=document.getElementById('selectionBuildingPalette');
             variant.value='2';variant.dispatchEvent(new Event('change'));palette.value='2';palette.dispatchEvent(new Event('change'));
             results.push(object.buildingStyle===2&&object.buildingPalette===2&&!document.getElementById('selectionBuildingStyle').hidden);
+            document.getElementById('ui-tab-layers').click();results.push(add.getBoundingClientRect().top<200&&add.getBoundingClientRect().height>0);
             const ctx=document.createElement('canvas').getContext('2d'),angles=[],rotate=ctx.rotate.bind(ctx);ctx.rotate=a=>{angles.push(a);rotate(a);};
             Buildings.draw(ctx,0,0,'castle',40,180);results.push(angles[0]===0);
             angles.length=0;Buildings.draw(ctx,0,0,'house',40,180);results.push(angles[0]===Math.PI);
@@ -83,7 +88,7 @@ try:
                 for(const l of layers){l.visible=false;l.planet={enabled:false};}
                 const l=layers[active];l.visible=true;l.opacity=1;l.terrain=Terrain.create();l.structures=[];
                 const t=l.terrain;t.coverage.fill(255);t.heights.fill(65);t.biomes.fill(1);
-                for(let y=0;y<275;y++)for(let x=0;x<400;x++){const k=y*400+x;if(x>245)t.biomes[k]=3;if(y>175&&x>245)t.biomes[k]=4;if(x<125&&y>150){t.waterLevels[k]=90;t.waterColors[k]='#347787';}}
+                for(let y=0;y<275;y++)for(let x=0;x<400;x++){const k=y*400+x;if(x>245)t.biomes[k]=3;if(y>175&&x>245){t.biomes[k]=4;t.heights[k]=65+1300*Math.exp(-((x-285)**2+(y-215)**2)/800);}if(x<125&&y>150){t.waterLevels[k]=90;t.waterColors[k]='#347787';}}
                 l.routes=[{kind:'path',width:22,points:[{x:450,y:500},{x:700,y:570},{x:1000,y:450},{x:1200,y:650}]},{kind:'river',width:25,points:[{x:550,y:300},{x:540,y:500},{x:420,y:700}]}];
                 l.objects=[{kind:'building',building:'castle',x:850,y:480,size:70,rotation:0,text:'',color:'#ffffff',buildingStyle:0,buildingPalette:1}];
                 tilt=35;yaw=0;zoom=2.2;ox=0;oy=0;textureDirty=true;draw();for(let i=0;i<100&&scene.detailStream;i++)draw();
@@ -101,8 +106,28 @@ try:
                 js("zoom=3;const r=canvas.getBoundingClientRect(),p=scene.project(480,670,6,camera());ox+=r.width/2-p.x;oy+=r.height/2-p.y;draw();for(let i=0;i<100&&scene.detailStream;i++)draw();const c=camera();c.fullQuality=true;scene.draw(r.width,r.height,1,c);")
                 png=js("scene.canvas.toDataURL('image/png').split(',')[1]")
                 (root/'terrain-water-export-preview.png').write_bytes(base64.b64decode(png))
+            regional=js("""(()=>{
+                const l=layers[active];l.planet={enabled:true};flatRegion={x:3200,y:1650,width:1600,height:1100};zoom=2.36;textureDirty=true;draw();
+                const local=scene.localTexture,region=scene.atlasRect.slice(),size=[local.width,local.height],pixels=local.width*local.height;
+                draw();const reused=scene.localTexture===local;
+                flatRegion=null;textureDirty=true;draw();const released=local.width===1&&local.height===1&&scene.atlasRect.every((v,i)=>v===[0,0,1,1][i]);
+                flatRegion={x:3200,y:1650,width:1600,height:1100};textureDirty=true;draw();
+                const r=canvas.getBoundingClientRect(),p=scene.project(900,620,4,camera());ox+=r.width/2-p.x;oy+=r.height/2-p.y;draw();
+                const c=camera();c.fullQuality=true;scene.draw(r.width,r.height,1,c);globalThis.materialExport=scene.canvas.toDataURL('image/png').split(',')[1];
+                return {region:region.every((v,i)=>Math.abs(v-[.4,.375,.2,.25][i])<1e-8),sharp:size[0]===3072,size,bounded:pixels<6500000,reused,released,gpu:scene.gl.getError()===0};
+            })()""")
+            print(json.dumps({'entry':entry,'regionalTexture':regional,'errors':errors}),flush=True)
+            if not regional or not all(regional.get(k) for k in ['region','sharp','bounded','reused','released','gpu']) or errors:
+                raise AssertionError('Regional 2D texture regression')
+            if entry=='index.html':
+                png=js("materialExport")
+                (root/'terrain-regional-export-preview.png').write_bytes(base64.b64decode(png))
             continue
         if '--menu-only' in sys.argv:
+            if entry=='index.html':
+                js("const preview=document.createElement('canvas');preview.id='villageCheck';preview.width=1050;preview.height=330;preview.style='position:fixed;left:245px;top:220px;z-index:9999;background:#192831;max-width:70vw;height:auto';const g=preview.getContext('2d');for(let i=0;i<3;i++){const tile=document.createElement('canvas');tile.width=350;tile.height=330;Buildings3D.preview(tile,'village',i,i);g.drawImage(tile,i*350,0);}document.body.append(preview);document.getElementById('ui-tab-layers').click();")
+                screenshot=call('Page.captureScreenshot',{'format':'png','captureBeyondViewport':False})
+                (root/'village-layer-check.png').write_bytes(base64.b64decode(screenshot['data']))
             continue
         architecture = js("""(()=>{
             for(const layer of layers)layer.planet={enabled:false};
@@ -177,7 +202,7 @@ try:
             const originalCount=target.objects.length;
             const full=Vegetation.build(layers,false).vertices.byteLength+Buildings3D.build(layers,false).vertices.byteLength;
             yaw=0;tilt=35;zoom=5;textureDirty=true;draw();
-            const center=(x,y)=>{const p=scene.project(x,y,4,camera()),r=document.getElementById('viewport').getBoundingClientRect();ox+=r.width/2-p.x;oy+=r.height/2-p.y;draw();for(let i=0;i<100&&scene.detailStream;i++)draw();};
+            const center=(x,y)=>{const p=scene.project(x,y,4,camera()),r=document.getElementById('viewport').getBoundingClientRect();ox+=r.width/2-p.x;oy+=r.height/2-p.y;draw();for(let i=0;i<100&&(scene.detailStream||scene.detailRefreshPending);i++)draw();};
             center(180,180);const a=scene.vegetation.vertices,b=scene.buildings.vertices,loaded=scene.buildings.entries.length,bytes=scene.performanceStats.residentBytes;
             const key=scene.detailKey;draw();const reused=scene.detailKey===key&&scene.vegetation.vertices===a&&scene.buildings.vertices===b;
             const lazy=scene.projected.length===0&&!scene.projectedReady;
@@ -191,17 +216,34 @@ try:
             const saved=serializeCurrent().layers[active].objects.length===originalCount;
             const oldHistory=history,oldFuture=future;history=[{bytes:90*1024*1024},{bytes:90*1024*1024},{bytes:40*1024*1024}];future=[];trimHistory();const budget=history.reduce((n,s)=>n+s.bytes,0)<=128*1024*1024;history=oldHistory;future=oldFuture;
             const stats={...scene.performanceStats},r=document.getElementById('viewport').getBoundingClientRect();
-            const settle=()=>{draw();for(let i=0;i<100&&scene.detailStream;i++)draw();};
+            // Force one chunk per frame, then move/zoom on every frame. Previously
+            // this replaced the visible scene with the first partial chunk each time.
+            const oldNow=performance.now,oldUpload=scene.gl.bufferData,oldReady=scene.onStreamReady;
+            const resident={vegetation:scene.vegetation,structures:scene.structures,buildings:scene.buildings,water:scene.waterVertices,icons:scene.residentBuildings};
+            let clock=0,uploads=0,partialFrames=0,stableDuringLoad=true,batchFinished=false,lastPending=Infinity,progress=true;
+            try{
+                performance.now=()=>{clock+=9;return clock;};scene.onStreamReady=()=>{};
+                scene.gl.bufferData=function(...args){uploads++;return oldUpload.apply(this,args);};
+                scene.detailKey=null;scene.detailStream=null;
+                for(let i=0;i<100;i++){
+                    scene.refreshDetails({...camera(),cx:camera().cx+i*3,zoom:i%2?5:5.1},r.width,r.height);
+                    if(!scene.detailStream){batchFinished=true;break;}
+                    partialFrames++;progress=progress&&scene.detailStream.tasks.length<lastPending;lastPending=scene.detailStream.tasks.length;
+                    stableDuringLoad=stableDuringLoad&&scene.vegetation===resident.vegetation&&scene.structures===resident.structures&&scene.buildings===resident.buildings&&scene.waterVertices===resident.water&&scene.residentBuildings===resident.icons&&uploads===0;
+                }
+            }finally{performance.now=oldNow;scene.gl.bufferData=oldUpload;scene.onStreamReady=oldReady;}
+            const noBlink=partialFrames>0&&stableDuringLoad&&batchFinished&&progress&&uploads===5;
+            const settle=()=>{draw();for(let i=0;i<100&&(scene.detailStream||scene.detailRefreshPending);i++)draw();};
             for(const l of layers)l.planet={enabled:true};yaw=0;tilt=0;zoom=1;ox=r.width/2;oy=r.height/2;textureDirty=true;settle();
             const front=scene.buildings.entries.length;const globePick=scene.pick(r.width/2,r.height/2);
             yaw=180;settle();const rear=scene.buildings.entries.length;const hemisphere=front>0&&rear===0&&!!globePick;
             yaw=0;settle();const globeReturn=scene.buildings.entries.length===front;
             for(const l of layers)l.planet={enabled:false};tilt=35;textureDirty=true;scene.firstPerson={origin:[0,-150,12],forward:[0,1,0],right:[1,0,0],up:[0,0,1],focal:600,width:r.width,height:r.height};settle();
             const walk=scene.gl.getError()===0&&scene.buildings.entries.length>0&&scene.structures.vertices.every(Number.isFinite);scene.firstPerson=null;draw();
-            return {reused,lazy,picking,changed,returned,preserved,terrainCulled,gpu,saved,budget,hemisphere,globeReturn,walk,loaded,total:originalCount,fullBytes:full,residentBytes:bytes,reduced:bytes<full*.7,stats};
+            return {reused,lazy,picking,changed,returned,preserved,terrainCulled,gpu,saved,budget,hemisphere,globeReturn,walk,noBlink,partialFrames,loaded,total:originalCount,fullBytes:full,residentBytes:bytes,reduced:bytes<full*.7,stats};
         })()""")
         print(json.dumps({'entry':entry,'performance':performance_check,'errors':errors}, ensure_ascii=False), flush=True)
-        if not performance_check or not all(performance_check.get(key) for key in ['reused','lazy','picking','changed','returned','preserved','terrainCulled','gpu','saved','budget','reduced','hemisphere','globeReturn','walk']) or errors:
+        if not performance_check or not all(performance_check.get(key) for key in ['reused','lazy','picking','changed','returned','preserved','terrainCulled','gpu','saved','budget','reduced','hemisphere','globeReturn','walk','noBlink']) or errors:
             raise AssertionError('Camera streaming or memory safeguards failed')
         if entry=='index.html':
             js("undo(true);for(const l of layers)l.structures=[];yaw=-65;tilt=55;zoom=3;const p=scene.project(820,550,20,camera());ox+=canvas.clientWidth/2-p.x;oy+=canvas.clientHeight/2-p.y;textureDirty=true;draw();")

@@ -42,13 +42,16 @@
       const button=document.createElement('button');button.id='ui-tab-'+id;button.type='button';button.setAttribute('role','tab');button.setAttribute('aria-controls',group.id);iconButton(button,icon,label);button.onclick=()=>choose(id);bar.append(button);
       button.onkeydown=e=>{const buttons=[...bar.children],index=buttons.indexOf(button);if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[next].click();buttons[next].focus();}};
     }
-    function choose(id){for(const [key,group] of groups){group.hidden=key!==id;const button=$('ui-tab-'+key);button.setAttribute('aria-selected',String(key===id));button.tabIndex=key===id?0:-1;}title.textContent=items.find(item=>item[0]===id)[1];scroll.scrollTop=0;}
+    function choose(id){for(const [key,group] of groups){group.hidden=key!==id;const button=$('ui-tab-'+key);button.setAttribute('aria-selected',String(key===id));button.tabIndex=key===id?0:-1;}const create=panel.querySelector('.ui-layer-create');if(create)create.hidden=id!=='layers';title.textContent=items.find(item=>item[0]===id)[1];scroll.scrollTop=0;}
     panel.append(bar,scroll);choose(initial);return choose;
   }
   function heading(panel,label){const oldClose=panel.querySelector('.close-panel'),head=document.createElement('div');head.className='ui-panel-head';const title=document.createElement('h2');title.className='ui-panel-heading';title.textContent=label;head.append(title);if(oldClose){iconButton(oldClose,'close','Fechar painel');head.append(oldClose);}return head;}
   const left=$('toolsPanel'),right=$('layersPanel');
   const leftHead=heading(left,'Navegação'),rightHead=heading(right,'Camadas');
-  iconButton($('add'),'plus','Adicionar camada');rightHead.append($('add'));
+  const layerCreate=document.createElement('div');layerCreate.className='ui-layer-create';
+  const addLayer=$('add');iconButton(addLayer,'plus','Criar camada');
+  addLayer.title='Criar camada';addLayer.type='button';
+  const addLabel=document.createElement('span');addLabel.textContent='Criar camada';addLayer.append(addLabel);layerCreate.append(addLayer);
   const mainTools=$('tools'),toolButtons=[...mainTools.children];mainTools.replaceChildren();
   const tools=ids=>{const grid=document.createElement('div');grid.className='tools ui-tool-grid';for(const id of ids){const button=toolButtons.find(b=>b.dataset.tool===id);if(button)grid.append(button);}return grid;};
   const explore=tools(['pan','select','orbit','player']);explore.id='tools';
@@ -129,8 +132,9 @@
   const cameraPanel=right.querySelector('.camera-panel'),viewPanel=right.querySelector('.terrain-view'),drive=right.querySelector('.drive-panel');
   drive.remove();drive.open=true;
   right.replaceChildren(rightHead);
-  const chooseRight=tabs(right,[['layers','Camadas','layers',[layerList,layerActions,opacity]],['camera','Câmera','camera',[cameraPanel]],['view','Visualização','view',[viewPanel]],['drive','Google Drive','cloud',[drive]]],'layers');
+  const chooseRight=tabs(right,[['layers','Camadas','layers',[layerCreate,layerList,layerActions,opacity]],['camera','Câmera','camera',[cameraPanel]],['view','Visualização','view',[viewPanel]],['drive','Google Drive','cloud',[drive]]],'layers');
   if(selection)right.querySelector('.ui-scroll').prepend(selection);
+  right.insertBefore(layerCreate,right.querySelector('.ui-scroll'));
   const toolGroups={};for(const [id] of leftItems)for(const b of $('ui-'+id).querySelectorAll('[data-tool]'))toolGroups[b.dataset.tool]=id;
   document.addEventListener('click',e=>{const b=e.target.closest('[data-tool]');if(b){const group=toolGroups[b.dataset.tool];if(group)leftTab(group);if(b.dataset.tool==='select')chooseRight('layers');syncPropertyPanels();syncLocationPanels();if(group==='terrain'&&innerWidth<=860)requestAnimationFrame(()=>propertyPanel.scrollIntoView({block:'start',behavior:'smooth'}));}});syncPropertyPanels();syncLocationPanels();
   for(const button of document.querySelectorAll('[data-tool]'))iconButton(button,button.dataset.tool,button.textContent.trim().replace(/^[^\p{L}]+/u,''));

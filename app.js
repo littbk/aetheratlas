@@ -80,7 +80,7 @@ function compose(){
   const g=mapTexture.getContext('2d');g.clearRect(0,0,W,H);
   for(const l of layers)if(l.visible){g.globalAlpha=l.opacity;drawLayer(g,l);}g.globalAlpha=1;
   if(grid){g.strokeStyle='#f4edcf38';g.lineWidth=1;g.beginPath();for(let x=0;x<=W;x+=50){g.moveTo(x,0);g.lineTo(x,H);}for(let y=0;y<=H;y+=50){g.moveTo(0,y);g.lineTo(W,y);}g.stroke();}
-  scene.update(mapTexture,layers,{...camera(),terrainView:viewSettings()},patches);textureDirty=false;
+  scene.update(mapTexture,layers,{...camera(),terrainView:viewSettings(),showTunnels:$('underground').checked},patches);textureDirty=false;
 }
 function draw(decorations=true){
   if(regionContext||document.hidden)return;

@@ -32,13 +32,22 @@ const MapPaths=(()=>{
     for(let i=1;i<points.length-1;i++){const p=points[i],next=points[i+1];g.quadraticCurveTo(p.x,p.y,(p.x+next.x)/2,(p.y+next.y)/2);}
     const last=points.at(-1);g.lineTo(last.x,last.y);
   }
+  let roadTile;const roadPatterns=new WeakMap();
+  function roadPattern(g){
+    if(roadPatterns.has(g))return roadPatterns.get(g);
+    if(!roadTile){roadTile=document.createElement('canvas');roadTile.width=roadTile.height=128;const c=roadTile.getContext('2d'),im=c.createImageData(128,128);
+      for(let y=0;y<128;y++)for(let x=0;x<128;x++){const i=(y*128+x)*4,n=Math.sin(x*127.1+y*311.7)*43758.5453,grain=(n-Math.floor(n)-.5)*15,patch=Math.sin(x*Math.PI/32)*Math.sin(y*Math.PI/64)*3;im.data[i]=213+grain+patch;im.data[i+1]=192+grain+patch;im.data[i+2]=154+grain+patch;im.data[i+3]=255;}c.putImageData(im,0,0);
+      for(let i=0;i<120;i++){const x=(i*37.17)%128,y=(i*71.31)%128;c.fillStyle=i%3?'rgba(104,86,61,.14)':'rgba(248,234,201,.28)';c.beginPath();c.ellipse(x,y,.25+(i%4)*.12,.2+(i%3)*.1,i,0,Math.PI*2);c.fill();}
+    }const pattern=g.createPattern(roadTile,'repeat');roadPatterns.set(g,pattern);return pattern;
+  }
+  function drawMaterialMask(g,routes){g.save();g.lineCap='round';g.lineJoin='round';for(const kind of ['path','river'])for(const r of routes||[])if(r.kind===kind&&r.points.length>1){trace(g,r.points);g.lineWidth=r.width;g.strokeStyle=kind==='path'?'#800000':'#00ff00';g.stroke();}g.restore();}
   function draw(g,routes){
     g.save();g.lineCap='round';g.lineJoin='round';g.setLineDash([]);
     for(const kind of ['river','path','waterfall']){
       const group=routes.filter(r=>r.kind===kind&&r.points.length>1);
       for(const outer of [true,false])for(const r of group){
-        trace(g,r.points);g.lineWidth=r.width+(outer?(kind==='river'?5:4):0);
-        g.strokeStyle=kind==='waterfall'?(outer?'#d3ecea':'#63b5c7'):kind==='river'?(outer?'#8fae96':'#498e9f'):(outer?'#7f8967':'#dfcc9c');g.stroke();
+        trace(g,r.points);g.lineWidth=r.width+(outer?(kind==='river'?5:2):0);
+        g.strokeStyle=kind==='waterfall'?(outer?'#d3ecea':'#63b5c7'):kind==='river'?(outer?'#8fae96':'#498e9f'):(outer?'#aaa17f':roadPattern(g));g.stroke();
       }
       if(kind==='waterfall')for(const r of group){trace(g,r.points);g.lineWidth=Math.max(1,r.width*.16);g.strokeStyle='#e6faf1';g.stroke();}
     }
@@ -117,5 +126,5 @@ const MapPaths=(()=>{
     }
     return {vertices:new Float32Array(vertices)};
   }
-  return {draw,erase,validate,distance,build,createWaterfall,buildWaterfalls,waterSurface,snapWater};
+  return {draw,drawMaterialMask,erase,validate,distance,build,createWaterfall,buildWaterfalls,waterSurface,snapWater};
 })();

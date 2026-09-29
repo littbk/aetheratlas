@@ -58,7 +58,7 @@ class AtlasScene {
       }`));
     gl.attachShader(this.program,shader(gl.FRAGMENT_SHADER,`
       precision highp float;
-      varying vec2 texcoord; varying float surfaceVisible; varying mediump float sphereLight; uniform sampler2D atlas;
+      varying vec2 texcoord; varying float surfaceVisible; varying mediump float sphereLight; uniform sampler2D atlas; uniform vec4 atlasRect;
       uniform mediump float spherical; uniform vec3 ocean; uniform float treeMode; uniform float waterMode;
       uniform sampler2D stoneMap; uniform sampler2D tileMap; uniform sampler2D woodMap; uniform sampler2D trimMap; uniform sampler2D shadowMap; uniform sampler2D terrainDetail; uniform sampler2D biomeMap; uniform vec2 terrainSize; uniform float textureDetail; uniform float fogPreview;
       uniform vec3 eyeDirection; uniform vec4 regionClip; uniform float flatMode;
@@ -131,25 +131,27 @@ class AtlasScene {
           }
           gl_FragColor=fogColor(vec4(result*sphereLight,1.));return;
         }
-        vec4 color=texture2D(atlas,texcoord);float shadow=groundShadow();
+        vec4 color=texture2D(atlas,(texcoord-atlasRect.xy)/atlasRect.zw);float shadow=groundShadow();
         if(treeMode<.5&&textureDetail>.5){
           vec2 p=texcoord*terrainSize;
           vec4 tag=texture2D(biomeMap,texcoord),detail=texture2D(terrainDetail,p/43.);
           vec4 fine=texture2D(terrainDetail,p/9.+vec2(.37,.61));
           vec4 broad=texture2D(terrainDetail,p/187.+vec2(.13,.29));
           float tufts=smoothstep(.48,.77,detail.r);
-          vec3 ground=color.rgb*(.84+broad.r*.20+detail.r*.16+(fine.r-.5)*.10);
+          vec3 ground=color.rgb*(.90+broad.r*.08+detail.r*.14+(fine.r-.5)*.16);
           ground=mix(ground,ground*vec3(1.04,1.025,.92),tufts*.28);
           float sand=smoothstep(.12,.4,tag.b)*(1.-smoothstep(.65,.9,tag.b));
           float stone=smoothstep(.65,.95,tag.b);
           vec3 sandy=color.rgb*(.87+detail.g*.16+fine.a*.10);
-          vec3 rocky=color.rgb*(.78+detail.a*.32+fine.a*.17);
+          vec3 rocky=color.rgb*(.78+detail.a*.39+fine.a*.17);
           ground=mix(ground,sandy,sand);
           ground=mix(ground,rocky,stone);
           if(tag.g>.001)ground=mix(ground,waterSurface(color.rgb,p),tag.g);
           float vein=smoothstep(.38,.52,detail.b);
           vec3 lava=color.rgb*(.92+detail.r*.12)+vec3(.12,.035,.004)*vein;
-          ground=mix(ground,lava,tag.r);
+          ground=mix(ground,lava,smoothstep(.75,1.,tag.r));
+          float road=smoothstep(.18,.42,tag.r)*(1.-smoothstep(.58,.78,tag.r));
+          ground=mix(ground,color.rgb*(.96+fine.a*.08),road);
           color.rgb=mix(color.rgb,ground,tag.a);
         }
         vec3 sea=ocean;if(textureDetail>.5&&(spherical>.5||flatMode>.5)&&color.a<.999)sea=waterSurface(ocean,texcoord*terrainSize);
@@ -178,7 +180,7 @@ class AtlasScene {
     this.shadowTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.shadowTexture);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-    this.vertices=[]; this.projected=[];
+    this.vertices=[]; this.projected=[];this.residentBuildings=new Set();
     this.canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.gl=null;});
   }
   update(texture,layers,camera={yaw:0},patches=[]) {this.fogLayers=layers;
@@ -205,7 +207,9 @@ class AtlasScene {
     for(let first=0;first<this.vertices.length/6;first+=block){const count=Math.min(block,this.vertices.length/6-first),bounds=[Infinity,Infinity,-Infinity,-Infinity,Infinity,-Infinity];for(let j=first*6;j<(first+count)*6;j+=6){bounds[0]=Math.min(bounds[0],this.vertices[j]);bounds[1]=Math.min(bounds[1],this.vertices[j+1]);bounds[2]=Math.max(bounds[2],this.vertices[j]);bounds[3]=Math.max(bounds[3],this.vertices[j+1]);bounds[4]=Math.min(bounds[4],this.vertices[j+2]);bounds[5]=Math.max(bounds[5],this.vertices[j+2]);}this.terrainChunks.push({first,count,bounds});}
     gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,this.vertices,gl.STATIC_DRAW);
     const regions=isPlanet&&typeof WorldSurface!=='undefined'?WorldSurface.groups(layers):[{gx:0,gy:0,x:3200,y:1650,layers}];
-    this.detailSources={regions,isPlanet,regional};this.detailKey=null;
+    const detailSpace=regional?JSON.stringify(camera.flatRegion):isPlanet?'planet':'flat';
+    if(this.detailSpace&&this.detailSpace!==detailSpace){for(const name of ['vegetation','structures','buildings'])this[name]={vertices:new Float32Array(0),entries:[],count:0};this.waterVertices=new Float32Array(0);this.residentBuildings=new Set();this.residentVisible=null;}
+    this.detailSpace=detailSpace;this.detailSources={regions,isPlanet,regional};this.detailKey=null;this.detailStream=null;this.detailRefreshPending=false;
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.shadowTexture);
     const shadow=document.createElement('canvas');shadow.width=isPlanet?4000:1600;shadow.height=isPlanet?2200:1100;const sg=shadow.getContext('2d');sg.fillStyle='#fff';sg.fillRect(0,0,shadow.width,shadow.height);
     for(const region of regions)sg.drawImage(Structures.shadows(region.layers),isPlanet?region.x*.5:0,isPlanet?region.y*.5:0,isPlanet?800:1600,isPlanet?550:1100);
@@ -213,9 +217,32 @@ class AtlasScene {
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,shadow);
     const biome=document.createElement('canvas');biome.width=isPlanet?2000:400;biome.height=isPlanet?1100:275;const bg=biome.getContext('2d');bg.imageSmoothingEnabled=false;
     for(const r of regions)for(const l of r.layers)if(l.visible&&l.opacity){bg.globalAlpha=l.opacity;bg.drawImage(Terrain.biomeTexture(l.terrain),isPlanet?r.x/4:0,isPlanet?r.y/4:0);}
+    for(const r of regions)for(const l of r.layers)if(l.visible&&l.opacity){bg.save();bg.globalAlpha=l.opacity;bg.translate(isPlanet?r.x/4:0,isPlanet?r.y/4:0);bg.scale(.25,.25);MapPaths.drawMaterialMask(bg,l.routes);bg.restore();}
     gl.bindTexture(gl.TEXTURE_2D,this.biomeTexture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,biome);
     gl.bindTexture(gl.TEXTURE_2D,this.texture);
-    if(isPlanet){
+    this.atlasRect=[0,0,1,1];
+    if(!spherical){
+      // Repaint vectors at local resolution, on the SAME terrain surface. A close
+      // region no longer magnifies a tiny section of the whole-planet bitmap.
+      const area=regional?camera.flatRegion:{x:0,y:0,width:1600,height:1100};
+      const limit=Math.min(innerWidth<=860?1536:3072,gl.getParameter(gl.MAX_TEXTURE_SIZE));
+      const scale=Math.min(3,limit/Math.max(area.width,area.height));
+      const local=this.localTexture||(this.localTexture=document.createElement('canvas'));
+      local.width=Math.max(1,Math.ceil(area.width*scale));local.height=Math.max(1,Math.ceil(area.height*scale));
+      const g=local.getContext('2d');g.setTransform(local.width/area.width,0,0,local.height/area.height,-area.x*local.width/area.width,-area.y*local.height/area.height);
+      if(regional)for(const patch of patches)if(patch.image&&patch.kind!=='submap')g.drawImage(patch.image,patch.x,patch.y,patch.width,patch.height);
+      for(const r of regions){const x=regional?r.x:0,y=regional?r.y:0;if(x+1600<area.x||y+1100<area.y||x>area.x+area.width||y>area.y+area.height)continue;
+        g.save();g.translate(x,y);
+        for(const l of r.layers)if(l.visible&&l.opacity){g.globalAlpha=l.opacity;g.drawImage(l.c,0,0);g.drawImage(Terrain.render(l.terrain,camera.terrainView||{texture:true,shade:true}),0,0,1600,1100);MapPaths.draw(g,l.routes);if(l.ink)g.drawImage(l.ink,0,0);Structures.drawPlan(g,l.structures);
+          if(camera.showTunnels!==false)for(const t of l.tunnels||[]){g.save();g.lineCap='round';g.beginPath();g.moveTo(t.a.x,t.a.y);g.lineTo(t.b.x,t.b.y);g.strokeStyle='#102d3199';g.lineWidth=t.width+7;g.stroke();g.strokeStyle='#e6c48b';g.lineWidth=2;g.setLineDash([7,7]);g.stroke();g.restore();}
+        }
+        g.restore();
+      }
+      if(regional)this.atlasRect=[area.x/8000,area.y/4400,area.width/8000,area.height/4400];
+      if(this.planetTexture){this.planetTexture.width=1;this.planetTexture.height=1;}
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,local);
+    }else if(isPlanet){
+      if(this.localTexture){this.localTexture.width=1;this.localTexture.height=1;}
       const max=gl.getParameter(gl.MAX_TEXTURE_SIZE),w=Math.min(innerWidth<=860?2048:4096,max),h=w/2;
       if(!this.planetTexture)this.planetTexture=document.createElement('canvas');
       this.planetTexture.width=w;this.planetTexture.height=h;
@@ -230,7 +257,7 @@ class AtlasScene {
       }
       gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,this.planetTexture);
     }else gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,texture);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,isPlanet?gl.LINEAR_MIPMAP_LINEAR:gl.LINEAR);if(isPlanet)gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,spherical?gl.LINEAR_MIPMAP_LINEAR:gl.LINEAR);if(spherical)gl.generateMipmap(gl.TEXTURE_2D);
     const anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');if(anisotropy)gl.texParameterf(gl.TEXTURE_2D,anisotropy.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(8,gl.getParameter(anisotropy.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
   }
   visibleBounds(x0,y0,x1,y1,camera,width,height,margin=120,z0=0,z1=260){
@@ -245,20 +272,24 @@ class AtlasScene {
     const {regions,isPlanet,regional}=this.detailSources,cell=200,visible=new Set();
     for(const r of regions)for(let y=0;y<1100;y+=cell)for(let x=0;x<1600;x+=cell){
       const gx=x+r.gx*1600,gy=y+r.gy*1100;
-      if(this.visibleBounds(gx,gy,gx+cell,gy+cell,camera,width,height))visible.add(`${r.gx},${r.gy}:${x/cell},${y/cell}`);
+      const id=`${r.gx},${r.gy}:${x/cell},${y/cell}`;
+      // A wider exit margin stops chunks oscillating at the viewport boundary.
+      if(this.visibleBounds(gx,gy,gx+cell,gy+cell,camera,width,height,this.residentVisible?.has(id)?220:160))visible.add(id);
     }
     const lod=Math.floor(Math.log2(Math.max(.08,camera.zoom))*2),eye=this.firstPerson;
     const key=[...visible].join('|')+':'+lod+':'+!!eye+(eye?':'+eye.origin.map(v=>Math.round(v/80)).join(','):'')+':'+(camera.relief<.1);
-    if(key===this.detailKey&&!this.detailStream)return;
-    if(key!==this.detailKey){
+    if(key===this.detailKey&&!this.detailStream){this.detailRefreshPending=false;return;}
+    if(camera.fullQuality&&key!==this.detailKey)this.detailStream=null;
+    if(!this.detailStream&&key!==this.detailKey){
       this.detailKey=key;
       const tasks=[];for(const r of regions)for(const id of visible)if(id.startsWith(`${r.gx},${r.gy}:`))tasks.push({region:r,id});
-      // Nearby cells arrive first; obsolete jobs are dropped when the camera moves.
+      // Finish this bounded batch even while moving. Restarting it on every camera
+      // change starves loading; the next batch will use the latest camera.
       tasks.sort((a,b)=>{const distance=t=>{const [x,y]=t.id.split(':')[1].split(',').map(Number),p=this.project(x*cell+cell/2+t.region.gx*1600,y*cell+cell/2+t.region.gy*1100,0,camera);return Math.hypot(p.x-width/2,p.y-height/2);};return distance(a)-distance(b);});
-      this.detailStream={tasks,meshes:{vegetation:[],structures:[],buildings:[]},waterMeshes:[],visible};
+      this.detailStream={tasks,meshes:{vegetation:[],structures:[],buildings:[]},waterMeshes:[],visible,camera:{...camera},eye:eye?{...eye,origin:[...eye.origin]}:null};
     }
     const start=performance.now(),gl=this.gl;
-    const stream=this.detailStream,{meshes,waterMeshes}=stream;
+    const stream=this.detailStream,{meshes,waterMeshes}=stream,buildCamera=stream.camera,buildEye=stream.eye;
     while(stream.tasks.length){
       const {region:r,id}=stream.tasks.shift(),prefix=`${r.gx},${r.gy}:`;
       const include=(o,kind)=>{
@@ -269,14 +300,14 @@ class AtlasScene {
         for(let y=Math.max(0,Math.floor(y0/cell));y<=Math.min(5,Math.floor(y1/cell))&&owner===null;y++)for(let x=Math.max(0,Math.floor(x0/cell));x<=Math.min(7,Math.floor(x1/cell));x++)if(stream.visible.has(prefix+x+','+y)){owner=prefix+x+','+y;break;}
         if(owner!==id)return false;
         if(kind==='vegetation'){
-          const p=this.project(o.x+r.gx*1600,o.y+r.gy*1100,0,camera),pixels=eye?(o.size||40)*eye.focal/Math.max(1,p.w):(o.size||40)*camera.zoom/Math.max(.2,p.w)*(isPlanet?.37:1);
+          const p=this.project(o.x+r.gx*1600,o.y+r.gy*1100,0,buildCamera),pixels=buildEye?(o.size||40)*buildEye.focal/Math.max(1,p.w):(o.size||40)*buildCamera.zoom/Math.max(.2,p.w)*(isPlanet?.37:1);
           if(pixels<5)return false;
           // Deterministic thinning keeps distant generated forests stable while moving.
           if(!o.kind&&pixels<20){const hash=Math.abs(Math.sin(o.x*12.9898+o.y*78.233)*43758.5453)%1;if(hash>Math.max(.15,pixels/20))return false;}
         }
         if(kind==='building'){
-          if(camera.relief<.1)return false;
-          const p=this.project(o.x+r.gx*1600,o.y+r.gy*1100,0,camera),pixels=eye?o.size*eye.focal/Math.max(1,p.w):o.size*camera.zoom/Math.max(.2,p.w)*(isPlanet?.5:1);
+          if(buildCamera.relief<.1)return false;
+          const p=this.project(o.x+r.gx*1600,o.y+r.gy*1100,0,buildCamera),pixels=buildEye?o.size*buildEye.focal/Math.max(1,p.w):o.size*buildCamera.zoom/Math.max(.2,p.w)*(isPlanet?.5:1);
           if(pixels<18)return false;
         }
         return true;
@@ -295,6 +326,12 @@ class AtlasScene {
       }
       if(!camera.fullQuality&&performance.now()-start>=8)break;
     }
+    // Publish only a COMPLETE batch. GPU buffers, picking entries and billboard
+    // fallback must switch together; partial uploads made every visible model blink.
+    if(stream.tasks.length){
+      this.performanceStats={...this.performanceStats,pendingChunks:stream.tasks.length,streamMs:performance.now()-start};
+      this.onStreamReady?.();return;
+    }
     for(const [name,buffer] of [['vegetation',this.treeBuffer],['structures',this.structureBuffer],['buildings',this.buildingBuffer]]){
       const group=meshes[name],vertices=new Float32Array(group.reduce((n,{mesh})=>n+mesh.vertices.length,0)),entries=[];let offset=0;
       for(const {mesh,region:r,stride} of group){vertices.set(mesh.vertices,offset);for(const e of mesh.entries||[])entries.push(name==='buildings'?{...e,sourceObject:e.object,first:e.first+offset/stride,object:{...e.object,x:e.object.x+r.gx*1600,y:e.object.y+r.gy*1100}}:{...e,localX:e.x,localY:e.y,region:{gx:r.gx,gy:r.gy},x:e.x+r.gx*1600,y:e.y+r.gy*1100});offset+=mesh.vertices.length;}
@@ -303,8 +340,9 @@ class AtlasScene {
     this.waterVertices=new Float32Array(waterMeshes.reduce((n,v)=>n+v.length,0));const colors=new Float32Array(waterMeshes.reduce((n,v)=>n+v.colors.length,0));let offset=0,colorOffset=0;for(const v of waterMeshes){this.waterVertices.set(v,offset);colors.set(v.colors,colorOffset);offset+=v.length;colorOffset+=v.colors.length;}
     gl.bindBuffer(gl.ARRAY_BUFFER,this.waterBuffer);gl.bufferData(gl.ARRAY_BUFFER,this.waterVertices,gl.STATIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,this.waterColorBuffer);gl.bufferData(gl.ARRAY_BUFFER,colors,gl.STATIC_DRAW);
     this.residentBuildings=new Set(this.buildings.entries.map(e=>e.sourceObject));
-    this.performanceStats={...this.performanceStats,visibleChunks:visible.size,pendingChunks:stream.tasks.length,residentBytes:this.vegetation.vertices.byteLength+this.structures.vertices.byteLength+this.buildings.vertices.byteLength+this.waterVertices.byteLength+colors.byteLength,streamMs:performance.now()-start};
-    if(stream.tasks.length)this.onStreamReady?.();else this.detailStream=null;
+    this.residentVisible=stream.visible;
+    this.performanceStats={...this.performanceStats,visibleChunks:stream.visible.size,pendingChunks:0,residentBytes:this.vegetation.vertices.byteLength+this.structures.vertices.byteLength+this.buildings.vertices.byteLength+this.waterVertices.byteLength+colors.byteLength,streamMs:performance.now()-start};
+    this.detailStream=null;this.detailRefreshPending=key!==this.detailKey;if(this.detailRefreshPending)this.onStreamReady?.();
   }
   project(x,y,z,camera,worldCoordinates=false) {
     if(this.firstPerson){
@@ -342,6 +380,7 @@ class AtlasScene {
       const loc=gl.getAttribLocation(this.program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,24,offset);
     }
     const uniform=name=>gl.getUniformLocation(this.program,name);
+    gl.uniform4f(uniform('atlasRect'),...(this.atlasRect||[0,0,1,1]));
     const eye=this.firstPerson;gl.uniform1f(uniform('firstPerson'),eye?1:0);if(eye){for(const [name,v] of [['eyeOrigin',eye.origin],['eyeRight',eye.right],['eyeUp',eye.up],['eyeForward',eye.forward]])gl.uniform3f(uniform(name),...v);gl.uniform1f(uniform('focal'),eye.focal);}const region=camera.flatRegion;gl.uniform1f(uniform('flatMode'),region?1:0);gl.uniform4f(uniform('regionClip'),region?region.x/8000:0,region?region.y/4400:0,region?(region.x+region.width)/8000:1,region?(region.y+region.height)/4400:1);
     for(const name of ['treeTint','treeLift']){const loc=gl.getAttribLocation(this.program,name);gl.disableVertexAttribArray(loc);if(name==='treeTint')gl.vertexAttrib3f(loc,0,0,0);else gl.vertexAttrib1f(loc,0);}
     for(const name of ['archNormal','archUV']){const loc=gl.getAttribLocation(this.program,name);gl.disableVertexAttribArray(loc);if(name==='archNormal')gl.vertexAttrib3f(loc,0,0,1);else gl.vertexAttrib2f(loc,0,0);}

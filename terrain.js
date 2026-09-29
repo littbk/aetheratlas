@@ -174,7 +174,8 @@ const Terrain = (() => {
       image.data[i+1]=Math.round(255*(.5+.25*Math.sin(y/512*Math.PI*24+(warp-.5)*3)+.1*Math.sin((x+y)/512*Math.PI*48)));
       const crust=field(x+warp*30,y+broad*20,12),vein=Math.max(0,1-Math.abs(crust-.5)*16);
       image.data[i+2]=Math.round(255*vein*vein);
-      image.data[i+3]=Math.round(255*(.16+rock*.50+fine*.20+micro*.14));
+      const fracture=Math.max(0,1-Math.abs(rock-.48)*24),facet=Math.floor(rock*7)/7;
+      image.data[i+3]=Math.round(255*Math.max(0,Math.min(1,.23+facet*.42+fine*.23+micro*.12-fracture*.17)));
     }
     g.putImageData(image,0,0);return highDetail=c;
   }

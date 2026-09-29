@@ -87,6 +87,8 @@ const Buildings3D=(()=>{
     };
     if(type==='house')cottage(style);
     if(type==='village'){
+      // Shared paved ground beneath all houses, paths and the central well.
+      lathe(0,2,[[-.35,48],[-.1,49],[.15,49],[.25,48]],'paving',2,24,45/49);
       pad(0,0,12,12);place(0,0,0,.75,0,well);
       const layouts=style===0?[[-20,-14,.82,.1],[20,-12,.85,-.12],[-19,18,.72,.05],[19,20,.72,-.12]]:style===1?[[-22,-12,.85,.3],[20,-18,.82,-.35],[-18,20,.78,-.15],[19,18,.76,.2]]:[[-20,-14,.8,-.22],[20,-11,.86,.18],[-18,20,.78,.2],[20,20,.65,-.2]];
       for(const [x,y,s,a] of layouts)place(x,y,0,s,a,()=>cottage(style));for(let i=0;i<7;i++)pad(-2+Math.sin(i)*1.1,-29+i*9,3.4,4,.05);
