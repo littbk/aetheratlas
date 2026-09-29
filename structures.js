@@ -1,6 +1,25 @@
 'use strict';
 // Architectural parts are stored as small 2D footprints and extruded against the terrain.
 const Structures=(()=>{
+  const materials={
+    limestone:{name:'Calcário',color:'#b6ad98',wall:'stone',floor:'tile'},
+    slate:{name:'Ardósia',color:'#697784',wall:'stone',floor:'tile'},
+    sandstone:{name:'Arenito',color:'#c3a476',wall:'stone',floor:'tile'},
+    brick:{name:'Tijolo',color:'#ac7561',wall:'stone',floor:'tile'},
+    wood:{name:'Madeira',color:'#94704e',wall:'wood',floor:'wood'},
+    terracotta:{name:'Terracota e marfim',color:'#ad513a',wall:'stone',floor:'tile'},
+    silver:{name:'Ardósia e prata',color:'#8998aa',wall:'stone',floor:'tile'},
+    jade:{name:'Jade e arenito',color:'#397e70',wall:'stone',floor:'tile'}
+  };
+  function materialOf(part){
+    if(Object.hasOwn(materials,part.materialPreset))return part.materialPreset;
+    if(part.material==='wood')return 'wood';
+    return Object.keys(materials).find(key=>materials[key].color.toLowerCase()===part.color?.slice(0,7).toLowerCase())||'';
+  }
+  function applyMaterial(part,key){
+    const preset=materials[key];if(!preset)return;
+    part.materialPreset=key;part.material=part.fill?preset.floor:preset.wall;part.color=preset.color;
+  }
   let nextGroup=0;
   const elevations={wall:12,room:12,corridor:8,rect:8,ellipse:8,line:1,door:11,window:10,stairs:8,pillar:12,pit:-10};
   const rgb=value=>{const hex=(value||'#888888').match(/[0-9a-f]{2}/gi)||['88','88','88'];return hex.slice(0,3).map(v=>parseInt(v,16)/255);};
@@ -13,11 +32,11 @@ const Structures=(()=>{
     const source=parts.map(normalize).filter(Boolean);if(!source.length)return [];
     const thickness=Math.max(3,Math.min(60,size*.32)),height=Math.max(6,Math.min(80,options.height||26));
     const primary=source.find(p=>p.fill)||source.find(p=>p.stroke&&!['#242c2b','#202927','#252c29'].includes(p.stroke))||source[0];
-    const color=options.color||primary.fill||primary.stroke||'#b6ad98',wallMaterial=options.material==='wood'?'wood':'stone',floorMaterial=options.material==='wood'?'wood':'tile';
+    const preset=materials[options.material],color=options.color||preset?.color||primary.fill||primary.stroke||'#b6ad98',wallMaterial=preset?.wall||'stone',floorMaterial=preset?.floor||'tile';
     const points=primary.points;
     const groupId=globalThis.crypto?.randomUUID?.()||'construction-'+Date.now()+'-'+(++nextGroup);
-    const piece=(points,fill,lift,width=thickness,tint=color,material=fill?floorMaterial:wallMaterial,close=true,base=0)=>({points:points.map(p=>({...p})),fill,height:lift,width,color:tint,material,kind,close,base,groupId,planDynamic:true});
-    if(['bridgeWood','bridgeIron','bridgeSuspension'].includes(kind))return[piece(points,false,height,thickness,color,kind==='bridgeWood'?'wood':'metal',false)];
+    const piece=(points,fill,lift,width=thickness,tint=color,material=fill?floorMaterial:wallMaterial,close=true,base=0)=>({points:points.map(p=>({...p})),fill,height:lift,width,color:tint,material,...(preset?{materialPreset:options.material}:{}),kind,close,base,groupId,planDynamic:true});
+    if(['bridgeWood','bridgeIron','bridgeSuspension'].includes(kind))return[piece(points,false,height,thickness,color,preset?wallMaterial:kind==='bridgeWood'?'wood':'metal',false)];
     if(kind==='wall'||kind==='line')return[piece(points,false,kind==='line'?1:height,kind==='line'?Math.max(2,thickness*.3):thickness,color,wallMaterial,false)];
     if(kind==='room')return[piece(points,true,.8),piece(points,false,height)].map(p=>({...p,foundationPoints:points.map(v=>({...v}))}));
     if(kind==='corridor')return[piece(points,true,.8),piece([points[0],points[1]],false,height,thickness,color,wallMaterial,false),piece([points[3],points[2]],false,height,thickness,color,wallMaterial,false)];
@@ -88,12 +107,13 @@ const Structures=(()=>{
     }
     return out;
   }
-  function build(layers,planet){
-    Terrain.freezeLayers(layers);const vertices=[];let material=3,foundation=0;
+  function build(layers,planet,include=null){
+    if(!include)Terrain.freezeLayers(layers);const vertices=[];let material=3,foundation=0,endpointLift=null;
     const openings=layers.filter(l=>l.visible!==false&&l.opacity!==0).flatMap(l=>(l.structures||[]).filter(p=>['door','window'].includes(p.kind)&&p.fill&&p.points.length===4&&p.base>3&&p.height-p.base<=3.1));
     const altitude=(x,y)=>Math.max(0,Terrain.sample(layers,x,y)||0)*.065;
     const vertex=(p,h,t,n,u,v)=>{const wx=p.x+(planet?3200:0),wy=p.y+(planet?1650:0);vertices.push(wx,wy,foundation,wx/(planet?8000:1600),wy/(planet?4400:1100),material,...t,h*(planet?.37:1),...n,u,v);};
     const face=(a,b,c,ha,hb,hc,t,uv)=>{
+      if(endpointLift){ha+=endpointLift(a);hb+=endpointLift(b);hc+=endpointLift(c);}
       const ab=[b.x-a.x,b.y-a.y,hb-ha],ac=[c.x-a.x,c.y-a.y,hc-ha],n=[ab[1]*ac[2]-ab[2]*ac[1],ab[2]*ac[0]-ab[0]*ac[2],ab[0]*ac[1]-ab[1]*ac[0]],len=Math.hypot(...n)||1;
       for(let i=0;i<3;i++)n[i]/=len;
       vertex(a,ha,t,n,...uv[0]);vertex(b,hb,t,n,...uv[1]);vertex(c,hc,t,n,...uv[2]);
@@ -120,9 +140,9 @@ const Structures=(()=>{
     };
     function bridge(part){
       const [a,b]=part.points,dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);if(len<.01)return;
-      const ux=dx/len,uy=dy/len,nx=-uy,ny=ux,half=part.width/2,wood=part.kind==='bridgeWood';
-      const color=rgb(part.color),trim=wood?[.34,.22,.13]:[.27,.31,.34];
-      const terrain=t=>altitude(a.x+dx*t,a.y+dy*t),start=terrain(0)+1.2,end=terrain(1)+1.2;
+      const ux=dx/len,uy=dy/len,nx=-uy,ny=ux,half=part.width/2,wood=part.material==='wood',surface=({stone:3,tile:2,wood:4,metal:6,glass:5})[part.material]||(wood?4:6);
+      const color=rgb(part.color),trim=part.materialPreset?color.map(v=>v*.7):wood?[.34,.22,.13]:[.27,.31,.34];
+      const terrain=t=>altitude(a.x+dx*t,a.y+dy*t),start=terrain(0)+1.2+(part.bridgeEndHeights?.[0]||0),end=terrain(1)+1.2+(part.bridgeEndHeights?.[1]||0);
       const level=t=>Math.max(start+(end-start)*t,terrain(t)+part.height*.0325*Math.sin(Math.PI*t)**2);
       const at=(t,side)=>({x:a.x+dx*t+nx*side,y:a.y+dy*t+ny*side});
       const quad=(a,b,c,d,za,zb,zc,zd,t)=>{face(a,b,c,za,zb,zc,t,[[a.x,a.y],[b.x,b.y],[c.x,c.y]]);face(a,c,d,za,zc,zd,t,[[a.x,a.y],[c.x,c.y],[d.x,d.y]]);};
@@ -140,15 +160,15 @@ const Structures=(()=>{
       const n=Math.max(2,Math.min(60,Math.ceil(len/12)));
       for(let i=0;i<n;i++){
         const t=i/n,u=(i+1)/n,z=level(t),w=level(u);
-        strip(t,u,-half,half,z,w,wood?1.4:1.1,color,wood?4:6);
+        strip(t,u,-half,half,z,w,wood?1.4:1.1,color,surface);
         if(wood)strip(t,u,-half,half,z-.5,w-.5,.22,trim,4);
         for(const side of [-1,1]){
           const edge=side*half;
-          strip(t,u,edge-.45,edge+.45,z+3.7,w+3.7,.55,trim,wood?4:6);
+          strip(t,u,edge-.45,edge+.45,z+3.7,w+3.7,.55,trim,surface);
           if(!wood)strip(t,u,edge-.7,edge+.7,z-.65,w-.65,.65,trim,6);
         }
       }
-      for(let i=0;i<=n;i+=Math.max(1,Math.round(n/Math.max(2,len/18))))for(const side of [-1,1]){const t=i/n,z=level(t);post(t,side*half,z,z+4,.4,trim,wood?4:6);}
+      for(let i=0;i<=n;i+=Math.max(1,Math.round(n/Math.max(2,len/18))))for(const side of [-1,1]){const t=i/n,z=level(t);post(t,side*half,z,z+4,.4,trim,surface);}
       if(part.kind==='bridgeSuspension'){
         const tower=Math.max(7,Math.min(23,part.height*.6));
         const cable=t=>t<.18?level(0)+tower*t/.18:t>.82?level(1)+tower*(1-t)/.18:level(t)+tower*(.38+.62*(Math.abs(t-.5)/.32)**1.5);
@@ -160,6 +180,8 @@ const Structures=(()=>{
       }else for(const t of [.2,.5,.8]){const z=level(t),g=terrain(t);if(z-g>2)for(const side of [-1,1])post(t,side*(half-.6),g,z,wood?.7:.55,trim,wood?4:6);}
     }
     for(const layer of layers)if(layer.visible!==false&&layer.opacity!==0)for(const part of layer.structures||[]){
+      if(include&&!include(part,'structure'))continue;
+      endpointLift=null;
       if(['bridgeWood','bridgeIron','bridgeSuspension'].includes(part.kind)){foundation=part.elevation||0;bridge(part);continue;}
       if(part.kind==='pit'&&part.fill)continue;
       if(part.kind&&!part.fill&&part.height===0)continue;
@@ -174,14 +196,15 @@ const Structures=(()=>{
         for(let y=Math.min(...ys);y<=Math.max(...ys);y+=24)for(let x=Math.min(...xs);x<=Math.max(...xs);x+=24)foundation=Math.max(foundation,altitude(x,y));
       }
       foundation+=part.elevation||0;
+      if(part.endHeights&&part.points.length===2){const [a,b]=part.points,dx=b.x-a.x,dy=b.y-a.y,den=dx*dx+dy*dy||1,[h0,h1]=part.endHeights;endpointLift=p=>{const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/den));return h0+(h1-h0)*t;};}
       if(part.fill&&part.kind==='pillar'){
         const cx=points.reduce((s,p)=>s+p.x,0)/points.length,cy=points.reduce((s,p)=>s+p.y,0)/points.length;
-        const scaled=k=>points.map(p=>({x:cx+(p.x-cx)*k,y:cy+(p.y-cy)*k}));material=8;
+        const scaled=k=>points.map(p=>({x:cx+(p.x-cx)*k,y:cy+(p.y-cy)*k}));if(material===3)material=8;
         prism(points,2.2,color,0,.65);prism(scaled(.88),4,color,2, .55);
         prism(scaled(.70),height-2,color,3.6,.4);prism(scaled(.83),height,color,height-3,.65);prism(points,height+2,color,height-.2,.7);
       }else for(const span of wallSpans(part,height,base,openings)){
         const {poly,height:spanHeight,base:spanBase}=span;
-        const m=material;if(part.kind==='stairs')material=8;
+        const m=material;if(part.kind==='stairs'&&material===3)material=8;
         prism(poly,spanHeight,color,spanBase,part.material==='glass'?.1:.65);material=m;
         if(!part.fill&&spanHeight===height&&height>=7&&material===3){
           material=8;prism(offsetPath(area(poly)<0?[...poly].reverse():poly,-.6),height+1.3,color,height-.5,.5);material=m;
@@ -247,7 +270,9 @@ const Structures=(()=>{
   function validate(items){
     if(!Array.isArray(items)||items.length>3000)throw Error('Construções 3D inválidas.');
     return items.map(item=>{
-      if(!item||(item.groupId!==undefined&&(typeof item.groupId!=='string'||item.groupId.length>100))||(item.planDynamic!==undefined&&typeof item.planDynamic!=='boolean')||(item.foundationPoints!==undefined&&(!Array.isArray(item.foundationPoints)||item.foundationPoints.length<3||item.foundationPoints.length>128||item.foundationPoints.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)))||(item.elevation!==undefined&&(!Number.isFinite(item.elevation)||item.elevation< -100||item.elevation>500))||(item.base!==undefined&&(!Number.isFinite(item.base)||item.base<0||item.base>100))||(item.material!==undefined&&!['stone','tile','wood','glass','metal'].includes(item.material))||(item.kind!==undefined&&!['wall','room','corridor','floor','rect','rectFill','ellipse','ellipseFill','line','door','window','stairs','pillar','pit','bridgeWood','bridgeIron','bridgeSuspension'].includes(item.kind))||!Array.isArray(item.points)||item.points.length<2||item.points.length>128||item.points.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)||!Number.isFinite(item.width)||item.width<1||item.width>180||!Number.isFinite(item.height)||item.height< -100||item.height>100||typeof item.fill!=='boolean'||!/^#[0-9a-f]{6,8}$/i.test(item.color))throw Error('Construção 3D inválida.');
+      if(item?.materialPreset!==undefined&&!Object.hasOwn(materials,item.materialPreset))throw Error('Material de arquitetura inválido.');
+      if(!item||(item.groupId!==undefined&&(typeof item.groupId!=='string'||item.groupId.length>100))||(item.planDynamic!==undefined&&typeof item.planDynamic!=='boolean')||(item.foundationPoints!==undefined&&(!Array.isArray(item.foundationPoints)||item.foundationPoints.length<3||item.foundationPoints.length>128||item.foundationPoints.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)))||(item.elevation!==undefined&&(!Number.isFinite(item.elevation)||item.elevation< -100||item.elevation>500))||(item.bridgeEndHeights!==undefined&&(!['bridgeWood','bridgeIron','bridgeSuspension'].includes(item.kind)||!Array.isArray(item.bridgeEndHeights)||item.bridgeEndHeights.length!==2||item.bridgeEndHeights.some(v=>!Number.isFinite(v)||v< -100||v>500)))||(item.base!==undefined&&(!Number.isFinite(item.base)||item.base<0||item.base>100))||(item.material!==undefined&&!['stone','tile','wood','glass','metal'].includes(item.material))||(item.kind!==undefined&&!['wall','room','corridor','floor','rect','rectFill','ellipse','ellipseFill','line','door','window','stairs','pillar','pit','bridgeWood','bridgeIron','bridgeSuspension'].includes(item.kind))||!Array.isArray(item.points)||item.points.length<2||item.points.length>128||item.points.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>=1600||p.y<0||p.y>=1100)||!Number.isFinite(item.width)||item.width<1||item.width>180||!Number.isFinite(item.height)||item.height< -100||item.height>100||typeof item.fill!=='boolean'||!/^#[0-9a-f]{6,8}$/i.test(item.color))throw Error('Construção 3D inválida.');
+      if(item.endHeights!==undefined&&(!Array.isArray(item.endHeights)||item.endHeights.length!==2||item.points.length!==2||item.fill||['bridgeWood','bridgeIron','bridgeSuspension'].includes(item.kind)||item.endHeights.some(v=>!Number.isFinite(v)||v< -100||v>500)))throw Error('Altura dos pontos 3D inválida.');
       return item;
     });
   }
@@ -274,6 +299,6 @@ const Structures=(()=>{
     for(const p of legacy)p.planDynamic=true;
   }
   function drawPlan(g,items){paintPlan(g,(items||[]).filter(p=>p.planDynamic));}
-  return{capture,build,validate,textures,shadows,paintPlan,drawPlan,prepareEdit,connected,touches,footprints};
+  return{materials,materialOf,applyMaterial,capture,build,validate,textures,shadows,paintPlan,drawPlan,prepareEdit,connected,touches,footprints};
 })();
 

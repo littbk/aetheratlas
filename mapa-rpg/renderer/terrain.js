@@ -2,15 +2,17 @@
 // A four-pixel heightfield keeps editing and project files compact.
 const Terrain = (() => {
   const step = 4, width = 400, height = 275, length = width * height;
-  const biomes = ['auto', 'grass', 'forest', 'sand', 'rock', 'snow', 'water', 'lava', 'palms', 'pines', 'magic', 'autumn', 'jungle', 'snowForest'];
-  const defaults = [120,120,240,25,1000,2000,-80,35,25,240,180,180,120,240];
+  const biomes = ['auto', 'grass', 'forest', 'sand', 'rock', 'snow', 'water', 'lava', 'palms', 'pines', 'magic', 'autumn', 'jungle', 'snowForest', 'dunes', 'redSand', 'badlands', 'scree', 'granite', 'basalt', 'alpine', 'meadow', 'marsh', 'savanna', 'redwood', 'birch', 'taiga', 'mangrove'];
+  const extraColors=['#d9bb78','#bd805a','#c47f62','#a7a193','#858e91','#454b52','#b4c2b1','#91ad69','#687c61','#b3a35e','#315d43','#8eaa79','#467061','#4b8564'];
+  const treeBiomes=new Set([2,8,9,10,11,12,13,24,25,26,27]);
+  const defaults = [120,120,240,25,1000,2000,-80,35,25,240,180,180,120,240,30,45,420,900,1200,1000,1800,170,15,240,330,220,500,15];
   const defaultTheme={grass:'#87a56b',trees:'#336349',water:'#347787',lava:'#d84a1c',sand:'#d3c18e',rock:'#8c978b',snow:'#e0ebe6',forest:'#2c5944',palms:'#68ad63',pines:'#296d63',magic:'#b47fe5',autumn:'#e29848',jungle:'#278958',snowForest:'#376458',trunk:'#70503b'};
   let theme={...defaultTheme},themeRevision=0,autoStops=null;
   const hexRgb=value=>{const m=/^#([0-9a-f]{6})$/i.exec(value||'');return m?[parseInt(m[1].slice(0,2),16),parseInt(m[1].slice(2,4),16),parseInt(m[1].slice(4,6),16)]:null;};
   const mix=(rgb,amount)=>rgb.map(v=>Math.max(0,Math.min(255,Math.round(v+amount))));
   function setTheme(next={}){theme={...defaultTheme};for(const key of Object.keys(defaultTheme))if(hexRgb(next[key]))theme[key]=next[key];themeRevision++;autoStops=null;}
   function getTheme(){return {...theme};}
-  function palette(){const grass=hexRgb(theme.grass),trees=hexRgb(theme.trees),water=hexRgb(theme.water),lava=hexRgb(theme.lava);return [[135,165,107],grass,hexRgb(theme.forest)||trees,hexRgb(theme.sand),hexRgb(theme.rock),hexRgb(theme.snow),water,lava,...['palms','pines','magic','autumn','jungle','snowForest'].map(key=>key==='snowForest'?hexRgb(theme.snow):key==='palms'?hexRgb(theme.sand):hexRgb(theme[key]).map(v=>v*.62))];}
+  function palette(){const grass=hexRgb(theme.grass),trees=hexRgb(theme.trees),water=hexRgb(theme.water),lava=hexRgb(theme.lava);return [[135,165,107],grass,hexRgb(theme.forest)||trees,hexRgb(theme.sand),hexRgb(theme.rock),hexRgb(theme.snow),water,lava,...['palms','pines','magic','autumn','jungle','snowForest'].map(key=>key==='snowForest'?hexRgb(theme.snow):key==='palms'?hexRgb(theme.sand):hexRgb(theme[key]).map(v=>v*.62)),...extraColors.map(hexRgb)];}
   const noise = (x,y) => { const n=Math.sin(x*127.1+y*311.7)*43758.5453; return n-Math.floor(n); };
   function smoothNoise(x,y){const ix=Math.floor(x),iy=Math.floor(y);let u=x-ix,v=y-iy;u=u*u*(3-2*u);v=v*v*(3-2*v);return (noise(ix,iy)*(1-u)+noise(ix+1,iy)*u)*(1-v)+(noise(ix,iy+1)*(1-u)+noise(ix+1,iy+1)*u)*v;}
   const grain=new Float32Array(length),detail=new Float32Array(length);
@@ -21,21 +23,21 @@ const Terrain = (() => {
     return {heights:new Float32Array(length), coverage:new Uint8Array(length), biomes:new Uint8Array(length),waterLevels:{},waterColors:{},fog:new Uint8Array(length), treeStyleIds:new Uint16Array(length),treeStyles:[],treeExclusions:new Set(),canvas, surface, dirty:true, view:''};
   }
   function copy(t) { freezeTreeColors(t);return {fog:t.fog.slice(),waterLevels:{...(t.waterLevels||{})},waterColors:{...(t.waterColors||{})},heights:t.heights.slice(),coverage:t.coverage.slice(),biomes:t.biomes.slice(),treeStyleIds:t.treeStyleIds.slice(),treeStyles:t.treeStyles.map(s=>({...s})),treeExclusions:[...t.treeExclusions]}; }
-  function restore(data) { const t=create(); if(data){if(data.fog)t.fog.set(data.fog);t.waterLevels={...(data.waterLevels||{})};t.waterColors={...(data.waterColors||{})};t.heights.set(data.heights);t.coverage.set(data.coverage);t.biomes.set(data.biomes);if(data.treeStyleIds)t.treeStyleIds.set(data.treeStyleIds);t.treeStyles=(data.treeStyles||[]).map(s=>({...s}));t.treeExclusions=new Set(data.treeExclusions||[]);}return t; }
-  function serialize(t) {freezeTreeColors(t);return {...(t.fog.some(v=>v)?{fog:Array.from(t.fog)}:{}),waterLevels:{...(t.waterLevels||{})},waterColors:{...(t.waterColors||{})},heights:Array.from(t.heights,v=>Math.round(v*10)/10),coverage:Array.from(t.coverage),biomes:Array.from(t.biomes),treeStyleIds:Array.from(t.treeStyleIds),treeStyles:t.treeStyles.map(s=>({...s})),treeExclusions:[...t.treeExclusions]};}
+  function restore(data) { const t=create(); if(data){if(data.fog)t.fog.set(data.fog);t.waterLevels={...(data.waterLevels||{})};t.waterColors={...(data.waterColors||{})};t.heights.set(data.heights);t.coverage.set(data.coverage);t.biomes.set(data.biomes);for(let i=0;i<length;i++)if(t.biomes[i]>=14&&(data.heights[i]===null||!Number.isFinite(t.heights[i])))t.heights[i]=defaults[t.biomes[i]];if(data.treeStyleIds)t.treeStyleIds.set(data.treeStyleIds);t.treeStyles=(data.treeStyles||[]).map(s=>({...s}));t.treeExclusions=new Set(data.treeExclusions||[]);}return t; }
+  function serialize(t) {freezeTreeColors(t);return {...(t.fog.some(v=>v)?{fog:Array.from(t.fog)}:{}),waterLevels:{...(t.waterLevels||{})},waterColors:{...(t.waterColors||{})},heights:Array.from(t.heights,(v,i)=>Math.round((Number.isFinite(v)?v:defaults[t.biomes[i]]||0)*10)/10),coverage:Array.from(t.coverage),biomes:Array.from(t.biomes),treeStyleIds:Array.from(t.treeStyleIds),treeStyles:t.treeStyles.map(s=>({...s})),treeExclusions:[...t.treeExclusions]};}
   function styleId(t,type){
-    const key=type===2?'trees':biomes[type],rgb=type===2?hexRgb(theme.forest):type===13?hexRgb(theme.snow):type===8?hexRgb(theme.sand):hexRgb(theme[key]).map(v=>Math.round(v*.62));
-    const style={foliage:theme[key],trunk:theme.trunk,ground:'#'+rgb.map(v=>v.toString(16).padStart(2,'0')).join('')};
+    const key=type===2?'trees':biomes[type],rgb=type===2?hexRgb(theme.forest):type===13?hexRgb(theme.snow):type===8?hexRgb(theme.sand):type>=24?hexRgb(extraColors[type-14]):hexRgb(theme[key]).map(v=>Math.round(v*.62));
+    const style={foliage:type>=24?extraColors[type-14]:theme[key],trunk:theme.trunk,ground:'#'+rgb.map(v=>v.toString(16).padStart(2,'0')).join('')};
     let id=t.treeStyles.findIndex(s=>s.foliage===style.foliage&&s.trunk===style.trunk&&s.ground===style.ground);
     if(id<0){if(t.treeStyles.length>=65535)throw Error('Limite de cores de vegetação atingido nesta camada.');id=t.treeStyles.push(style)-1;}return id+1;
   }
   function freezeTreeColors(t){
-    const ids={};for(let i=0;i<length;i++){const type=t.biomes[i];if(t.coverage[i]&&(type===2||type>=8)&&!t.treeStyleIds[i]){t.treeStyleIds[i]=ids[type]||(ids[type]=styleId(t,type));t.dirty=true;}}
+    const ids={};for(let i=0;i<length;i++){const type=t.biomes[i];if(t.coverage[i]&&treeBiomes.has(type)&&!t.treeStyleIds[i]){t.treeStyleIds[i]=ids[type]||(ids[type]=styleId(t,type));t.dirty=true;}}
   }
   function freezeLayers(layers){for(const l of layers){freezeTreeColors(l.terrain);for(const t of l.tiles||[])freezeTreeColors(t.terrain);}}
   function validate(data) {
     if(!data || !['heights','coverage','biomes'].every(k=>Array.isArray(data[k])&&data[k].length===length)) throw Error('Dados de relevo inválidos.');
-    for(let i=0;i<length;i++) if(!Number.isFinite(data.heights[i])||data.heights[i]<-500||data.heights[i]>3000||!Number.isInteger(data.coverage[i])||data.coverage[i]<0||data.coverage[i]>255||!Number.isInteger(data.biomes[i])||data.biomes[i]<0||data.biomes[i]>=biomes.length) throw Error('Altitude ou textura inválida.');
+    for(let i=0;i<length;i++) if((!Number.isFinite(data.heights[i])&&!(data.heights[i]===null&&data.biomes[i]>=14))||data.heights[i]<-500||data.heights[i]>3000||!Number.isInteger(data.coverage[i])||data.coverage[i]<0||data.coverage[i]>255||!Number.isInteger(data.biomes[i])||data.biomes[i]<0||data.biomes[i]>=biomes.length) throw Error('Altitude ou textura inválida.');
     if(data.treeStyles!==undefined||data.treeStyleIds!==undefined){
       if(!Array.isArray(data.treeStyles)||data.treeStyles.length>65535||data.treeStyles.some(s=>!s||!['foliage','trunk','ground'].every(k=>hexRgb(s[k])))||!Array.isArray(data.treeStyleIds)||data.treeStyleIds.length!==length||data.treeStyleIds.some(id=>!Number.isInteger(id)||id<0||id>data.treeStyles.length))throw Error('Cores de vegetação inválidas.');
     }
@@ -63,10 +65,10 @@ const Terrain = (() => {
     const seen=new Uint8Array(length),queue=[start];seen[start]=1;for(let i=0;i<queue.length;i++)for(const n of neighbors(queue[i]))if(!seen[n]&&ground[n]<level){seen[n]=1;queue.push(n);}
     return {level,cells:queue};
   }
-  function waterMesh(layers,planet=false){
+  function waterMesh(layers,planet=false,include=null){
     const vertices=[],colors=[],push=(x,y,h,color)=>{const wx=x+(planet?3200:0),wy=y+(planet?1650:0);vertices.push(wx,wy,Math.max(0,h)*.065+.06,wx/(planet?8000:1600),wy/(planet?4400:1100),1);colors.push(...hexRgb(color).map(v=>v/255));};
     const groups=new Map();
-    for(const l of layers)if(l.visible&&l.opacity)for(const [key,level] of Object.entries(l.terrain.waterLevels||{})){const k=+key;if((sample(layers,k%width*step+2,Math.floor(k/width)*step+2)??0)>=level)continue;const color=l.terrain.waterColors?.[k]||theme.water,groupKey=level+'|'+color;if(!groups.has(groupKey))groups.set(groupKey,new Set());groups.get(groupKey).add(k);}
+    for(const l of layers)if(l.visible&&l.opacity)for(const [key,level] of Object.entries(l.terrain.waterLevels||{})){const k=+key,x=k%width*step+2,y=Math.floor(k/width)*step+2;if(include&&!include(x,y))continue;if((sample(layers,x,y)??0)>=level)continue;const color=l.terrain.waterColors?.[k]||theme.water,groupKey=level+'|'+color;if(!groups.has(groupKey))groups.set(groupKey,new Set());groups.get(groupKey).add(k);}
     for(const [key,wet] of groups){const [heightValue,color]=key.split('|'),level=Number(heightValue);
       const cells=new Map(),nodes=new Map();for(const k of wet){const x=k%width,y=Math.floor(k/width);for(const [dx,dy] of [[-1,-1],[0,-1],[-1,0],[0,0]])cells.set((x+dx)+','+(y+dy),[x+dx,y+dy]);}
       const node=(x,y)=>{const key=x+','+y;if(nodes.has(key))return nodes.get(key);const inside=x>=0&&x<width&&y>=0&&y<height,k=y*width+x,ground=inside?(sample(layers,x*step+2,y*step+2)??0):level+1,depth=level-ground;
@@ -84,16 +86,17 @@ const Terrain = (() => {
   function sample(layers,x,y,limit=layers.length) {
     if(x<0||y<0||x>=1600||y>=1100){if(typeof WorldSurface!=='undefined'&&layers.some(l=>l.planet?.enabled)&&x>=-3200&&x<4800&&y>=-1650&&y<2750)return WorldSurface.sample(layers,x,y);return null;}
     const i=index(x,y);let value=0,known=false;
-    for(let n=0;n<limit;n++){const l=layers[n];if(!l.visible||!l.opacity)continue;const a=l.terrain.coverage[i]/255*l.opacity;if(a){value=value*(1-a)+l.terrain.heights[i]*a;known=true;}}
+    for(let n=0;n<limit;n++){const l=layers[n];if(!l.visible||!l.opacity)continue;const a=l.terrain.coverage[i]/255*l.opacity;if(a){const h=l.terrain.heights[i];value=value*(1-a)+(Number.isFinite(h)?h:defaults[l.terrain.biomes[i]]||0)*a;known=true;}}
     return known?value:null;
   }
   function stamp(layers,active,x,y,options) {
     const t=layers[active].terrain, radius=Math.max(3,options.size/2), strength=options.strength,stretch=Math.max(1,Math.min(12,options.stretch||1));
     freezeTreeColors(t);
-    const paintedBiome=biomes.indexOf(options.biome),paintedStyle=options.mode==='brush'&&(paintedBiome===2||paintedBiome>=8)?styleId(t,paintedBiome):0;
+    const paintedBiome=biomes.indexOf(options.biome),paintedStyle=options.mode==='brush'&&treeBiomes.has(paintedBiome)?styleId(t,paintedBiome):0;
     const x0=Math.max(0,Math.floor((x-radius*stretch)/step)),x1=Math.min(width-1,Math.ceil((x+radius*stretch)/step));
     const y0=Math.max(0,Math.floor((y-radius)/step)),y1=Math.min(height-1,Math.ceil((y+radius)/step));
     const old=['smooth','blend'].includes(options.mode)?t.heights.slice():null,oldCoverage=options.mode==='blend'?t.coverage.slice():null;
+    if(old)for(let i=0;i<length;i++)if(!Number.isFinite(old[i]))old[i]=defaults[t.biomes[i]]||0;
     for(let j=y0;j<=y1;j++)for(let i=x0;i<=x1;i++){
       const px=i*step+2,py=j*step+2,d=Math.hypot((px-x)/stretch,py-y)/radius;if(d>=1)continue;
       const k=j*width+i,fall=Math.pow(1-d*d,options.soft?2:0.4),a=Math.min(1,fall*strength);
@@ -109,7 +112,7 @@ const Terrain = (() => {
         continue;
       }
       if(options.mode==='erase'){delete t.waterLevels[k];delete t.waterColors[k];t.coverage[k]=Math.round(t.coverage[k]*(1-a));if(t.coverage[k]<3){t.coverage[k]=0;t.heights[k]=0;t.treeStyleIds[k]=0;t.treeExclusions.delete(k);}continue;}
-      const covered=t.coverage[k]>0,base=covered?t.heights[k]:(sample(layers,px,py,active)??0);
+      const covered=t.coverage[k]>0,base=covered?(Number.isFinite(t.heights[k])?t.heights[k]:defaults[t.biomes[k]]||0):(sample(layers,px,py,active)??0);
       let next=base,biome=t.biomes[k];
       if(options.mode==='mountain') {const peak=Math.max(0,1-d)*options.amount;next=base+(Math.max(0,peak-base)*a);biome=4;}
       else if(options.mode==='volcano') {const crater=Math.exp(-Math.pow(d/.24,2));const cone=(1-Math.max(0,(d-.28)/.72))*options.amount;next=base+(Math.max(-options.amount*.22,cone-crater*options.amount*.4-base)*a);biome=d<.25?7:4;}
@@ -134,14 +137,14 @@ const Terrain = (() => {
     freezeTreeColors(t);
     const key=JSON.stringify(settings)+themeRevision;if(!t.dirty&&t.view===key)return t.surface;
     const c=t.canvas.getContext('2d'),image=c.createImageData(width,height),p=image.data,colorPalette=palette();
-    const hAt=(x,y,fallback)=>{const k=Math.max(0,Math.min(height-1,y))*width+Math.max(0,Math.min(width-1,x));return t.coverage[k]?t.heights[k]:fallback;};
+    const hAt=(x,y,fallback)=>{const k=Math.max(0,Math.min(height-1,y))*width+Math.max(0,Math.min(width-1,x));if(!t.coverage[k])return fallback;return Number.isFinite(t.heights[k])?t.heights[k]:(t.heights[k]=defaults[t.biomes[k]]||0);};
     for(let y=0;y<height;y++)for(let x=0;x<width;x++){
-      const i=y*width+x;if(!t.coverage[i])continue;const h=t.heights[i],biome=t.biomes[i];
+      const i=y*width+x;if(!t.coverage[i])continue;const biome=t.biomes[i],h=Number.isFinite(t.heights[i])?t.heights[i]:(t.heights[i]=defaults[biome]||0);
       const treeStyle=t.treeStyles[t.treeStyleIds[i]-1];
-      let rgb=(settings.altitude||biome===0)?autoColor(h):treeStyle&&(biome===2||biome>=8)?hexRgb(treeStyle.ground):colorPalette[biome].slice();
+      let rgb=(settings.altitude||biome===0)?autoColor(h):treeStyle&&treeBiomes.has(biome)?hexRgb(treeStyle.ground):colorPalette[biome].slice();
       const dx=(hAt(x+1,y,h)-hAt(x-1,y,h))/32,dy=(hAt(x,y+1,h)-hAt(x,y-1,h))/32;
       let light=settings.shade?Math.max(.52,Math.min(1.38,.9+(-dx-dy+2)*.23/Math.sqrt(4+dx*dx+dy*dy))):1;
-      if(settings.texture){light+=(grain[i]-.5)*.12;}
+      if(settings.texture){const grainScale=biome===14||biome===15||biome===23?.28:biome>=17&&biome<=19?.2:.12;light+=(grain[i]-.5)*grainScale;if(biome===14)light+=Math.sin(y*.42+Math.sin(x*.08)*2)*.075;if(biome===15||biome===16)light+=Math.sin((x+y*.28)*.24)*.055;if(biome>=17&&biome<=19)light+=(detail[i]-.5)*.18;if(biome>=21&&biome<=23)light+=Math.sin(y*.12+detail[i]*3)*.045;}
       if(settings.contours&&h>0){const interval=settings.interval,level=Math.floor(h/interval);if(level!==Math.floor(hAt(x+1,y,h)/interval)||level!==Math.floor(hAt(x,y+1,h)/interval))light*=.88;}
       for(let k=0;k<3;k++)p[i*4+k]=Math.max(0,Math.min(255,rgb[k]*light));p[i*4+3]=t.coverage[i];
     }
@@ -165,48 +168,52 @@ const Terrain = (() => {
     const field=(x,y,frequency)=>{const period=frequency,px=(x/512*period+period)%period,py=(y/512*period+period)%period,ix=Math.floor(px),iy=Math.floor(py);let u=px-ix,v=py-iy;u=u*u*(3-2*u);v=v*v*(3-2*v);const n=(x,y)=>noise(x%period,y%period);return(n(ix,iy)*(1-u)+n(ix+1,iy)*u)*(1-v)+(n(ix,iy+1)*(1-u)+n(ix+1,iy+1)*u)*v;};
     for(let y=0;y<512;y++)for(let x=0;x<512;x++){
       const i=(y*512+x)*4,broad=field(x,y,8),fine=field(x,y,64),rock=field(x,y,24),warp=field(x,y,16);
-      image.data[i]=Math.round(255*(.35+broad*.35+fine*.3));
+      // Small seamless packed material atlas; blades and grit are baked once, not geometry.
+      const micro=field(x,y,128),blades=Math.pow(Math.max(0,Math.sin(x/512*Math.PI*256+(fine-.5)*5)),10)*field(x,y,16);
+      image.data[i]=Math.round(255*(.18+broad*.32+fine*.34+micro*.12+blades*.10));
       image.data[i+1]=Math.round(255*(.5+.25*Math.sin(y/512*Math.PI*24+(warp-.5)*3)+.1*Math.sin((x+y)/512*Math.PI*48)));
       const crust=field(x+warp*30,y+broad*20,12),vein=Math.max(0,1-Math.abs(crust-.5)*16);
       image.data[i+2]=Math.round(255*vein*vein);
-      image.data[i+3]=Math.round(255*(.28+rock*.55+fine*.17));
+      image.data[i+3]=Math.round(255*(.16+rock*.50+fine*.20+micro*.14));
     }
     g.putImageData(image,0,0);return highDetail=c;
   }
   // Independent continuous masks avoid interpolating categorical biome IDs.
-  function biomeTexture(t){const c=document.createElement('canvas');c.width=400;c.height=275;const g=c.getContext('2d'),im=g.createImageData(400,275);for(let i=0;i<length;i++){const h=t.heights[i],biome=t.biomes[i]||(h<0?6:h<45?3:h<700?1:h<1900?4:5),coverage=t.coverage[i];im.data[i*4]=biome===7?255:0;im.data[i*4+1]=biome===6?255:0;im.data[i*4+2]=biome===4||biome===5?255:0;im.data[i*4+3]=coverage;}g.putImageData(im,0,0);return c;}
+  function biomeTexture(t){const c=document.createElement('canvas');c.width=400;c.height=275;const g=c.getContext('2d'),im=g.createImageData(400,275);for(let i=0;i<length;i++){const h=t.heights[i],biome=t.biomes[i]||(h<0?6:h<45?3:h<700?1:h<1900?4:5),coverage=t.coverage[i];im.data[i*4]=biome===7?255:0;im.data[i*4+1]=biome===6?255:0;im.data[i*4+2]=biome===4||biome===5||(biome>=17&&biome<=20)?255:[3,8,14,15,16].includes(biome)?128:0;im.data[i*4+3]=coverage;}g.putImageData(im,0,0);return c;}
 
-  return {create,copy,restore,serialize,validate,sample,fogStamp,seaErase,fogAt,fogTexture,drawFog,waterFill,waterMesh,waterRegion,stamp,render,seed,index,length,setTheme,getTheme,defaultTheme,biomes,freezeTreeColors,freezeLayers,detailTexture,biomeTexture};
+  return {create,copy,restore,serialize,validate,sample,fogStamp,seaErase,fogAt,fogTexture,drawFog,waterFill,waterMesh,waterRegion,stamp,render,seed,index,length,setTheme,getTheme,defaultTheme,biomes,isTreeBiome:type=>treeBiomes.has(type),freezeTreeColors,freezeLayers,detailTexture,biomeTexture};
 })();
 
 // Native canvas icons remain crisp at any marker size and need no external assets.
 const Buildings = (()=>{
-  const names={house:'Casa',village:'Vila',tower:'Torre',castle:'Castelo',temple:'Templo',bridge:'Ponte',camp:'Acampamento',ruin:'Ruínas',windmill:'Moinho',tunnel:'Portal',cave:'Caverna'};
-  function draw(c,x,y,type,size=38,rotation=0){
-    c.save();c.translate(x,y);c.rotate(rotation*Math.PI/180);c.scale(size/40,size/40);c.lineJoin='round';c.lineCap='round';c.lineWidth=2;c.strokeStyle='#344b47';
+  const names={house:'Casa',village:'Vila',tower:'Torre',castle:'Castelo',temple:'Templo',bridge:'Ponte',camp:'Acampamento',ruin:'Ruínas',windmill:'Moinho',tunnel:'Portal',door:'Porta',cave:'Caverna'};
+  function draw(c,x,y,type,size=38,rotation=0,style=0,palette=0){
+    c.save();c.translate(x,y);c.rotate((type==='castle'?0:rotation)*Math.PI/180);c.scale(size/40,size/40);c.lineJoin='round';c.lineCap='round';c.lineWidth=2;c.strokeStyle='#344b47';
+    const swatches=Buildings3D.swatches[Number.isInteger(palette)&&palette>=0&&palette<3?palette:0],shade=i=>swatches[i],wall=shade(1),roofColor=shade(2),wood=shade(3),trim=shade(4),stone=shade(0),dark=shade(5),fabric=shade(7),rock=shade(9);
     c.fillStyle='#233f3d35';c.beginPath();c.ellipse(3,16,24,8,0,0,Math.PI*2);c.fill();
     const poly=(points,fill)=>{c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fillStyle=fill;c.fill();c.stroke();};
     const rect=(x,y,w,h,fill='#e3d4ae')=>{c.fillStyle=fill;c.fillRect(x,y,w,h);c.strokeRect(x,y,w,h);};
     const line=(a,b)=>{c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke();};
-    const house=(x,y,s=1)=>{c.save();c.translate(x,y);c.scale(s,s);rect(-13,-3,26,22);poly([[-18,-3],[0,-19],[18,-3]],'#9c6c51');rect(-3,7,7,12,'#56706a');c.restore();};
-    const tower=(x,y,s=1)=>{c.save();c.translate(x,y);c.scale(s,s);rect(-9,-17,18,35);rect(-13,-20,26,8);for(let j=-12;j<=8;j+=10)rect(j,-26,5,7);rect(-3,6,6,12,'#56706a');line([-3,-8],[3,-8]);c.restore();};
+    const house=(x,y,s=1,variant=0)=>{c.save();c.translate(x,y);c.scale(s,s);rect(-13,-3,26,22,wall);if(variant===0){rect(-15,-4,3,23,wood);rect(12,-4,3,23,wood);rect(-3,7,7,12,dark);poly([[-18,-3],[0,-19],[18,-3]],roofColor);}else if(variant===1){rect(-3,7,7,12,dark);poly([[-17,-3],[-10,-13],[0,-17],[13,-10],[17,-3]],roofColor);c.fillStyle=trim;c.beginPath();c.ellipse(0,-5,8,3,0,0,Math.PI*2);c.fill();}else{rect(-3,7,7,12,dark);poly([[-18,-3],[-13,-8],[-8,-19],[0,-14],[8,-20],[14,-7],[18,-3]],roofColor);rect(-17,1,34,3,wood);}rect(-10,2,5,7,shade(8));rect(5,2,5,7,shade(8));c.restore();};
+    const tower=(x,y,s=1,variant=0)=>{c.save();c.translate(x,y);c.scale(s,s);rect(-9,-17,18,35,stone);rect(-13,-20,26,8,trim);for(let j=-12;j<=8;j+=10)rect(j,-26,5,7,stone);rect(-3,6,6,12,dark);if(variant===1)poly([[-12,-20],[0,-31],[12,-20]],roofColor);if(variant===2){rect(-14,-20,28,3,wood);rect(-12,-28,24,3,roofColor);}for(let j=-8;j<=8;j+=8){rect(j-2,-12,4,5,shade(8));}line([-3,-8],[3,-8]);c.restore();};
     if(type==='tunnel'||type==='cave'){
-      poly([[-25,18],[-23,-3],[-14,-20],[5,-25],[21,-13],[26,18]],type==='cave'?'#778379':'#aeb29b');
-      c.fillStyle='#132e32';c.beginPath();c.moveTo(-13,19);c.lineTo(-13,0);c.bezierCurveTo(-13,-19,13,-19,13,0);c.lineTo(13,19);c.fill();c.stroke();
-      c.strokeStyle='#e4d2ab';c.lineWidth=4;c.beginPath();c.moveTo(-16,17);c.lineTo(-16,0);c.bezierCurveTo(-16,-23,16,-23,16,0);c.lineTo(16,17);c.stroke();
+      poly([[-25,18],[-23,-3],[-14,-20],[5,-25],[21,-13],[26,18]],type==='cave'?rock:stone);
+      c.fillStyle=dark;c.beginPath();c.moveTo(-13,19);c.lineTo(-13,0);c.bezierCurveTo(-13,-19,13,-19,13,0);c.lineTo(13,19);c.fill();c.stroke();
+      c.strokeStyle=trim;c.lineWidth=4;c.beginPath();c.moveTo(-16,17);c.lineTo(-16,0);c.bezierCurveTo(-16,-23,16,-23,16,0);c.lineTo(16,17);c.stroke();
       c.strokeStyle='#596a62';c.lineWidth=1;for(let j=-12;j<=12;j+=8)line([j,-20],[j,-15]);
       poly([[-10,19],[10,19],[18,28],[-18,28]],'#b5a787');
       for(const x of [-20,20]){c.fillStyle='#6d5942';c.fillRect(x-1,4,2,10);c.fillStyle='#ffd78a';c.beginPath();c.ellipse(x,3,2,4,0,0,Math.PI*2);c.fill();}
     }
-    if(type==='house')house(0,0);
-    if(type==='village'){house(-13,-8,.7);house(13,-4,.7);house(0,9,.75);}
-    if(type==='tower')tower(0,0);
-    if(type==='castle'){rect(-19,-4,38,23);tower(-20,2,.7);tower(20,2,.7);tower(0,-8,.85);}
-    if(type==='temple'){rect(-18,-2,36,19);poly([[-24,-3],[0,-20],[24,-3]],'#779890');for(let j=-12;j<=12;j+=12)rect(j-2,0,4,17);rect(-23,18,46,4);}
-    if(type==='bridge'){poly([[-25,-9],[25,-9],[25,12],[-25,12]],'#c7b487');for(let j=-20;j<=20;j+=8)line([j,-9],[j,12]);c.lineWidth=4;line([-25,-12],[25,-12]);line([-25,15],[25,15]);}
-    if(type==='camp'){poly([[-23,17],[0,-20],[23,17]],'#ceaa71');poly([[-8,17],[0,-8],[9,17]],'#526d60');line([0,-25],[0,-20]);}
-    if(type==='ruin'){poly([[-20,18],[-20,-14],[-12,-9],[-8,-18],[-4,18]],'#b3baa3');poly([[5,18],[8,-5],[16,-12],[21,18]],'#9ba98f');line([-21,19],[23,19]);}
-    if(type==='windmill'){poly([[-12,19],[-7,-16],[7,-16],[12,19]],'#e0ce9f');c.lineWidth=4;line([-19,-26],[19,5]);line([19,-26],[-19,5]);c.fillStyle='#5f796d';c.beginPath();c.arc(0,-10,4,0,Math.PI*2);c.fill();}
+    if(type==='door'){rect(-16,-18,32,37,stone);c.fillStyle=dark;c.beginPath();c.moveTo(-12,19);c.lineTo(-12,-2);c.arc(0,-2,12,Math.PI,0);c.lineTo(12,19);c.fill();c.strokeStyle=trim;c.lineWidth=3;c.beginPath();c.moveTo(-15,19);c.lineTo(-15,-2);c.arc(0,-2,15,Math.PI,0);c.lineTo(15,19);c.stroke();if(style===0){rect(-12,1,9,18,wood);rect(3,-4,9,23,wood);}else if(style===1){rect(-11,0,22,19,wood);c.strokeStyle=trim;c.strokeRect(-8,3,16,13);}else{rect(-11,2,22,17,dark);poly([[-12,-2],[-8,-13],[0,-18],[8,-13],[12,-2]],roofColor);for(const x of [-7,0,7]){c.fillStyle=shade(11);c.beginPath();c.arc(x,-8,1.5,0,Math.PI*2);c.fill();}}}
+    if(type==='house')house(0,0,1,style);
+    if(type==='village'){house(-13,-8,.7,style);house(13,-4,.7,style);house(0,9,.75,style);}
+    if(type==='tower')tower(0,0,1,style);
+    if(type==='castle'){rect(-19,-4,38,23,stone);tower(-20,2,.7,style);tower(20,2,.7,style);tower(0,-8,.85,style);}
+    if(type==='temple'){rect(-18,-2,36,19,wall);poly([[-24,-3],[-17,-12],[0,-20],[17,-12],[24,-3]],roofColor);for(let j=-12;j<=12;j+=12)rect(j-2,0,4,17,trim);rect(-23,18,46,4,stone);}
+    if(type==='bridge'){poly([[-25,-9],[25,-9],[25,12],[-25,12]],style===0?stone:wood);for(let j=-20;j<=20;j+=8)line([j,-9],[j,12]);c.lineWidth=4;c.strokeStyle=trim;line([-25,-12],[25,-12]);line([-25,15],[25,15]);}
+    if(type==='camp'){poly([[-23,17],[0,-20],[23,17]],fabric);poly([[-8,17],[0,-8],[9,17]],dark);line([0,-25],[0,-20]);if(style===1){poly([[-23,16],[-17,2],[0,-3],[17,2],[23,16]],roofColor);}}
+    if(type==='ruin'){poly([[-20,18],[-20,-14],[-12,-9],[-8,-18],[-4,18]],stone);poly([[5,18],[8,-5],[16,-12],[21,18]],shade(10));line([-21,19],[23,19]);}
+    if(type==='windmill'){poly([[-12,19],[-9,-10],[-5,-16],[6,-16],[10,-8],[12,19]],style===2?wood:wall);c.lineWidth=4;c.strokeStyle=trim;line([-19,-26],[19,5]);line([19,-26],[-19,5]);c.fillStyle=roofColor;c.beginPath();c.arc(0,-10,4,0,Math.PI*2);c.fill();}
     c.restore();
   }
   return {names,draw};

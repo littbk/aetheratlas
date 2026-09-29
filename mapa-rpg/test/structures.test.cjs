@@ -59,4 +59,15 @@ for(const kind of ['bridgeWood','bridgeIron','bridgeSuspension']){
   assert(Math.min(...heights)<25,`${kind} meets the low landing`);
   if(kind==='bridgeSuspension')assert(Math.max(...heights)>55,'suspension towers and cables rise above deck');
 }
+const manual=context.Structures.capture('bridgeSuspension',[{points:[{x:20,y:100},{x:100,y:100}],stroke:'#927251',lineWidth:16}],50,{height:40})[0];
+manual.bridgeEndHeights=[10,30];
+const manualMesh=context.Structures.build([{structures:context.Structures.validate([manual])}],false).vertices;
+assert(Array.from(manualMesh).some((_,i)=>i%15===9&&manualMesh[i]>60),'manual end heights affect bridge geometry');
+assert.throws(()=>context.Structures.validate([{...manual,bridgeEndHeights:[Infinity,0]}]));
+const sloped=context.Structures.capture('wall',[{points:[{x:100,y:100},{x:200,y:100}],stroke:'#aaaaaa',lineWidth:10}],32)[0];
+sloped.endHeights=[0,25];
+const slopedMesh=context.Structures.build([{structures:context.Structures.validate([sloped])}],false).vertices;
+assert(Array.from(slopedMesh).every(Number.isFinite),'raised wall endpoint emits finite geometry');
+assert(Math.max(...Array.from({length:slopedMesh.length/15},(_,i)=>slopedMesh[i*15+9]))>sloped.height+20,'raised endpoint changes wall mesh height');
+assert.throws(()=>context.Structures.validate([{...sloped,endHeights:[0,Infinity]}]));
 

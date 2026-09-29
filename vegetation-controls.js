@@ -8,10 +8,10 @@ function syncVegetationColors(){
   const theme=Terrain.getTheme(),key=$('forestType').value==='forest'?'trees':$('forestType').value;
   $('foliageColor').value=theme[key];$('trunkColor').value=theme.trunk;
   for(const [id,k] of [['grassColor','grass'],['treeColor','trees'],['forestColor','forest'],['sandColor','sand'],['rockColor','rock'],['snowColor','snow'],['waterColor','water'],['lavaColor','lava']])$(id).value=theme[k];
-  document.querySelectorAll('#palette .swatch i').forEach((el,i)=>el.style.background=theme[['grass','trees','sand','rock','snow','water','lava'][i]]);
+  document.querySelectorAll('#palette .swatch i').forEach((el,i)=>{const key=['grass','trees','sand','rock','snow','water','lava'][i];if(!key)return;const color=theme[key],rgb=[1,3,5].map(n=>parseInt(color.slice(n,n+2),16));el.style.background=color;el.style.color=rgb[0]*.299+rgb[1]*.587+rgb[2]*.114>125?'#263b35':'#f0f3de';});
 }
 window.syncVegetationColors=syncVegetationColors;
-function chooseForest(){selectedBiome=$('forestType').value;document.querySelector('[data-tool="brush"]').click();document.querySelectorAll('.swatch').forEach(b=>b.classList.remove('selected'));$('palette').children[1].classList.add('selected');syncVegetationColors();}
+function chooseForest(){selectedBiome=$('forestType').value;document.querySelector('[data-tool="brush"]').click();document.querySelectorAll('.swatch').forEach(b=>b.classList.toggle('selected',b.dataset.biome===selectedBiome));syncVegetationColors();}
 $('forestType').onchange=chooseForest;$('paintForest').onclick=chooseForest;
 $('foliageColor').oninput=()=>{Terrain.freezeLayers(layers);const key=$('forestType').value==='forest'?'trees':$('forestType').value;Terrain.setTheme({...Terrain.getTheme(),[key]:$('foliageColor').value});changed();};
 $('trunkColor').oninput=()=>{Terrain.freezeLayers(layers);Terrain.setTheme({...Terrain.getTheme(),trunk:$('trunkColor').value});changed();};

@@ -70,10 +70,42 @@ class AtlasScene {
         vec2 p=texcoord;
         if(p.x<0.||p.y<0.||p.x>1.||p.y>1.)return 1.;return texture2D(shadowMap,p).r;
       }
+      // Shared mipmapped detail: no reflection buffers, extra geometry or animation loop.
+      vec3 waterSurface(vec3 tint,vec2 p){
+        vec4 waves=texture2D(terrainDetail,p/72.);
+        vec4 swells=texture2D(terrainDetail,p/231.+vec2(.27,.43));
+        float ripple=waves.g*.65+swells.g*.35;
+        float glint=smoothstep(.73,.96,ripple);
+        float fresnel=pow(1.-clamp(abs(eyeDirection.z),0.,1.),3.);
+        return mix(tint*(.83+ripple*.25),vec3(.66,.84,.88),.08+fresnel*.16)+glint*vec3(.10,.13,.13);
+      }
       void main(){
         if(surfaceVisible<.5)discard;if(flatMode>.5&&(texcoord.x<regionClip.x||texcoord.y<regionClip.y||texcoord.x>regionClip.z||texcoord.y>regionClip.w))discard;
-        if(waterMode>.5){vec2 waterPoint=texcoord*terrainSize*4.;float ripple=sin(waterPoint.x*.013+sin(waterPoint.y*.019)*1.4)*.012+sin(waterPoint.x*.009-waterPoint.y*.016)*.007;gl_FragColor=fogColor(vec4((canopyColor+vec3(ripple))*sphereLight,1.));return;}
+        if(waterMode>.5){gl_FragColor=fogColor(vec4(waterSurface(canopyColor,texcoord*terrainSize)*sphereLight,1.));return;}
         if(treeMode>1.5){
+          if(surfaceVisible>8.5&&surfaceVisible<10.5){
+            vec3 result;
+            if(surfaceVisible>9.5)result=waterSurface(canopyColor,texcoord*terrainSize);
+            else{
+              vec2 roadUV=vec2(materialUV.x,materialUV.y*16.);
+              vec4 soil=texture2D(terrainDetail,roadUV/29.);
+              vec4 gravel=texture2D(terrainDetail,roadUV/7.+vec2(.31,.19));
+              float grit=smoothstep(.64,.88,gravel.a);
+              float tracks=exp(-pow((materialUV.y-.28)*9.,2.))+exp(-pow((materialUV.y-.72)*9.,2.));
+              float edge=smoothstep(.0,.12,materialUV.y)*smoothstep(.0,.12,1.-materialUV.y);
+              result=canopyColor*(.86+soil.r*.23+grit*.13-tracks*.055);
+              result=mix(result*.85,result,edge)*groundShadow();
+            }
+            gl_FragColor=fogColor(vec4(result*sphereLight,1.));return;
+          }
+          if(surfaceVisible>10.5){
+            float streak=sin(materialUV.y*2.1+sin(materialUV.x*.17)*.35)*.5+.5;
+            float froth=cloudNoise(materialUV*.36);
+            vec3 water=canopyColor;
+            if(surfaceVisible<11.5)water=mix(water,vec3(.88,.98,1.),pow(streak,9.)*.5+froth*.13);
+            else water=mix(vec3(.44,.76,.82),water,smoothstep(.25,.68,froth));
+            gl_FragColor=fogColor(vec4(water*sphereLight,1.));return;
+          }
           vec3 normal=normalize(surfaceNormal),tangent=abs(normal.z)>.7?vec3(1.,0.,0.):normalize(vec3(-normal.y,normal.x,0.));
           vec3 bitangent=normalize(cross(normal,tangent));
           vec4 surface;
@@ -101,16 +133,26 @@ class AtlasScene {
         }
         vec4 color=texture2D(atlas,texcoord);float shadow=groundShadow();
         if(treeMode<.5&&textureDetail>.5){
-          vec4 tag=texture2D(biomeMap,texcoord),detail=texture2D(terrainDetail,texcoord*terrainSize/128.);
-          vec3 ground=color.rgb*(.96+detail.r*.08);
-          ground=mix(ground,color.rgb*(.94+detail.g*.12),tag.g);
-          ground=mix(ground,color.rgb*(.90+detail.a*.18),tag.b);
+          vec2 p=texcoord*terrainSize;
+          vec4 tag=texture2D(biomeMap,texcoord),detail=texture2D(terrainDetail,p/43.);
+          vec4 fine=texture2D(terrainDetail,p/9.+vec2(.37,.61));
+          vec4 broad=texture2D(terrainDetail,p/187.+vec2(.13,.29));
+          float tufts=smoothstep(.48,.77,detail.r);
+          vec3 ground=color.rgb*(.84+broad.r*.20+detail.r*.16+(fine.r-.5)*.10);
+          ground=mix(ground,ground*vec3(1.04,1.025,.92),tufts*.28);
+          float sand=smoothstep(.12,.4,tag.b)*(1.-smoothstep(.65,.9,tag.b));
+          float stone=smoothstep(.65,.95,tag.b);
+          vec3 sandy=color.rgb*(.87+detail.g*.16+fine.a*.10);
+          vec3 rocky=color.rgb*(.78+detail.a*.32+fine.a*.17);
+          ground=mix(ground,sandy,sand);
+          ground=mix(ground,rocky,stone);
+          if(tag.g>.001)ground=mix(ground,waterSurface(color.rgb,p),tag.g);
           float vein=smoothstep(.38,.52,detail.b);
           vec3 lava=color.rgb*(.92+detail.r*.12)+vec3(.12,.035,.004)*vein;
           ground=mix(ground,lava,tag.r);
           color.rgb=mix(color.rgb,ground,tag.a);
         }
-        vec3 sea=ocean;if(textureDetail>.5)sea*=.94+texture2D(terrainDetail,texcoord*terrainSize/128.).g*.12;
+        vec3 sea=ocean;if(textureDetail>.5&&(spherical>.5||flatMode>.5)&&color.a<.999)sea=waterSurface(ocean,texcoord*terrainSize);
         gl_FragColor=fogColor(treeMode>.5?vec4(canopyColor*sphereLight,1.):(spherical>.5||flatMode>.5?vec4(mix(sea,color.rgb,color.a)*sphereLight*shadow,1.):vec4(color.rgb*shadow,color.a)));
       }`));
     gl.linkProgram(this.program);
@@ -131,6 +173,7 @@ class AtlasScene {
       this.materialTextures[name]=texture;
     }
     this.terrainDetailTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.terrainDetailTexture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,Terrain.detailTexture());gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.generateMipmap(gl.TEXTURE_2D);
+    const detailAnisotropy=gl.getExtension('EXT_texture_filter_anisotropic');if(detailAnisotropy)gl.texParameterf(gl.TEXTURE_2D,detailAnisotropy.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(4,gl.getParameter(detailAnisotropy.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
     this.biomeTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.biomeTexture);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     this.shadowTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.shadowTexture);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
@@ -140,7 +183,7 @@ class AtlasScene {
   }
   update(texture,layers,camera={yaw:0},patches=[]) {this.fogLayers=layers;
     if(!this.gl)return;
-    Buildings3D.invalidate();
+    Buildings3D.invalidate();Terrain.freezeLayers(layers);
     const gl=this.gl, vertices=[], isPlanet=layers.some(l=>l.planet?.enabled), regional=isPlanet&&!!camera.flatRegion, spherical=isPlanet&&!regional;this.flatRegion=regional?camera.flatRegion:null;this.worldTexture=isPlanet;this.textureDetail=camera.terrainView?.texture!==false;
     const push=(x,y)=>{
       const localX=spherical?x-AtlasScene.REGION_X:x,localY=spherical?y-AtlasScene.REGION_Y:y;
@@ -157,29 +200,12 @@ class AtlasScene {
       push(x,y);push(x+20,y);push(x,y+20);push(x+20,y);push(x+20,y+20);push(x,y+20);
     }
     this.vertices=new Float32Array(vertices);this.spherical=spherical;
+    this.terrainChunks=[];
+    const block=spherical?72:60;
+    for(let first=0;first<this.vertices.length/6;first+=block){const count=Math.min(block,this.vertices.length/6-first),bounds=[Infinity,Infinity,-Infinity,-Infinity,Infinity,-Infinity];for(let j=first*6;j<(first+count)*6;j+=6){bounds[0]=Math.min(bounds[0],this.vertices[j]);bounds[1]=Math.min(bounds[1],this.vertices[j+1]);bounds[2]=Math.max(bounds[2],this.vertices[j]);bounds[3]=Math.max(bounds[3],this.vertices[j+1]);bounds[4]=Math.min(bounds[4],this.vertices[j+2]);bounds[5]=Math.max(bounds[5],this.vertices[j+2]);}this.terrainChunks.push({first,count,bounds});}
     gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,this.vertices,gl.STATIC_DRAW);
     const regions=isPlanet&&typeof WorldSurface!=='undefined'?WorldSurface.groups(layers):[{gx:0,gy:0,x:3200,y:1650,layers}];
-    const merge=(builder,stride)=>{
-      const meshes=regions.map(region=>{const mesh=builder(region.layers,isPlanet),v=mesh.vertices;if(isPlanet)for(let i=0;i<v.length;i+=stride){v[i]+=region.gx*1600;v[i+1]+=region.gy*1100;v[i+3]=v[i]/8000;v[i+4]=v[i+1]/4400;if(regional){const r=camera.flatRegion;v[i]-=r.x-(1600-r.width)/2;v[i+1]-=r.y-(1100-r.height)/2;v[i+9]/=.37;}}return mesh;});
-      const vertices=new Float32Array(meshes.reduce((n,m)=>n+m.vertices.length,0));let at=0;for(const m of meshes){vertices.set(m.vertices,at);at+=m.vertices.length;}return{vertices,entries:meshes.flatMap((m,i)=>(m.entries||[]).map(e=>({...e,localX:e.x,localY:e.y,region:{gx:regions[i].gx,gy:regions[i].gy},x:e.x+regions[i].gx*1600,y:e.y+regions[i].gy*1100}))),count:meshes.reduce((n,m)=>n+(m.count||0),0)};
-    };
-    const water=[],waterColors=[];for(const r of regions){const v=Terrain.waterMesh(r.layers,isPlanet);for(let i=0;i<v.length;i+=6){if(isPlanet){v[i]+=r.gx*1600;v[i+1]+=r.gy*1100;v[i+3]=v[i]/8000;v[i+4]=v[i+1]/4400;if(regional){const clip=camera.flatRegion;v[i]-=clip.x-(1600-clip.width)/2;v[i+1]-=clip.y-(1100-clip.height)/2;}}}water.push(v);waterColors.push(v.colors);}
-    this.waterVertices=new Float32Array(water.reduce((n,v)=>n+v.length,0));let waterOffset=0;for(const v of water){this.waterVertices.set(v,waterOffset);waterOffset+=v.length;}gl.bindBuffer(gl.ARRAY_BUFFER,this.waterBuffer);gl.bufferData(gl.ARRAY_BUFFER,this.waterVertices,gl.STATIC_DRAW);
-    const colors=new Float32Array(waterColors.reduce((n,v)=>n+v.length,0));let colorOffset=0;for(const v of waterColors){colors.set(v,colorOffset);colorOffset+=v.length;}gl.bindBuffer(gl.ARRAY_BUFFER,this.waterColorBuffer);gl.bufferData(gl.ARRAY_BUFFER,colors,gl.STATIC_DRAW);
-    this.vegetation=merge(Vegetation.build,10);
-    gl.bindBuffer(gl.ARRAY_BUFFER,this.treeBuffer);gl.bufferData(gl.ARRAY_BUFFER,this.vegetation.vertices,gl.STATIC_DRAW);
-    // Roads belong to the terrain atlas: a separate ribbon intersects the coarser
-    // heightfield and exposes rectangular fragments on slopes.
-    this.structures=merge(Structures.build,15);
-    gl.bindBuffer(gl.ARRAY_BUFFER,this.structureBuffer);gl.bufferData(gl.ARRAY_BUFFER,this.structures.vertices,gl.STATIC_DRAW);
-    const buildingMeshes=regions.map(region=>{
-      const mesh=Buildings3D.build(region.layers,isPlanet),v=mesh.vertices;
-      if(isPlanet)for(let i=0;i<v.length;i+=15){v[i]+=region.gx*1600;v[i+1]+=region.gy*1100;v[i+3]=v[i]/8000;v[i+4]=v[i+1]/4400;if(regional){const r=camera.flatRegion;v[i]-=r.x-(1600-r.width)/2;v[i+1]-=r.y-(1100-r.height)/2;v[i+9]/=.37;}}
-      return{mesh,region};
-    });
-    const buildingVertices=new Float32Array(buildingMeshes.reduce((sum,{mesh})=>sum+mesh.vertices.length,0)),buildingEntries=[];let buildingOffset=0;
-    for(const {mesh,region} of buildingMeshes){buildingVertices.set(mesh.vertices,buildingOffset);for(const entry of mesh.entries)buildingEntries.push({...entry,first:entry.first+buildingOffset/15,object:{...entry.object,x:entry.object.x+region.gx*1600,y:entry.object.y+region.gy*1100}});buildingOffset+=mesh.vertices.length;}
-    this.buildings={vertices:buildingVertices,entries:buildingEntries};gl.bindBuffer(gl.ARRAY_BUFFER,this.buildingBuffer);gl.bufferData(gl.ARRAY_BUFFER,buildingVertices,gl.STATIC_DRAW);
+    this.detailSources={regions,isPlanet,regional};this.detailKey=null;
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.shadowTexture);
     const shadow=document.createElement('canvas');shadow.width=isPlanet?4000:1600;shadow.height=isPlanet?2200:1100;const sg=shadow.getContext('2d');sg.fillStyle='#fff';sg.fillRect(0,0,shadow.width,shadow.height);
     for(const region of regions)sg.drawImage(Structures.shadows(region.layers),isPlanet?region.x*.5:0,isPlanet?region.y*.5:0,isPlanet?800:1600,isPlanet?550:1100);
@@ -190,7 +216,7 @@ class AtlasScene {
     gl.bindTexture(gl.TEXTURE_2D,this.biomeTexture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,biome);
     gl.bindTexture(gl.TEXTURE_2D,this.texture);
     if(isPlanet){
-      const max=gl.getParameter(gl.MAX_TEXTURE_SIZE),w=Math.min(8192,max),h=w/2;
+      const max=gl.getParameter(gl.MAX_TEXTURE_SIZE),w=Math.min(innerWidth<=860?2048:4096,max),h=w/2;
       if(!this.planetTexture)this.planetTexture=document.createElement('canvas');
       this.planetTexture.width=w;this.planetTexture.height=h;
       const g=this.planetTexture.getContext('2d'),sx=w/AtlasScene.WORLD_WIDTH,sy=h/AtlasScene.WORLD_HEIGHT;
@@ -206,6 +232,79 @@ class AtlasScene {
     }else gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,texture);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,isPlanet?gl.LINEAR_MIPMAP_LINEAR:gl.LINEAR);if(isPlanet)gl.generateMipmap(gl.TEXTURE_2D);
     const anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');if(anisotropy)gl.texParameterf(gl.TEXTURE_2D,anisotropy.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(8,gl.getParameter(anisotropy.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+  }
+  visibleBounds(x0,y0,x1,y1,camera,width,height,margin=120,z0=0,z1=260){
+    const samples=[];for(const z of [z0,z1])for(const [x,y] of [[x0,y0],[x1,y0],[x1,y1],[x0,y1],[(x0+x1)/2,(y0+y1)/2]])samples.push(this.project(x,y,z,camera));
+    if(samples.every(p=>p.visible===false))return false;
+    if(this.firstPerson&&samples.some(p=>p.visible===false))return true;
+    const points=samples.filter(p=>p.visible!==false&&Number.isFinite(p.x)&&Number.isFinite(p.y));
+    return points.length>0&&Math.min(...points.map(p=>p.x))<=width+margin&&Math.max(...points.map(p=>p.x))>=-margin&&Math.min(...points.map(p=>p.y))<=height+margin&&Math.max(...points.map(p=>p.y))>=-margin;
+  }
+  refreshDetails(camera,width,height){
+    if(!this.detailSources)return;
+    const {regions,isPlanet,regional}=this.detailSources,cell=200,visible=new Set();
+    for(const r of regions)for(let y=0;y<1100;y+=cell)for(let x=0;x<1600;x+=cell){
+      const gx=x+r.gx*1600,gy=y+r.gy*1100;
+      if(this.visibleBounds(gx,gy,gx+cell,gy+cell,camera,width,height))visible.add(`${r.gx},${r.gy}:${x/cell},${y/cell}`);
+    }
+    const lod=Math.floor(Math.log2(Math.max(.08,camera.zoom))*2),eye=this.firstPerson;
+    const key=[...visible].join('|')+':'+lod+':'+!!eye+(eye?':'+eye.origin.map(v=>Math.round(v/80)).join(','):'')+':'+(camera.relief<.1);
+    if(key===this.detailKey&&!this.detailStream)return;
+    if(key!==this.detailKey){
+      this.detailKey=key;
+      const tasks=[];for(const r of regions)for(const id of visible)if(id.startsWith(`${r.gx},${r.gy}:`))tasks.push({region:r,id});
+      // Nearby cells arrive first; obsolete jobs are dropped when the camera moves.
+      tasks.sort((a,b)=>{const distance=t=>{const [x,y]=t.id.split(':')[1].split(',').map(Number),p=this.project(x*cell+cell/2+t.region.gx*1600,y*cell+cell/2+t.region.gy*1100,0,camera);return Math.hypot(p.x-width/2,p.y-height/2);};return distance(a)-distance(b);});
+      this.detailStream={tasks,meshes:{vegetation:[],structures:[],buildings:[]},waterMeshes:[],visible};
+    }
+    const start=performance.now(),gl=this.gl;
+    const stream=this.detailStream,{meshes,waterMeshes}=stream;
+    while(stream.tasks.length){
+      const {region:r,id}=stream.tasks.shift(),prefix=`${r.gx},${r.gy}:`;
+      const include=(o,kind)=>{
+        let x0,y0,x1,y1;
+        if(o.points){const xs=o.points.map(p=>p.x),ys=o.points.map(p=>p.y),pad=(o.width||0)+8;x0=Math.min(...xs)-pad;y0=Math.min(...ys)-pad;x1=Math.max(...xs)+pad;y1=Math.max(...ys)+pad;}
+        else{const radius=(o.size||40)*1.5;x0=o.x-radius;y0=o.y-radius;x1=o.x+radius;y1=o.y+radius;}
+        let owner=null;
+        for(let y=Math.max(0,Math.floor(y0/cell));y<=Math.min(5,Math.floor(y1/cell))&&owner===null;y++)for(let x=Math.max(0,Math.floor(x0/cell));x<=Math.min(7,Math.floor(x1/cell));x++)if(stream.visible.has(prefix+x+','+y)){owner=prefix+x+','+y;break;}
+        if(owner!==id)return false;
+        if(kind==='vegetation'){
+          const p=this.project(o.x+r.gx*1600,o.y+r.gy*1100,0,camera),pixels=eye?(o.size||40)*eye.focal/Math.max(1,p.w):(o.size||40)*camera.zoom/Math.max(.2,p.w)*(isPlanet?.37:1);
+          if(pixels<5)return false;
+          // Deterministic thinning keeps distant generated forests stable while moving.
+          if(!o.kind&&pixels<20){const hash=Math.abs(Math.sin(o.x*12.9898+o.y*78.233)*43758.5453)%1;if(hash>Math.max(.15,pixels/20))return false;}
+        }
+        if(kind==='building'){
+          if(camera.relief<.1)return false;
+          const p=this.project(o.x+r.gx*1600,o.y+r.gy*1100,0,camera),pixels=eye?o.size*eye.focal/Math.max(1,p.w):o.size*camera.zoom/Math.max(.2,p.w)*(isPlanet?.5:1);
+          if(pixels<18)return false;
+        }
+        return true;
+      };
+      const [cx,cy]=id.split(':')[1].split(',').map(Number);
+      const water=Terrain.waterMesh(r.layers,isPlanet,(x,y)=>x>=cx*cell-8&&x<(cx+1)*cell+8&&y>=cy*cell-8&&y<(cy+1)*cell+8);
+      if(isPlanet)for(let i=0;i<water.length;i+=6){water[i]+=r.gx*1600;water[i+1]+=r.gy*1100;water[i+3]=water[i]/8000;water[i+4]=water[i+1]/4400;if(regional){const c=camera.flatRegion;water[i]-=c.x-(1600-c.width)/2;water[i+1]-=c.y-(1100-c.height)/2;}}
+      waterMeshes.push(water);
+      // Roads and river banks stay in the terrain atlas. Independent ribbons intersect
+      // the globe's different terrain grid and produce raised borders and missing spans.
+      const a=Structures.build(r.layers,isPlanet,include).vertices,b=MapPaths.buildWaterfalls(r.layers,isPlanet,include).vertices,s=new Float32Array(a.length+b.length);s.set(a);s.set(b,a.length);
+      for(const [name,mesh,stride] of [['vegetation',Vegetation.build(r.layers,isPlanet,include),10],['structures',{vertices:s},15],['buildings',Buildings3D.build(r.layers,isPlanet,include),15]]){
+        const v=mesh.vertices;
+        if(isPlanet)for(let i=0;i<v.length;i+=stride){v[i]+=r.gx*1600;v[i+1]+=r.gy*1100;v[i+3]=v[i]/8000;v[i+4]=v[i+1]/4400;if(regional){const c=camera.flatRegion;v[i]-=c.x-(1600-c.width)/2;v[i+1]-=c.y-(1100-c.height)/2;v[i+9]/=.37;}}
+        meshes[name].push({mesh,region:r,stride});
+      }
+      if(!camera.fullQuality&&performance.now()-start>=8)break;
+    }
+    for(const [name,buffer] of [['vegetation',this.treeBuffer],['structures',this.structureBuffer],['buildings',this.buildingBuffer]]){
+      const group=meshes[name],vertices=new Float32Array(group.reduce((n,{mesh})=>n+mesh.vertices.length,0)),entries=[];let offset=0;
+      for(const {mesh,region:r,stride} of group){vertices.set(mesh.vertices,offset);for(const e of mesh.entries||[])entries.push(name==='buildings'?{...e,sourceObject:e.object,first:e.first+offset/stride,object:{...e.object,x:e.object.x+r.gx*1600,y:e.object.y+r.gy*1100}}:{...e,localX:e.x,localY:e.y,region:{gx:r.gx,gy:r.gy},x:e.x+r.gx*1600,y:e.y+r.gy*1100});offset+=mesh.vertices.length;}
+      this[name]={vertices,entries,count:entries.length};gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.STATIC_DRAW);
+    }
+    this.waterVertices=new Float32Array(waterMeshes.reduce((n,v)=>n+v.length,0));const colors=new Float32Array(waterMeshes.reduce((n,v)=>n+v.colors.length,0));let offset=0,colorOffset=0;for(const v of waterMeshes){this.waterVertices.set(v,offset);colors.set(v.colors,colorOffset);offset+=v.length;colorOffset+=v.colors.length;}
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.waterBuffer);gl.bufferData(gl.ARRAY_BUFFER,this.waterVertices,gl.STATIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,this.waterColorBuffer);gl.bufferData(gl.ARRAY_BUFFER,colors,gl.STATIC_DRAW);
+    this.residentBuildings=new Set(this.buildings.entries.map(e=>e.sourceObject));
+    this.performanceStats={...this.performanceStats,visibleChunks:visible.size,pendingChunks:stream.tasks.length,residentBytes:this.vegetation.vertices.byteLength+this.structures.vertices.byteLength+this.buildings.vertices.byteLength+this.waterVertices.byteLength+colors.byteLength,streamMs:performance.now()-start};
+    if(stream.tasks.length)this.onStreamReady?.();else this.detailStream=null;
   }
   project(x,y,z,camera,worldCoordinates=false) {
     if(this.firstPerson){
@@ -233,6 +332,8 @@ class AtlasScene {
   }
   draw(width,height,dpr,camera) {
     const gl=this.gl;if(!gl)return null;
+    const frameStart=performance.now();this.refreshDetails(camera,width,height);
+    dpr=Math.min(dpr,camera.fullQuality?dpr:1.5)*(camera.fullQuality?1:(this.renderScale||1));
     if(this.canvas.width!==Math.round(width*dpr)||this.canvas.height!==Math.round(height*dpr)){this.canvas.width=Math.round(width*dpr);this.canvas.height=Math.round(height*dpr);}
     gl.viewport(0,0,this.canvas.width,this.canvas.height);gl.clearColor(0,0,0,0);
     gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);
@@ -253,7 +354,9 @@ class AtlasScene {
     const water=Terrain.getTheme().water.match(/[0-9a-f]{2}/gi).map(v=>parseInt(v,16)/255);
     gl.uniform3f(uniform('ocean'),...water);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);gl.uniform1i(uniform('atlas'),0);
-    gl.drawArrays(gl.TRIANGLES,0,this.vertices.length/6);
+    this.terrainRanges=[];const terrainCamera=this.flatRegion?{...camera,flatRegion:null}:camera;
+    for(const chunk of this.terrainChunks){const b=chunk.bounds,dx=this.spherical?3200:0,dy=this.spherical?1650:0;if(!this.visibleBounds(b[0]-dx,b[1]-dy,b[2]-dx,b[3]-dy,terrainCamera,width,height,24,b[4],b[5]+1))continue;const last=this.terrainRanges.at(-1);if(last&&last.first+last.count===chunk.first)last.count+=chunk.count;else this.terrainRanges.push({first:chunk.first,count:chunk.count});}
+    for(const range of this.terrainRanges)gl.drawArrays(gl.TRIANGLES,range.first,range.count);
     if(this.waterVertices?.length){gl.bindBuffer(gl.ARRAY_BUFFER,this.waterBuffer);for(const [name,size,offset] of [['position',3,0],['uv',2,12],['visible',1,20]]){const loc=gl.getAttribLocation(this.program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,24,offset);}gl.bindBuffer(gl.ARRAY_BUFFER,this.waterColorBuffer);const tint=gl.getAttribLocation(this.program,'treeTint');gl.enableVertexAttribArray(tint);gl.vertexAttribPointer(tint,3,gl.FLOAT,false,12,0);gl.uniform1f(uniform('waterMode'),1);gl.drawArrays(gl.TRIANGLES,0,this.waterVertices.length/6);gl.uniform1f(uniform('waterMode'),0);}
     if(this.vegetation?.vertices.length){
       gl.bindBuffer(gl.ARRAY_BUFFER,this.treeBuffer);
@@ -278,14 +381,22 @@ class AtlasScene {
       for(const entry of this.buildings.entries)if(Buildings3D.near(entry.object,camera,this))gl.drawArrays(gl.TRIANGLES,entry.first,entry.count);
     }
     this.pickCamera=this.flatRegion?{...camera,flatRegion:null}:{...camera};this.waterProjected=null;
-    this.projected=[];
-    for(let i=0;i<this.vertices.length;i+=6)this.projected.push(this.project(this.vertices[i],this.vertices[i+1],this.vertices[i+2],this.flatRegion?{...camera,flatRegion:null}:camera,this.spherical));
+    this.projected=[];this.projectedReady=false;
+    const elapsed=performance.now()-frameStart;this.frameAverage=this.frameAverage===undefined?elapsed:this.frameAverage*.9+elapsed*.1;
+    this.slowFrames=this.frameAverage>28?(this.slowFrames||0)+1:0;
+    if(!camera.fullQuality&&this.slowFrames>8){this.renderScale=Math.max(.65,(this.renderScale||1)-.1);this.slowFrames=0;}
+    this.fastFrames=this.frameAverage<16&&!this.detailStream?(this.fastFrames||0)+1:0;
+    if(!camera.fullQuality&&this.fastFrames>60){this.renderScale=Math.min(1,(this.renderScale||1)+.05);this.fastFrames=0;}
+    this.performanceStats={...this.performanceStats,frameMs:elapsed,renderScale:this.renderScale||1};
     return this.canvas;
   }
   pick(x,y,includeWater=false) {
+    if(!this.pickCamera)return null;
+    if(!this.projectedReady){this.projected=[];for(const range of this.terrainRanges||[{first:0,count:this.vertices.length/6}])for(let j=range.first;j<range.first+range.count;j++){const i=j*6;this.projected[j]=this.project(this.vertices[i],this.vertices[i+1],this.vertices[i+2],this.pickCamera,this.spherical);}this.projectedReady=true;}
     let nearest=null,best=Infinity;
     const meshes=[{projected:this.projected,vertices:this.vertices}];if(includeWater&&this.waterVertices?.length&&this.pickCamera){if(!this.waterProjected){this.waterProjected=[];for(let i=0;i<this.waterVertices.length;i+=6)this.waterProjected.push(this.project(this.waterVertices[i],this.waterVertices[i+1],this.waterVertices[i+2],this.pickCamera,this.spherical));}meshes.push({projected:this.waterProjected,vertices:this.waterVertices});}
     for(const {projected,vertices} of meshes)for(let i=0;i<projected.length;i+=3){
+      if(!projected[i]||!projected[i+1]||!projected[i+2])continue;
       if(this.spherical&&!projected[i].visible&&!projected[i+1].visible&&!projected[i+2].visible)continue;
       const a=projected[i],b=projected[i+1],c=projected[i+2];
       if(x<Math.min(a.x,b.x,c.x)||x>Math.max(a.x,b.x,c.x)||y<Math.min(a.y,b.y,c.y)||y>Math.max(a.y,b.y,c.y))continue;

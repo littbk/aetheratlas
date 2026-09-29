@@ -1,6 +1,8 @@
 ﻿export const MAX_PROJECT_BYTES = 80 * 1024 * 1024;
 export const projectPathPattern = /^atlas-do-reino\/projects\/[0-9a-f-]{36}\.json$/;
 
+const recoveredBiomeHeights=[30,45,420,900,1200,1000,1800,170,15,240,330,220,500,15];
+
 export function validateProject(project) {
   const fail = message => { throw new Error(message); };
   if(project?.format==='aether-atlas-world'){
@@ -32,9 +34,12 @@ export function validateProject(project) {
     if (project.version >= 2) {
       const t = layer.terrain;
       if (!t || !['heights', 'coverage', 'biomes'].every(k => Array.isArray(t[k]) && t[k].length === 110000)) fail('Dados de relevo inválidos.');
-      for (let i = 0; i < 110000; i++) if (!inRange(t.heights[i], -500, 3000) ||
-        !Number.isInteger(t.coverage[i]) || !inRange(t.coverage[i], 0, 255) ||
-        !Number.isInteger(t.biomes[i]) || !inRange(t.biomes[i], 0, 13)) fail('Altitude ou bioma inválido.');
+      for (let i = 0; i < 110000; i++) {
+        if(t.biomes[i]>=14&&t.biomes[i]<=27&&(t.heights[i]===null||Number.isNaN(t.heights[i])))t.heights[i]=recoveredBiomeHeights[t.biomes[i]-14];
+        if (!inRange(t.heights[i], -500, 3000) ||
+          !Number.isInteger(t.coverage[i]) || !inRange(t.coverage[i], 0, 255) ||
+          !Number.isInteger(t.biomes[i]) || !inRange(t.biomes[i], 0, 27)) fail('Altitude ou bioma inválido.');
+      }
       if(t.fog!==undefined&&(!Array.isArray(t.fog)||t.fog.length!==110000||t.fog.some(v=>v!==0&&v!==255)))fail('Cobertura FOG inválida.');
       if(t.waterColors!==undefined&&(!t.waterColors||typeof t.waterColors!=='object'||Array.isArray(t.waterColors)||Object.keys(t.waterColors).length>110000||Object.entries(t.waterColors).some(([k,v])=>!/^(0|[1-9][0-9]*)$/.test(k)||+k>=110000||typeof v!=='string'||!/^#[0-9a-f]{6}$/i.test(v))))fail('Cor de água inválida.');
       if(t.waterLevels!==undefined&&(!t.waterLevels||typeof t.waterLevels!=='object'||Array.isArray(t.waterLevels)||Object.keys(t.waterLevels).length>110000||Object.entries(t.waterLevels).some(([k,v])=>!/^(0|[1-9][0-9]*)$/.test(k)||+k>=110000||!inRange(v,-500,3000))))fail('Nível de água inválido.');
@@ -55,20 +60,22 @@ export function validateProject(project) {
     const objects = layer.objects ?? [], routes = layer.routes ?? [], tunnels = layer.tunnels ?? [], structures = layer.structures ?? [];
     if (!Array.isArray(structures) || structures.length > 3000 || !Array.isArray(objects) || objects.length > 2000 || !Array.isArray(routes) || routes.length > 2000 ||
         !Array.isArray(tunnels) || tunnels.length > 1000) fail('Objetos do mapa inválidos.');
-    const buildings = ['house','village','tower','castle','temple','bridge','camp','ruin','windmill','tunnel','cave'];
+    const buildings = ['house','village','tower','castle','temple','bridge','camp','ruin','windmill','tunnel','door','cave'];
     for (const o of objects) if (!o || !['building','marker','text','tree','decor'].includes(o.kind) || !point(o) ||
       (o.elevation!==undefined&&!inRange(o.elevation,-100,500)) || !inRange(o.size,8,160) || !inRange(o.rotation,-360,360) || typeof o.text !== 'string' || o.text.length > 240 ||
-      !/^#[0-9a-f]{6}$/i.test(o.color) || (o.kind === 'building' && !buildings.includes(o.building)) ||
+      !/^#[0-9a-f]{6}$/i.test(o.color) || (o.kind === 'building' && (!buildings.includes(o.building) || (o.buildingStyle!==undefined&&!Number.isInteger(o.buildingStyle)) || (o.buildingStyle!==undefined&&!inRange(o.buildingStyle,0,2)) || (o.buildingPalette!==undefined&&!Number.isInteger(o.buildingPalette)) || (o.buildingPalette!==undefined&&!inRange(o.buildingPalette,0,2)))) ||
       (o.kind === 'tree' && (!['forest','palms','pines','magic','autumn','jungle','snowForest'].includes(o.species) || !/^#[0-9a-f]{6}$/i.test(o.trunkColor) || !inRange(o.seed,0,1))) ||
       (o.kind === 'decor' && (!['grass','flower','rock','bush','mushroom'].includes(o.decor) || !inRange(o.seed,0,1))) ||
       (o.kind === 'marker' && !['◇','♜','▲','✦','♣'].includes(o.symbol))) fail('Marcador inválido.');
     let count = 0;
-    for (const r of routes) if (!r || !['river','path'].includes(r.kind) || !inRange(r.width,1,180) ||
+    for (const r of routes) if (!r || !['river','path','waterfall'].includes(r.kind) || !inRange(r.width,1,180) ||
       !Array.isArray(r.points) || r.points.length < 2 || (count += r.points.length) > 100000 || !r.points.every(point)) fail('Trajeto inválido.');
     for (const t of tunnels) if (!t || !point(t.a) || !point(t.b) || !inRange(t.width,1,200) || !inRange(t.depth,5,500) ||
       (t.hollow !== undefined && typeof t.hollow !== 'boolean') || (t.route !== undefined && (!Array.isArray(t.route) || t.route.length < 2 || t.route.length > 1000 || !t.route.every(p => point(p) && inRange(p.z,-500,0))))) fail('Túnel inválido.');
     let structurePoints=0;
-    for(const item of structures)if(!item||(item.groupId!==undefined&&(typeof item.groupId!=='string'||item.groupId.length>100))||(item.planDynamic!==undefined&&typeof item.planDynamic!=='boolean')||(item.foundationPoints!==undefined&&(!Array.isArray(item.foundationPoints)||item.foundationPoints.length<3||item.foundationPoints.length>128||!item.foundationPoints.every(point)))||(item.elevation!==undefined&&!inRange(item.elevation,-100,500))||(item.base!==undefined&&!inRange(item.base,0,100))||(item.material!==undefined&&!['stone','tile','wood','glass','metal'].includes(item.material))||(item.kind!==undefined&&!['wall','room','corridor','floor','rect','rectFill','ellipse','ellipseFill','line','door','window','stairs','pillar','pit','bridgeWood','bridgeIron','bridgeSuspension'].includes(item.kind))||!Array.isArray(item.points)||item.points.length<2||item.points.length>128||(structurePoints+=item.points.length)>100000||!item.points.every(point)||!inRange(item.width,1,180)||!inRange(item.height,-100,100)||typeof item.fill!=='boolean'||!/^#[0-9a-f]{6,8}$/i.test(item.color))fail('Construção 3D inválida.');
+    for(const item of structures)if(item?.materialPreset!==undefined&&!['limestone','slate','sandstone','brick','wood','terracotta','silver','jade'].includes(item.materialPreset))fail('Material de arquitetura inválido.');
+    for(const item of structures)if(!item||(item.groupId!==undefined&&(typeof item.groupId!=='string'||item.groupId.length>100))||(item.planDynamic!==undefined&&typeof item.planDynamic!=='boolean')||(item.foundationPoints!==undefined&&(!Array.isArray(item.foundationPoints)||item.foundationPoints.length<3||item.foundationPoints.length>128||!item.foundationPoints.every(point)))||(item.elevation!==undefined&&!inRange(item.elevation,-100,500))||(item.bridgeEndHeights!==undefined&&(!['bridgeWood','bridgeIron','bridgeSuspension'].includes(item.kind)||!Array.isArray(item.bridgeEndHeights)||item.bridgeEndHeights.length!==2||!item.bridgeEndHeights.every(v=>inRange(v,-100,500))))||(item.base!==undefined&&!inRange(item.base,0,100))||(item.material!==undefined&&!['stone','tile','wood','glass','metal'].includes(item.material))||(item.kind!==undefined&&!['wall','room','corridor','floor','rect','rectFill','ellipse','ellipseFill','line','door','window','stairs','pillar','pit','bridgeWood','bridgeIron','bridgeSuspension'].includes(item.kind))||!Array.isArray(item.points)||item.points.length<2||item.points.length>128||(structurePoints+=item.points.length)>100000||!item.points.every(point)||!inRange(item.width,1,180)||!inRange(item.height,-100,100)||typeof item.fill!=='boolean'||!/^#[0-9a-f]{6,8}$/i.test(item.color))fail('Construção 3D inválida.');
+    for(const item of structures)if(item.endHeights!==undefined&&(!Array.isArray(item.endHeights)||item.endHeights.length!==2||item.points.length!==2||item.fill||['bridgeWood','bridgeIron','bridgeSuspension'].includes(item.kind)||!item.endHeights.every(v=>inRange(v,-100,500))))fail('Altura dos pontos 3D inválida.');
   }
   return project;
 }

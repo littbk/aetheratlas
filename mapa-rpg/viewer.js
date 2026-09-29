@@ -10,6 +10,7 @@ export class MapViewer {
   constructor(canvas, stage, onChange) {
     this.canvas = canvas; this.stage = stage; this.ctx = canvas.getContext('2d');
     this.scene = new AtlasScene();this.scene.fogViewer=true; this.texture = document.createElement('canvas');
+    this.scene.onStreamReady=()=>{if(this.streamFrame)return;this.streamFrame=requestAnimationFrame(()=>{this.streamFrame=0;this.draw();});};
     this.texture.width = 1600; this.texture.height = 1100;
     this.layers = []; this.c = { yaw: -12, tilt: 38, roll: 0, relief: 1, zoom: 1, cx: 0, cy: 0 };
     this.patches=[];this.submaps=[];this.submapMode=false;this.onReturnToMain=()=>{};this.clickStart=null;this.returnState=null;
@@ -21,6 +22,7 @@ export class MapViewer {
     this.flatRegion=null;this.flatCamera=null;this.regionView=new AtlasRegionView({canvas,stage,scene:this.scene,read:()=>this.camera(),world:()=>this.layers.some(l=>l.planet?.enabled)&&!!this.scene.gl,active:()=>this.flatRegion,enter:r=>this.enterFlatRegion(r),exit:()=>this.leaveFlatRegion()});
     this.blockedMessage=document.createElement('div');this.blockedMessage.className='location-blocked-message';this.blockedMessage.setAttribute('role','alert');this.blockedMessage.hidden=true;stage.append(this.blockedMessage);
     this.bind(); new ResizeObserver(() => { if (this.layers.length) this.fit(); }).observe(stage);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)this.draw();});
   }
   async load(project) {
     this.guide.setSpinning(false);this.flatRegion=null;this.flatCamera=null;this.regionView.cancel();this.navigation.panel.querySelector('[data-nav="walk"]').disabled=false;
@@ -68,7 +70,7 @@ export class MapViewer {
   }
   camera() { const planet=this.layers.some(l=>l.planet?.enabled)&&!this.flatRegion;return { ...this.c,flatRegion:this.flatRegion, relief: planet||this.c.tilt||this.submapMode ? this.c.relief : 0, planet }; }
   draw() {
-    if (!this.layers.length) return;
+    if (!this.layers.length || document.hidden) return;
     this.regionView.sync();
     if(this.navigation.walking)this.navigation.center();
     const width=this.stage.clientWidth,height=this.stage.clientHeight,d=Math.min(devicePixelRatio||1,2);

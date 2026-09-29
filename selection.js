@@ -1,16 +1,23 @@
 'use strict';
 const Selector=(()=>{
-  let selected=null,drag=null,gizmo=null;
+  let selected=null,drag=null,gizmo=null,attachEnd=null;
   const panel=document.createElement('section');panel.className='selection-panel';panel.hidden=true;
-  panel.innerHTML='<h3>OBJETO SELECIONADO</h3><strong id="selectionName"></strong><p class="muted">Arraste no mapa ou informe a posição.</p><div class="selection-position"><label>X <input id="selectionX" type="number" min="0" max="1599" step="1"></label><label>Y <input id="selectionY" type="number" min="0" max="1099" step="1"></label></div><button id="selectionMove" type="button">Aplicar posição</button><label for="selectionLayer">Camada de destino</label><select id="selectionLayer"></select><button id="selectionTransfer" type="button">Mover para camada</button><div id="selectionTint"><label>Cor <input id="selectionColor" type="color"></label><label id="selectionTrunkLabel">Tronco <input id="selectionTrunk" type="color"></label></div><button id="selectionDelete" type="button">Excluir seleção</button><button id="selectionClear" type="button">Limpar seleção</button>';
+  panel.innerHTML='<h3>OBJETO SELECIONADO</h3><strong id="selectionName"></strong><p class="muted">Arraste no mapa ou informe a posição.</p><div class="selection-position"><label>X <input id="selectionX" type="number" min="0" max="1599" step="1"></label><label>Y <input id="selectionY" type="number" min="0" max="1099" step="1"></label></div><button id="selectionMove" type="button">Aplicar posição</button><div id="selectionBuildingStyle" hidden><label for="selectionBuildingVariant">Arquitetura</label><select id="selectionBuildingVariant"></select><label for="selectionBuildingPalette">Paleta</label><select id="selectionBuildingPalette"></select></div><div id="selectionEnds" hidden><p class="muted">Arraste A/B livremente ou use as setas: X largura, Y profundidade, Z altura.</p><div id="selectionEndRows"></div></div><label for="selectionLayer">Camada de destino</label><select id="selectionLayer"></select><button id="selectionTransfer" type="button">Mover para camada</button><div id="selectionTint"><label>Cor <input id="selectionColor" type="color"></label><label id="selectionTrunkLabel">Tronco <input id="selectionTrunk" type="color"></label></div><button id="selectionDelete" type="button">Excluir seleção</button><button id="selectionClear" type="button">Limpar seleção</button>';
   document.querySelector('#layersPanel .section-title').after(panel);
+  Buildings3D.paletteNames.forEach((name,index)=>$('selectionBuildingPalette').add(new Option(name,index)));
+  const materialPanel=document.createElement('div');materialPanel.id='selectionArchitectureStyle';materialPanel.hidden=true;
+  materialPanel.innerHTML='<label for="selectionArchitectureMaterial">Material da arquitetura</label><select id="selectionArchitectureMaterial"></select><p class="muted">Aplica ao objeto ou grupo selecionado. A cor pode ser ajustada abaixo.</p>';
+  $('selectionBuildingStyle').after(materialPanel);
+  $('selectionArchitectureMaterial').add(new Option('Personalizado / materiais diferentes',''));
+  for(const [key,preset] of Object.entries(Structures.materials))$('selectionArchitectureMaterial').add(new Option(preset.name,key));
+  for(let i=0;i<2;i++){const row=document.createElement('div');row.className='selection-end';row.innerHTML=`<strong>Ponto ${i?'B':'A'}</strong><div class="selection-position"><label>X <input data-end="${i}" data-axis="x" type="number" min="0" max="1599.999" step="0.1"></label><label>Y <input data-end="${i}" data-axis="y" type="number" min="0" max="1099.999" step="0.1"></label></div><label class="selection-end-height">Altura adicional do ponto <input data-end="${i}" data-axis="height" type="number" min="-100" max="500" step="0.1"></label><button data-apply-end="${i}" type="button">Aplicar ponto ${i?'B':'A'}</button><button data-attach-end="${i}" type="button">Fixar ${i?'B':'A'} em outro objeto</button>`;$('selectionEndRows').append(row);}
   const valid=()=>{
     if(!selected)return false;const l=layers[selected.layer];
     if(!l||!l.visible||(selected.region?WorldSurface.child(l,selected.region.gx,selected.region.gy):l)!==selected.source)return false;const storage=selected.source;
     if(selected.generated)return !storage.terrain.treeExclusions.has(selected.entry.index)&&(storage.terrain.biomes[selected.entry.index]===2||storage.terrain.biomes[selected.entry.index]>=8);
     return storage[selected.collection].includes(selected.object);
   };
-  function clear(){selected=null;drag=null;gizmo=null;panel.hidden=true;draw();}
+  function clear(){selected=null;drag=null;gizmo=null;attachEnd=null;panel.hidden=true;draw();}
   const members=()=>selected.members||[selected.object];
   const is3D=()=>selected&&(selected.collection==='structures'||selected.generated||selected.object?.kind==='tree'||selected.object?.kind==='decor'||selected.object?.kind==='building'&&Buildings3D.types.has(selected.object.building));
   const points=()=>selected.collection==='structures'?[...new Set(members().flatMap(o=>[...o.points,...(o.foundationPoints||[])]))]:selected.generated?[{x:selected.entry.localX??selected.entry.x,y:selected.entry.localY??selected.entry.y}]:selected.collection==='routes'?selected.object.points:selected.collection==='tunnels'?[selected.object.a,selected.object.b]:[selected.object];
@@ -23,9 +30,17 @@ const Selector=(()=>{
     const species={forest:'Floresta de copas',palms:'Coqueiro',pines:'Pinheiro',magic:'Árvore mágica',autumn:'Árvore outonal',jungle:'Árvore de selva',snowForest:'Pinheiro nevado'};
     $('selectionName').textContent=tree?(species[o.species||Terrain.biomes[o.type]]||'Árvore'):o.text||({building:Buildings.names[o.building],marker:'Marcador',text:'Texto',river:'Rio',path:'Caminho'}[o.kind])||(selected.collection==='tunnels'?'Túnel':'Objeto');
     if(o.kind==='decor')$('selectionName').textContent=({grass:'Grama',flower:'Flores',rock:'Pedras',bush:'Arbusto',mushroom:'Cogumelos'})[o.decor];
+    if(o.kind==='waterfall')$('selectionName').textContent='Cachoeira';
     if(selected.collection==='structures')$('selectionName').textContent=({wall:'Muro',room:'Sala',corridor:'Corredor',floor:'Piso',stairs:'Escada',door:'Porta',window:'Janela',pillar:'Pilar',pit:'Fosso',bridgeWood:'Ponte de madeira',bridgeIron:'Ponte de ferro',bridgeSuspension:'Ponte suspensa'}[o.kind]||'Arquitetura')+(members().length>1?' · '+members().length+' peças':'');
     $('selectionDelete').textContent=selected.members?.length>1?'Excluir grupo selecionado':'Excluir seleção';
+    const building=selected.collection==='objects'&&o.kind==='building';$('selectionBuildingStyle').hidden=!building;
+    if(building){$('selectionBuildingVariant').replaceChildren();Buildings3D.styles[o.building].forEach((name,index)=>$('selectionBuildingVariant').add(new Option(name,index)));$('selectionBuildingVariant').value=o.buildingStyle||0;$('selectionBuildingPalette').value=o.buildingPalette||0;}
+    materialPanel.hidden=selected.collection!=='structures';
+    if(!materialPanel.hidden){const preset=Structures.materialOf(o);$('selectionArchitectureMaterial').value=members().every(part=>Structures.materialOf(part)===preset)?preset:'';}
     $('selectionX').value=Math.round(c.x);$('selectionY').value=Math.round(c.y);
+    const twoPoints=selected.collection==='structures'&&o.points.length===2&&!o.close&&!o.fill;
+    $('selectionEnds').hidden=!twoPoints;
+    if(twoPoints)for(let i=0;i<2;i++){const row=$('selectionEndRows').children[i],p=o.points[i];row.querySelector('[data-axis=x]').value=+p.x.toFixed(2);row.querySelector('[data-axis=y]').value=+p.y.toFixed(2);row.querySelector('[data-axis=height]').value=+((o.kind?.startsWith('bridge')?o.bridgeEndHeights?.[i]:o.endHeights?.[i])||0).toFixed(2);row.querySelector('[data-attach-end]').hidden=!o.kind?.startsWith('bridge');}
     $('selectionLayer').replaceChildren();layers.forEach((l,i)=>{const option=new Option(l.name+(l.locked?' · bloqueada':''),i);option.disabled=l.locked; $('selectionLayer').add(option);});$('selectionLayer').value=selected.layer;
     $('selectionTint').hidden=!['objects','structures'].includes(selected.collection)&&!selected.generated;
     $('selectionTrunkLabel').hidden=!tree;
@@ -40,8 +55,20 @@ const Selector=(()=>{
   }
   function structureFaces(object,region){
     const gx=(region?.gx||0)*1600,gy=(region?.gy||0)*1100,c=camera(),tc={...c,relief:1};
+    if(object.kind?.startsWith('bridge')){
+      const [a,b]=object.points,dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);if(len<.01)return[];
+      const nx=-dy/len,ny=dx/len,half=object.width/2;
+      const ground=t=>Billboards.surfaceHeight(a.x+dx*t+gx,a.y+dy*t+gy,layers);
+      const start=ground(0)+1.2+(object.bridgeEndHeights?.[0]||0),end=ground(1)+1.2+(object.bridgeEndHeights?.[1]||0);
+      const level=t=>Math.max(start+(end-start)*t,ground(t)+object.height*.0325*Math.sin(Math.PI*t)**2)+(object.elevation||0);
+      const at=(t,side,z)=>scene.project(a.x+dx*t+nx*side+gx,a.y+dy*t+ny*side+gy,z*(c.planet?.37:1),tc);
+      const faces=[],count=Math.max(2,Math.min(60,Math.ceil(len/12)));
+      for(let i=0;i<count;i++){const t=i/count,u=(i+1)/count,z=level(t),w=level(u);faces.push([at(t,-half,z),at(u,-half,w),at(u,half,w),at(t,half,z)]);}
+      return faces;
+    }
     const ground=Math.max(0,...(object.foundationPoints||object.points).map(p=>Billboards.surfaceHeight(p.x+gx,p.y+gy,layers)))+(object.elevation||0);
-    const project=(p,h)=>scene.project(p.x+gx,p.y+gy,ground+(h||0)*(c.planet?.37:1),tc);
+    const endLift=p=>{if(!object.endHeights||object.points.length!==2)return 0;const [a,b]=object.points,dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1)));return object.endHeights[0]+(object.endHeights[1]-object.endHeights[0])*t;};
+    const project=(p,h)=>scene.project(p.x+gx,p.y+gy,ground+((h||0)+endLift(p))*(c.planet?.37:1),tc);
     return Structures.footprints(object).flatMap(poly=>{const bottom=poly.map(p=>project(p,object.base)),top=poly.map(p=>project(p,object.height));return [top,bottom,...poly.map((_,i)=>[bottom[i],bottom[(i+1)%poly.length],top[(i+1)%poly.length],top[i]])];});
   }
   function hitStructures(x,y){
@@ -72,6 +99,7 @@ const Selector=(()=>{
     return null;
   }
   function pick(e){
+    attachEnd=null;
     const item=hit(e);if(!item){clear();return;}
     selected={...item,source:item.region?WorldSurface.child(layers[item.layer],item.region.gx,item.region.gy):layers[item.layer]};if(item.collection==='structures')selected.members=Structures.connected(selected.source.structures,item.object,$('architectureAutoGroup')?.checked!==false);active=item.layer;
     const p=point(e),c=center();drag={id:e.pointerId,mode:'move',start:p.inside?{x:p.x-(selected.region?.gx||0)*1600,y:p.y-(selected.region?.gy||0)*1100}:c,center:c,moved:false};
@@ -99,6 +127,41 @@ const Selector=(()=>{
   }
   function finish(){if(drag?.moved)changed();drag=null;if(tool==='select')canvas.style.cursor='crosshair';}
   function moveTo(x,y){if(!Number.isFinite(x)||!Number.isFinite(y)||!editable())return;remember();detach();shiftTo(x,y);changed();}
+  function setEnd(index,x,y,height){
+    if(!editable()||selected.collection!=='structures'||selected.object.points.length!==2||![x,y,height].every(Number.isFinite)||x<0||x>=1600||y<0||y>=1100||height< -100||height>500||![0,1].includes(index))return;
+    const part=selected.object,bridge=part.kind?.startsWith('bridge');
+    const key=bridge?'bridgeEndHeights':'endHeights';
+    if(Math.hypot(x-part.points[index].x,y-part.points[index].y)<.001&&Math.abs(height-(part[key]?.[index]||0))<.001)return;
+    remember();detach();part.points[index].x=x;part.points[index].y=y;
+    part[key]=[...(part[key]||[0,0])];part[key][index]=height;
+    changed();
+  }
+  function setBuildingAppearance(style,palette){
+    if(!editable()||selected.collection!=='objects'||selected.object.kind!=='building'||!Number.isInteger(style)||style<0||style>2||!Number.isInteger(palette)||palette<0||palette>2)return;
+    if((selected.object.buildingStyle||0)===style&&(selected.object.buildingPalette||0)===palette)return;
+    remember();selected.object.buildingStyle=style;selected.object.buildingPalette=palette;changed();
+  }
+  function setArchitectureMaterial(key){
+    if(!Object.hasOwn(Structures.materials,key)||!editable()||selected.collection!=='structures')return;
+    if(members().every(part=>part.materialPreset===key&&part.color===Structures.materials[key].color))return;
+    remember();detach();for(const part of members())Structures.applyMaterial(part,key);changed();
+  }
+  function attachTo(e){
+    if(attachEnd===null||!editable())return;
+    const target=hit(e),part=selected.object,index=attachEnd;
+    if(!target||target.object===part||!['structures','objects'].includes(target.collection)){notify('Clique em outro objeto 3D para fixar o apoio.');return;}
+    if((target.region?.gx||0)!==(selected.region?.gx||0)||(target.region?.gy||0)!==(selected.region?.gy||0)){notify('O apoio precisa estar na mesma região da ponte.');return;}
+    const other=target.object,structure=target.collection==='structures',building=other?.kind==='building'&&Buildings3D.types.has(other.building);
+    if(!structure&&!building){notify('Escolha uma construção 3D ou outro segmento de ponte.');return;}
+    const at=point(e),local={x:at.x-(selected.region?.gx||0)*1600,y:at.y-(selected.region?.gy||0)*1100};
+    const targetPoint=structure?other.points.reduce((best,p)=>Math.hypot(p.x-local.x,p.y-local.y)<Math.hypot(best.x-local.x,best.y-local.y)?p:best,other.points[0]):other;
+    const gx=targetPoint.x+(selected.region?.gx||0)*1600,gy=targetPoint.y+(selected.region?.gy||0)*1100;
+    let top;
+    if(structure){const ground=Math.max(...(other.foundationPoints||other.points).map(p=>Billboards.surfaceHeight(p.x+(selected.region?.gx||0)*1600,p.y+(selected.region?.gy||0)*1100,layers)));top=ground+(other.elevation||0)+(other.kind?.startsWith('bridge')?1.2+(other.bridgeEndHeights?.[other.points.indexOf(targetPoint)]||0):other.height);}
+    else top=Billboards.surfaceHeight(gx,gy,layers)+(other.elevation||0)+.8;
+    const height=Math.max(-100,Math.min(500,top-Billboards.surfaceHeight(gx,gy,layers)-1.2-(part.elevation||0)));
+    setEnd(index,targetPoint.x,targetPoint.y,height);attachEnd=null;notify(`Apoio ${index?'B':'A'} fixado. Ajuste a altura fina no painel, se necessário.`);
+  }
   function transfer(index){
     if(!editable()||index===selected.layer)return;
     const parent=layers[index],dest=parent&&(selected.region?WorldSurface.child(parent,selected.region.gx,selected.region.gy,true):parent);if(!dest||parent.locked){notify('Escolha uma camada desbloqueada.');return;}
@@ -114,7 +177,23 @@ const Selector=(()=>{
     if(!editable())return false;
     const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
     drag={id:e.pointerId,mode:handle.mode,startScreen:{x,y},centerScreen:handle.center,moved:false};
-    canvas.style.cursor=handle.mode==='rotate'?'crosshair':handle.mode==='height'?'ns-resize':'nwse-resize';return true;
+    if(handle.mode==='endpoint'||handle.mode==='endpoint-axis'){const p=selected.object.points[handle.index],ground=point(e),key=selected.object.kind?.startsWith('bridge')?'bridgeEndHeights':'endHeights';drag.index=handle.index;drag.axis=handle.axis;drag.start={x:ground.x-(selected.region?.gx||0)*1600,y:ground.y-(selected.region?.gy||0)*1100};drag.origin={x:p.x,y:p.y,height:selected.object[key]?.[handle.index]||0};drag.center={x:p.x,y:p.y};}
+    canvas.style.cursor=handle.mode==='rotate'?'crosshair':handle.mode==='height'||handle.axis==='z'||handle.axis==='y'?'ns-resize':handle.axis==='x'?'ew-resize':'nwse-resize';return true;
+  }
+  function moveEnd(e){
+    if(!drag||drag.id!==e.pointerId||!editable())return;
+    const rect=canvas.getBoundingClientRect(),sx=e.clientX-rect.left,sy=e.clientY-rect.top,dist=Math.hypot(sx-drag.startScreen.x,sy-drag.startScreen.y);
+    if(!drag.moved&&dist<3)return;
+    const p=drag.axis==='z'?null:point(e);if(p&&!p.inside)return;
+    const localX=p?p.x-(selected.region?.gx||0)*1600:drag.start.x,localY=p?p.y-(selected.region?.gy||0)*1100:drag.start.y;
+    const x=drag.axis==='y'||drag.axis==='z'?drag.origin.x:drag.origin.x+localX-drag.start.x,y=drag.axis==='x'||drag.axis==='z'?drag.origin.y:drag.origin.y+localY-drag.start.y;
+    const c=camera(),pixels=Math.max(.2,(c.zoom||1)*Math.max(.3,Math.sin(Math.abs(c.tilt||35)*Math.PI/180))*(c.planet?.37:1));
+    const height=drag.axis==='z'?drag.origin.height+(drag.startScreen.y-sy)/pixels:drag.origin.height;
+    if(x<0||x>=1600||y<0||y>=1100||height< -100||height>500)return;
+    if(!drag.moved){remember();detach();drag.moved=true;}
+    Object.assign(selected.object.points[drag.index],{x,y});
+    if(drag.axis==='z'){const key=selected.object.kind?.startsWith('bridge')?'bridgeEndHeights':'endHeights';selected.object[key]=[...(selected.object[key]||[0,0])];selected.object[key][drag.index]=height;}
+    textureDirty=true;draw();sync();
   }
   function adjustHandle(e){
     if(!drag||drag.id!==e.pointerId||!editable())return;
@@ -175,30 +254,48 @@ const Selector=(()=>{
       const handles=[{mode:'scale',x:box.x+box.w+20,y:box.y+box.h+20,label:'↗',caption:'Escala',color:'#9adbc8'},
         {mode:'rotate',x:box.x+box.w+22,y:box.y-22,label:'↻',caption:'Girar',color:'#f3ca82'},
         {mode:'height',x:box.x-22,y:box.y-22,label:'↑',caption:'Altura',color:'#b8b2ff'}];
+      if(selected.collection==='structures'&&selected.object.points.length===2&&!selected.object.close&&!selected.object.fill){
+        for(let i=0;i<2;i++){const p=selected.object.points[i],gx=p.x+(selected.region?.gx||0)*1600,gy=p.y+(selected.region?.gy||0)*1100;
+          const part=selected.object,bridge=part.kind?.startsWith('bridge'),c=camera(),tc={...c,relief:1},ground=bridge?Billboards.surfaceHeight(gx,gy,layers):Math.max(...part.points.map(v=>Billboards.surfaceHeight(v.x+(selected.region?.gx||0)*1600,v.y+(selected.region?.gy||0)*1100,layers)));
+          const lift=bridge?1.2+(part.bridgeEndHeights?.[i]||0)+(part.elevation||0):part.height+(part.endHeights?.[i]||0)+(part.elevation||0),z=ground+lift*(c.planet?.37:1);
+          const screen=scene.project(gx,gy,z,tc);if(screen.visible===false)continue;
+          handles.push({mode:'endpoint',index:i,x:screen.x,y:screen.y,label:i?'B':'A',caption:'Ponto '+(i?'B':'A'),color:'#7ce2ff'});
+          for(const [axis,color,delta] of [['x','#ff8b82',[35,0,0]],['y','#8cdda6',[0,35,0]],['z','#a9b9ff',[0,0,20]]]){
+            const tip=scene.project(gx+delta[0],gy+delta[1],z+delta[2],tc),dx=tip.x-screen.x,dy=tip.y-screen.y,len=Math.hypot(dx,dy)||1;
+            const ux=axis==='z'&&len<2?0:dx/len,uy=axis==='z'&&len<2?-1:dy/len;
+            handles.push({mode:'endpoint-axis',index:i,axis,x:screen.x+ux*39,y:screen.y+uy*39,origin:{x:screen.x,y:screen.y},label:axis.toUpperCase(),caption:'',color});
+          }
+        }
+      }
       gizmo={center,handles};g.font='bold 17px system-ui';g.textAlign='center';g.textBaseline='middle';
-      for(const h of handles){g.beginPath();g.arc(h.x,h.y,12,0,Math.PI*2);g.fillStyle='#17212bee';g.fill();g.strokeStyle=h.color;g.lineWidth=2;g.stroke();g.fillStyle=h.color;g.fillText(h.label,h.x,h.y+1);g.font='10px system-ui';g.fillStyle='#fff9dc';g.fillText(h.caption,h.x,h.y+23);g.font='bold 17px system-ui';}
+      for(const h of handles){if(h.mode==='endpoint-axis'){const dx=h.x-h.origin.x,dy=h.y-h.origin.y,len=Math.hypot(dx,dy)||1;g.beginPath();g.moveTo(h.origin.x+dx*12/len,h.origin.y+dy*12/len);g.lineTo(h.x-dx*11/len,h.y-dy*11/len);g.strokeStyle=h.color;g.lineWidth=3;g.stroke();}g.beginPath();g.arc(h.x,h.y,12,0,Math.PI*2);g.fillStyle='#17212bee';g.fill();g.strokeStyle=h.color;g.lineWidth=2;g.stroke();g.fillStyle=h.color;g.fillText(h.label,h.x,h.y+1);if(h.caption){g.font='10px system-ui';g.fillStyle='#fff9dc';g.fillText(h.caption,h.x,h.y+23);g.font='bold 17px system-ui';}}
     }
     g.restore();
   }
   function gizmoHit(e){
     if(!gizmo||!is3D())return null;
     const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,r=e.pointerType==='touch'?22:16;
-    const handle=gizmo.handles.find(h=>Math.hypot(x-h.x,y-h.y)<=r);
+    const handle=gizmo.handles.filter(h=>h.mode==='endpoint-axis').find(h=>Math.hypot(x-h.x,y-h.y)<=r)||gizmo.handles.find(h=>Math.hypot(x-h.x,y-h.y)<=r);
     return handle?{...handle,center:gizmo.center}:null;
   }
   $('selectionMove').onclick=()=>moveTo(Number($('selectionX').value),Number($('selectionY').value));
+  $('selectionBuildingVariant').onchange=()=>setBuildingAppearance(+$('selectionBuildingVariant').value,+$('selectionBuildingPalette').value);
+  $('selectionBuildingPalette').onchange=()=>setBuildingAppearance(+$('selectionBuildingVariant').value,+$('selectionBuildingPalette').value);
+  $('selectionArchitectureMaterial').onchange=e=>setArchitectureMaterial(e.target.value);
+  $('selectionEndRows').addEventListener('click',e=>{const button=e.target.closest('[data-apply-end]');if(!button)return;const i=Number(button.dataset.applyEnd),row=button.parentElement;setEnd(i,Number(row.querySelector('[data-axis=x]').value),Number(row.querySelector('[data-axis=y]').value),Number(row.querySelector('[data-axis=height]').value));});
+  $('selectionEndRows').addEventListener('click',e=>{const button=e.target.closest('[data-attach-end]');if(!button||!editable())return;attachEnd=Number(button.dataset.attachEnd);notify(`Clique no objeto que receberá o apoio ${attachEnd?'B':'A'}. Esc cancela.`);});
   $('selectionTransfer').onclick=()=>transfer(Number($('selectionLayer').value));
   $('selectionColor').onchange=() => recolor($('selectionColor').value,$('selectionTrunk').value);
   $('selectionTrunk').onchange=() => recolor($('selectionColor').value,$('selectionTrunk').value);
   $('selectionClear').onclick=clear;
   $('selectionDelete').onclick=remove;
   const oldDown=canvas.onpointerdown,oldMove=canvas.onpointermove,oldUp=canvas.onpointerup,oldCancel=canvas.onpointercancel;
-  canvas.onpointerdown=e=>{oldDown(e);if(tool==='select'&&!panning&&!orbiting&&!navigation.walking&&pointers.size===1){const handle=gizmoHit(e);if(!handle||!startHandle(e,handle))pick(e);}else if(pointers.size>1)finish();};
-  canvas.onpointermove=e=>{if(tool==='select'&&drag&&pointers.size===1&&!panning&&!orbiting){pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(drag.mode==='move')move(e);else adjustHandle(e);}else{oldMove(e);if(tool==='select'&&!pointers.size){const handle=gizmoHit(e);canvas.style.cursor=handle?(handle.mode==='height'?'ns-resize':handle.mode==='scale'?'nwse-resize':'crosshair'):'crosshair';}}};
+  canvas.onpointerdown=e=>{oldDown(e);if(tool==='select'&&!panning&&!orbiting&&!navigation.walking&&pointers.size===1){if(attachEnd!==null)attachTo(e);else{const handle=gizmoHit(e);if(!handle||!startHandle(e,handle))pick(e);}}else if(pointers.size>1)finish();};
+  canvas.onpointermove=e=>{if(tool==='select'&&drag&&pointers.size===1&&!panning&&!orbiting){pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(drag.mode==='move')move(e);else if(drag.mode==='endpoint'||drag.mode==='endpoint-axis')moveEnd(e);else adjustHandle(e);}else{oldMove(e);if(tool==='select'&&!pointers.size){const handle=gizmoHit(e);canvas.style.cursor=handle?(handle.mode==='height'||handle.axis==='z'?'ns-resize':handle.axis==='x'?'ew-resize':handle.axis==='y'?'ns-resize':handle.mode==='scale'?'nwse-resize':'crosshair'):'crosshair';}}};
   canvas.onpointerup=e=>{finish();oldUp(e);};canvas.onpointercancel=e=>{finish();oldCancel(e);};
   canvas.addEventListener('lostpointercapture',finish);window.addEventListener('blur',finish);
   $('tools').addEventListener('click',finish,true);
-  window.addEventListener('keydown',e=>{if(e.key==='Escape')clear();if(e.key==='Delete'&&tool==='select'&&valid()&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.target?.closest?.('input,textarea,select,[contenteditable]')){e.preventDefault();remove();}});
+  window.addEventListener('keydown',e=>{if(e.key==='Escape'){if(attachEnd!==null){attachEnd=null;notify('Fixação cancelada.');}else clear();}if(e.key==='Delete'&&tool==='select'&&valid()&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.target?.closest?.('input,textarea,select,[contenteditable]')){e.preventDefault();remove();}});
   window.syncSelection=sync;window.drawSelection=drawOutline;
-  return {pick,move,finish,moveTo,transfer,recolor,remove,clear,treeBox,get selected(){return selected;},get gizmo(){return gizmo;}};
+  return {pick,move,finish,moveTo,setEnd,setBuildingAppearance,setArchitectureMaterial,transfer,recolor,remove,clear,treeBox,get selected(){return selected;},get gizmo(){return gizmo;}};
 })();

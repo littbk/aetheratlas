@@ -45,7 +45,7 @@ const WorldSurface=(()=>{
       else for(let i=0;i<(part.close?part.points.length:part.points.length-1);i++){
         const a=part.points[i],b=part.points[(i+1)%part.points.length];let low=0,high=1;const dx=b.x-a.x,dy=b.y-a.y;
         for(const [p,q] of [[-dx,a.x-gx*W],[dx,(gx+1)*W-.001-a.x],[-dy,a.y-gy*H],[dy,(gy+1)*H-.001-a.y]]){if(!p){if(q<0){high=-1;break;}}else if(p<0)low=Math.max(low,q/p);else high=Math.min(high,q/p);}
-        if(low<=high&&high>=0&&low<=1){const points=[low,high].map(t=>({x:a.x+dx*t-gx*W,y:a.y+dy*t-gy*H}));if(Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y)>.001){const p={...part,points,close:false};delete p.foundationPoints;result.push(p);}}
+        if(low<=high&&high>=0&&low<=1){const points=[low,high].map(t=>({x:a.x+dx*t-gx*W,y:a.y+dy*t-gy*H}));if(Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y)>.001){const p={...part,points,close:false};for(const key of ['bridgeEndHeights','endHeights'])if(part[key]){const [h0,h1]=part[key];p[key]=[h0+(h1-h0)*low,h0+(h1-h0)*high];}delete p.foundationPoints;result.push(p);}}
       }
     }
     return result;

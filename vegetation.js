@@ -2,8 +2,9 @@
 // Low-poly tree meshes in map coordinates: trunks, crowns and palm fronds.
 const Vegetation=(()=>{
   const random=(x,y)=>{const n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n);};
-  function build(layers,planet){
-    Terrain.freezeLayers(layers);
+  function build(layers,planet,include=null){
+    if(!include)Terrain.freezeLayers(layers);
+    const groundCover={20:['rock','#a7a193'],21:['flower','#d8be78'],22:['grass','#5c8665'],23:['grass','#a9a052']};
     const vertices=[],theme=Terrain.getTheme(),counts={},entries=[],candidates=[];let count=0;
     const color=value=>value.slice(1).match(/../g).map(v=>parseInt(v,16)/255);
     const sample=(x,y)=>Math.max(0,Terrain.sample(layers,x,y)||0)*.065;
@@ -16,9 +17,13 @@ const Vegetation=(()=>{
     for(let gy=15;gy<1090;gy+=27)for(let gx=15;gx<1590;gx+=27){
       const n=random(gx,gy);if(n<.22||candidates.length>=2200)continue;
       const x=gx+(random(gx+8,gy)-.5)*14,y=gy+(random(gx,gy+9)-.5)*14,i=Terrain.index(x,y);
+      if(include&&!include({x,y,size:40},'vegetation'))continue;
       let type=0,layer=-1;
       layers.forEach((l,j)=>{if(l.visible&&l.terrain.coverage[i]/255*l.opacity>.35){type=l.terrain.biomes[i];layer=j;}});
-      if(type!==2&&type<8)continue;
+      if(!Terrain.isTreeBiome(type)){
+        const cover=groundCover[type];if(cover&&n>.56){const object={kind:'decor',decor:cover[0],color:cover[1],seed:n,size:12,rotation:n*360,elevation:0};candidates.push({x,y,n,type,layer,index:i,object,size:object.size});}
+        continue;
+      }
       const t=layers[layer].terrain;if(t.treeExclusions.has(i))continue;
       const style=t.treeStyles[t.treeStyleIds[i]-1];
       candidates.push({x,y,n,type,layer,index:i,foliage:style.foliage,trunk:style.trunk,size:40});
@@ -26,6 +31,7 @@ const Vegetation=(()=>{
     layers.forEach((l,layer)=>{if(l.visible&&l.opacity>.05)for(const object of l.objects||[])if(object.kind==='tree')candidates.push({x:object.x,y:object.y,n:object.seed??random(object.x,object.y),type:Terrain.biomes.indexOf(object.species),layer,object,foliage:object.color,trunk:object.trunkColor,size:object.size});});
     layers.forEach((l,layer)=>{if(l.visible&&l.opacity>.05)for(const object of l.objects||[])if(object.kind==='decor')candidates.push({x:object.x,y:object.y,n:object.seed,layer,object,size:object.size});});
     for(const entry of candidates){
+      if(include&&!include(entry.object||{x:entry.x,y:entry.y,size:entry.size},'vegetation'))continue;
       if(entry.object?.kind==='decor'){
         const o=entry.object,{x,y}=entry,base=surface(x,y)+(o.elevation||0),s=o.size/12,scale=planet?.37:1,turn=o.rotation*Math.PI/180,cs=Math.cos(turn),sn=Math.sin(turn);
         entry.base=base;entry.height=(o.decor==='bush'?12:o.decor==='rock'?9:8)*s*scale;entry.radius=7*s;entries.push(entry);
@@ -52,7 +58,7 @@ const Vegetation=(()=>{
         count++;counts.decor=(counts.decor||0)+1;continue;
       }
       const {x,y,n,type}=entry,base=surface(x,y)+(entry.object?.elevation||0),scale=planet?.37:1,key=type===2?'trees':Terrain.biomes[type],leaf=color(entry.foliage),trunk=color(entry.trunk),factor=entry.size/40;
-      const h=(type===8?31:type===9||type===13?28:20)*(0.8+n*.45)*factor,r=(type===12?10:7)*(0.85+n*.3)*factor;
+      const h=(type===8?31:type===24?36:type===9||type===13||type===26?28:20)*(0.8+n*.45)*factor,r=(type===12||type===27?10:7)*(0.85+n*.3)*factor;
       entry.base=base;entry.height=h*1.2*scale;entry.radius=r*(type===8?1.8:1.1);entries.push(entry);
       const turn=(entry.object?.rotation||0)*Math.PI/180,cs=Math.cos(turn),sn=Math.sin(turn);
       const vertex=(p,tint,shade)=>{
@@ -78,7 +84,7 @@ const Vegetation=(()=>{
           triangle(top,left,right,leaf,.9);triangle(left,end,right,leaf,1.18);
         }
         rings([[h*.8,0,3],[h*.85,2.2,3],[h*.9,0,3]],5,trunk);
-      }else if(type===9||type===13){
+      }else if(type===9||type===13||type===24||type===26){
         for(let j=0;j<3;j++){
           const bottom=h*(.25+j*.18),top=h*(.67+j*.18),radius=r*(1-j*.23);
           rings([[bottom,radius],[top,0]],8,leaf);
