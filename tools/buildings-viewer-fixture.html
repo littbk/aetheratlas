@@ -1,0 +1,20 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Validação das construções no visualizador</title>
+<style>html,body{margin:0;background:#132735;color:#eee;font:14px system-ui}canvas{width:100vw;height:100vh;display:block}</style>
+<body>
+<script src="../mapa-rpg/renderer/terrain.js"></script><script src="../mapa-rpg/renderer/world-surface.js"></script>
+<script src="../mapa-rpg/renderer/vegetation.js"></script><script src="../mapa-rpg/renderer/structures.js"></script>
+<script src="../mapa-rpg/renderer/buildings-3d.js"></script><script src="../mapa-rpg/renderer/scene.js"></script>
+<script src="../mapa-rpg/renderer/paths.js"></script><script src="../mapa-rpg/renderer/billboards.js"></script>
+<script>
+const terrain=Terrain.create();terrain.coverage.fill(255);terrain.biomes.fill(1);
+for(let y=0;y<275;y++)for(let x=0;x<400;x++)terrain.heights[y*400+x]=400+Math.sin(x*.045)*210+y*.65;
+const raster=document.createElement('canvas');raster.width=1600;raster.height=1100;
+const objects=[];for(let style=0;style<3;style++)for(const [i,building] of ['house','village','tower','castle'].entries())objects.push({kind:'building',building,buildingStyle:style,buildingPalette:style,x:320+i*320,y:270+style*290,size:150,rotation:25,text:'',color:'#ffffff'});
+const layers=[{visible:true,opacity:1,planet:{enabled:false},terrain,c:raster,objects,routes:[],structures:[],tunnels:[]}];
+const texture=document.createElement('canvas');texture.width=1600;texture.height=1100;texture.getContext('2d').drawImage(Terrain.render(terrain,{texture:true,shade:true}),0,0);
+window.viewerScene=new AtlasScene();document.body.append(viewerScene.canvas);
+// Even an editor preference leaked into a camera must not simplify the viewer's models.
+const camera={yaw:-12,tilt:48,roll:0,relief:1,zoom:.65,cx:innerWidth/2,cy:innerHeight/2,planet:false,fullQuality:true,lightweight:true};
+viewerScene.update(texture,layers,camera);viewerScene.draw(innerWidth,innerHeight,1,camera);
+window.viewerResult={entries:viewerScene.buildings.entries.length,triangles:viewerScene.buildings.indices.length/3,expected:Buildings3D.build(layers,false).vertices.length/45,error:viewerScene.gl.getError()};
+</script></html>

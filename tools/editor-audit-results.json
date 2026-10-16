@@ -1,0 +1,23 @@
+{
+  "project": "Aeon RPG.json",
+  "date": "2026-10-16",
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 (0x00002D05) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "unitTests": 71,
+  "browserValidation": "source and production, DPR 1/1.25/1.5/2, planet/crop/flat, crop sculpt, undo, blur, WebGL: passed",
+  "measurements": {
+    "planet": {
+      "moves": 20,
+      "totalStrokeSeconds": 1.825,
+      "medianPointerHandlerMs": 19.25,
+      "medianDrawMs": 42.8,
+      "maxDrawMs": 82.6
+    },
+    "crop": {
+      "moves": 20,
+      "totalStrokeSeconds": 0.582,
+      "medianPointerHandlerMs": 0.2,
+      "medianDrawMs": 17.3,
+      "maxDrawMs": 35.2
+    }
+  }
+}

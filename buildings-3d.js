@@ -6,32 +6,40 @@ const Buildings3D=(()=>{
   const neutral={stone:[.64,.62,.57],plaster:[.83,.80,.71],roof:[.40,.43,.44],wood:[.36,.29,.22],trim:[.89,.84,.70],dark:[.10,.14,.16],metal:[.29,.32,.33],fabric:[.74,.69,.57],glass:[.43,.66,.69],rock:[.49,.52,.49],moss:[.31,.43,.27],crystal:[.52,.77,.80],paving:[.54,.54,.50]};
   const cache=new Map();let groundCache=new WeakMap();
   const styleOf=o=>Number.isInteger(o.buildingStyle)&&o.buildingStyle>=0&&o.buildingStyle<3?o.buildingStyle:0;
-  function model(type,style=0){
-    const key=type+':'+style;if(cache.has(key))return cache.get(key);
-    const vertices=[];let frame=p=>p;
+  function model(type,style=0,lightweight=false){
+    const key=type+':'+style+':'+lightweight;if(cache.has(key))return cache.get(key);
+    const vertices=[],supports=[];let frame=p=>p,support=[0,0];
     const tri=(a,b,c,role='stone',mat=3)=>{
-      const p=frame(a),q=frame(b),r=frame(c),u=q.map((v,i)=>v-p[i]),v=r.map((v,i)=>v-p[i]);
-      const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],len=Math.hypot(...n);if(len<1e-7)return;
-      const normal=n.map(v=>v/len),roleId=roles.indexOf(role);
-      for(const point of [p,q,r])vertices.push(...point,mat,roleId,...normal,Math.abs(normal[2])>.6?point[0]:point[0]+point[1],Math.abs(normal[2])>.6?point[1]:point[2]);
+      const emit=(p,q,r,depth=0)=>{
+        if(role==='paving'&&Math.max(p[2],q[2],r[2])<=1.1&&depth<4&&Math.max(Math.hypot(p[0]-q[0],p[1]-q[1]),Math.hypot(p[0]-r[0],p[1]-r[1]),Math.hypot(q[0]-r[0],q[1]-r[1]))>(lightweight?16:10)){
+          const mid=(x,y)=>x.map((v,i)=>(v+y[i])/2),pq=mid(p,q),qr=mid(q,r),rp=mid(r,p);emit(p,pq,rp,depth+1);emit(pq,q,qr,depth+1);emit(rp,qr,r,depth+1);emit(pq,qr,rp,depth+1);return;
+        }
+        const u=q.map((v,i)=>v-p[i]),v=r.map((v,i)=>v-p[i]),n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],len=Math.hypot(...n);if(len<1e-7)return;
+        const normal=n.map(v=>v/len),roleId=roles.indexOf(role);
+        for(const point of [p,q,r]){supports.push(...support);vertices.push(...point,mat,roleId,...normal,Math.abs(normal[2])>.6?point[0]:point[0]+point[1],Math.abs(normal[2])>.6?point[1]:point[2]);}
+      };emit(frame(a),frame(b),frame(c));
     };
     const quad=(a,b,c,d,role,mat)=>{tri(a,b,c,role,mat);tri(a,c,d,role,mat);};
     const place=(x,y,z,s,angle,fn)=>{const prior=frame,ca=Math.cos(angle),sa=Math.sin(angle);frame=p=>prior([x+(p[0]*ca-p[1]*sa)*s,y+(p[0]*sa+p[1]*ca)*s,z+p[2]*s]);fn();frame=prior;};
+    const placeOnGround=(x,y,z,s,angle,fn)=>{const prior=support;support=frame([x,y,z]).slice(0,2);place(x,y,z,s,angle,fn);support=prior;};
     const box=(x,y,w,d,z,h,role='stone',mat=3)=>{
       const a=[x-w/2,y-d/2,z],b=[x+w/2,y-d/2,z],c=[x+w/2,y+d/2,z],e=[x-w/2,y+d/2,z],A=[a[0],a[1],z+h],B=[b[0],b[1],z+h],C=[c[0],c[1],z+h],E=[e[0],e[1],z+h];
       quad(A,B,C,E,role,mat);quad(a,b,B,A,role,mat);quad(b,c,C,B,role,mat);quad(c,e,E,C,role,mat);quad(e,a,A,E,role,mat);
     };
     const lathe=(x,y,profile,role='stone',mat=3,n=12,aspect=1,phase=0)=>{
+      if(lightweight)n=Math.min(n,8);
       const p=(i,j)=>[x+Math.cos(i*2*Math.PI/n+phase)*profile[j][1],y+Math.sin(i*2*Math.PI/n+phase)*profile[j][1]*aspect,profile[j][0]];
       for(let j=0;j<profile.length-1;j++)for(let i=0;i<n;i++)quad(p(i,j),p(i+1,j),p(i+1,j+1),p(i,j+1),role,mat);
       const j=profile.length-1;for(let i=1;i<n-1;i++)tri(p(0,j),p(i,j),p(i+1,j),role,mat);
     };
     const beam=(a,b,r,role='wood',mat=4,n=6)=>{
+      if(lightweight)n=Math.min(n,4);
       const d=b.map((v,i)=>v-a[i]),len=Math.hypot(...d);if(len<.001)return;const w=d.map(v=>v/len),ref=Math.abs(w[2])>.9?[1,0,0]:[0,0,1],u=[w[1]*ref[2]-w[2]*ref[1],w[2]*ref[0]-w[0]*ref[2],w[0]*ref[1]-w[1]*ref[0]],ul=Math.hypot(...u);for(let i=0;i<3;i++)u[i]/=ul;const v=[w[1]*u[2]-w[2]*u[1],w[2]*u[0]-w[0]*u[2],w[0]*u[1]-w[1]*u[0]],ring=(p,i)=>p.map((q,j)=>q+r*(u[j]*Math.cos(i*2*Math.PI/n)+v[j]*Math.sin(i*2*Math.PI/n)));
       for(let i=0;i<n;i++)quad(ring(a,i),ring(a,i+1),ring(b,i+1),ring(b,i),role,mat);
       for(let i=1;i<n-1;i++){tri(ring(b,0),ring(b,i),ring(b,i+1),role,mat);tri(ring(a,0),ring(a,i+1),ring(a,i),role,mat);}
     };
     const arch=(x,y,r,spring,depth,thick,role='trim',n=12)=>{
+      if(lightweight)n=Math.min(n,6);
       for(let i=0;i<n;i++){const a=i*Math.PI/n+.012,b=(i+1)*Math.PI/n-.012,p=(angle,radius,dy)=>[x+Math.cos(angle)*radius,y+dy,spring+Math.sin(angle)*radius];
         const A=p(a,r,-depth/2),B=p(b,r,-depth/2),C=p(b,r+thick,-depth/2),D=p(a,r+thick,-depth/2),E=p(a,r,depth/2),F=p(b,r,depth/2),G=p(b,r+thick,depth/2),H=p(a,r+thick,depth/2);
         quad(D,C,B,A,role,3);quad(E,F,G,H,role,3);quad(B,F,E,A,role,3);quad(H,G,C,D,role,3);quad(E,H,D,A,role,3);quad(C,G,F,B,role,3);
@@ -89,13 +97,13 @@ const Buildings3D=(()=>{
     if(type==='village'){
       // Shared paved ground beneath all houses, paths and the central well.
       lathe(0,2,[[-.35,48],[-.1,49],[.15,49],[.25,48]],'paving',2,24,45/49);
-      pad(0,0,12,12);place(0,0,0,.75,0,well);
+      pad(0,0,12,12);placeOnGround(0,0,0,.75,0,well);
       const layouts=style===0?[[-20,-14,.82,.1],[20,-12,.85,-.12],[-19,18,.72,.05],[19,20,.72,-.12]]:style===1?[[-22,-12,.85,.3],[20,-18,.82,-.35],[-18,20,.78,-.15],[19,18,.76,.2]]:[[-20,-14,.8,-.22],[20,-11,.86,.18],[-18,20,.78,.2],[20,20,.65,-.2]];
-      for(const [x,y,s,a] of layouts)place(x,y,0,s,a,()=>cottage(style));for(let i=0;i<7;i++)pad(-2+Math.sin(i)*1.1,-29+i*9,3.4,4,.05);
+      for(const [x,y,s,a] of layouts)placeOnGround(x,y,0,s,a,()=>cottage(style));for(let i=0;i<7;i++)pad(-2+Math.sin(i)*1.1,-29+i*9,3.4,4,.05);
     }
     if(type==='tower'){pad(0,0,13,13);turret(style);}
     if(type==='castle'){
-      pad(0,0,42,37);for(const x of [-27,27])for(const y of [-23,23])place(x,y,1,.78,0,()=>turret(style===0?0:1));
+      pad(0,0,42,37);for(const x of [-27,27])for(const y of [-23,23])placeOnGround(x,y,1,.78,0,()=>turret(style===0?0:1));
       for(const x of [-26,26])box(x,0,3.5,46,1,15,'stone',3);box(0,23,51,3.5,1,15,'stone',3);for(const x of [-18,18])box(x,-23,18,4,1,15,'stone',3);arch(0,-23,7.7,8,4,3,'trim',12);
       for(let x=-22;x<=22;x+=6)box(x,23,3,4,16,2.4,'trim',8);for(const x of [-26,26])for(let y=-17;y<=17;y+=6)box(x,y,4,3,16,2.4,'trim',8);
       if(style===1){box(0,5,27,22,1,23,'plaster',3);dome(0,5,16,24,13);for(const x of [-9,0,9])opening(x,-6.2,4,10,8);}
@@ -132,7 +140,7 @@ const Buildings3D=(()=>{
     if(type==='bridge'){
       for(let i=0;i<10;i++){const x=-27+i*6,z=3+Math.sin((i+.5)/10*Math.PI)*4;box(x,0,6,16,z,1.3,style===0?'stone':'wood',style===0?3:4);for(const y of [-8,8])beam([x-3,y,z+4],[x+3,y,z+4],.35,style===0?'trim':'wood',style===0?8:4);if(i%2===0)for(const y of [-8,8])beam([x,y,z],[x,y,z+5],.4);}for(const x of [-28,28])pad(x,0,7,12);if(style===1){for(const x of [-20,20])for(const y of [-8,8])beam([x,y,4],[x,y,19],.6);roof(0,0,57,23,19,8);}
     }
-    const bounds={min:[Infinity,Infinity,Infinity],max:[-Infinity,-Infinity,-Infinity]};for(let i=0;i<vertices.length;i+=10)for(let a=0;a<3;a++){bounds.min[a]=Math.min(bounds.min[a],vertices[i+a]);bounds.max[a]=Math.max(bounds.max[a],vertices[i+a]);}const result={vertices:new Float32Array(vertices),bounds};cache.set(key,result);return result;
+    const bounds={min:[Infinity,Infinity,Infinity],max:[-Infinity,-Infinity,-Infinity]};for(let i=0;i<vertices.length;i+=10)for(let a=0;a<3;a++){bounds.min[a]=Math.min(bounds.min[a],vertices[i+a]);bounds.max[a]=Math.max(bounds.max[a],vertices[i+a]);}const result={vertices:new Float32Array(vertices),supports:new Float32Array(supports),bounds};cache.set(key,result);return result;
   }
   // Appearance is applied after the complete architecture has been generated.
   const paletteNames=['Terracota e marfim','Ardósia e prata','Jade e arenito'];
@@ -143,15 +151,37 @@ const Buildings3D=(()=>{
     const style=styleOf(o),cached=groundCache.get(key);if(cached&&cached.layers===layers&&cached.x===o.x&&cached.y===o.y&&cached.size===o.size&&cached.rotation===o.rotation&&cached.style===style)return cached.result;
     const global=layers.some(l=>l.planet?.enabled),altitude=(x,y)=>Math.max(0,Terrain.sample(layers,global?x:Math.max(0,Math.min(1599,x)),global?y:Math.max(0,Math.min(1099,y)))||0)*.065;
     const scale=o.size/80,angle=(o.rotation||0)*Math.PI/180,ca=Math.cos(angle),sa=Math.sin(angle),{min,max}=model(o.building,style).bounds,stepsX=Math.max(4,Math.ceil((max[0]-min[0])*scale/6)),stepsY=Math.max(4,Math.ceil((max[1]-min[1])*scale/6));let highest=0,lowest=Infinity;
-    for(let iy=0;iy<=stepsY;iy++)for(let ix=0;ix<=stepsX;ix++){const x=(min[0]+ix/stepsX*(max[0]-min[0]))*scale,y=(min[1]+iy/stepsY*(max[1]-min[1]))*scale,h=altitude(o.x+x*ca-y*sa,o.y+x*sa+y*ca);highest=Math.max(highest,h);lowest=Math.min(lowest,h);}const result={highest,lowest};groundCache.set(key,{layers,x:o.x,y:o.y,size:o.size,rotation:o.rotation,style,result});return result;
+    for(let iy=0;iy<=stepsY;iy++)for(let ix=0;ix<=stepsX;ix++){const x=(min[0]+ix/stepsX*(max[0]-min[0]))*scale,y=(min[1]+iy/stepsY*(max[1]-min[1]))*scale,h=altitude(o.x+x*ca-y*sa,o.y+x*sa+y*ca);highest=Math.max(highest,h);lowest=Math.min(lowest,h);}const result={highest,lowest,center:altitude(o.x,o.y)};groundCache.set(key,{layers,x:o.x,y:o.y,size:o.size,rotation:o.rotation,style,result});return result;
   }
   function near(o,camera,scene){if(!scene.gl||!types.has(o.building)||camera.relief<.1)return false;const p=scene.project(o.x,o.y,0,camera);if(p.visible===false)return false;const pixels=scene.firstPerson?o.size*scene.firstPerson.focal/Math.max(1,p.w):o.size*camera.zoom/Math.max(.2,p.w)*(camera.planet?.5:1);return pixels>=36;}
-  function build(layers,planet,include=null){
-    if(!include)Terrain.freezeLayers(layers);const vertices=[],entries=[];for(let layer=0;layer<layers.length;layer++){const source=layers[layer];if(source.visible===false||source.opacity===0)continue;
-      for(const o of source.objects||[]){if(o.kind!=='building'||!types.has(o.building)||include&&!include(o,'building'))continue;const mesh=model(o.building,styleOf(o)),palette=paletteFor(o),first=vertices.length/15,s=o.size/80,a=(o.rotation||0)*Math.PI/180,ca=Math.cos(a),sa=Math.sin(a),{highest,lowest}=ground(o,layers),base=highest+.8+(o.elevation||0);
-        const push=(x,y,z,mat,tint,nx,ny,nz,u,v)=>{const wx=o.x+(x*ca-y*sa)*s+(planet?3200:0),wy=o.y+(x*sa+y*ca)*s+(planet?1650:0);vertices.push(wx,wy,base,wx/(planet?8000:1600),wy/(planet?4400:1100),mat,...tint,z*s*(planet?.37:1),nx*ca-ny*sa,nx*sa+ny*ca,nz,u,v);};
-        const v=mesh.vertices;for(let i=0;i<v.length;i+=10)push(v[i],v[i+1],v[i+2],v[i+3],palette[roles[v[i+4]]],v[i+5],v[i+6],v[i+7],v[i+8],v[i+9]);
-        if(highest-lowest>.5){const rx=(mesh.bounds.max[0]-mesh.bounds.min[0])*.47,ry=(mesh.bounds.max[1]-mesh.bounds.min[1])*.47,z=-Math.min(80,highest-lowest)/s;for(let i=0;i<16;i++){const a=i*Math.PI/8,b=(i+1)*Math.PI/8,p=[Math.cos(a)*rx,Math.sin(a)*ry],q=[Math.cos(b)*rx,Math.sin(b)*ry],n=[Math.cos((a+b)/2),Math.sin((a+b)/2)];for(const v of [[...p,z],[...q,z],[...q,.1],[...p,z],[...q,.1],[...p,.1]])push(...v,3,palette.stone,...n,0,v[0]+v[1],v[2]);}}
+  // Exact vertex indexing shares position, normal, UV and material without changing a triangle.
+  function compact(vertices){
+    const unique=[],indices=new Uint32Array(vertices.length/15),lookup=new Map(),bits=new Uint32Array(vertices.buffer,vertices.byteOffset,vertices.length);
+    for(let i=0;i<vertices.length;i+=15){const key=bits.subarray(i,i+15).join(',');let index=lookup.get(key);if(index===undefined){index=unique.length/15;lookup.set(key,index);for(let j=0;j<15;j++)unique.push(vertices[i+j]);}indices[i/15]=index;}
+    const packed=new Float32Array(unique),small=unique.length/15<=65536;
+    return {vertices:packed,indices:small?new Uint16Array(indices):indices,originalBytes:vertices.byteLength};
+  }
+  function build(layers,planet,include=null,options={}){
+    if(!include)Terrain.freezeLayers(layers);const vertices=[],entries=[];
+    const global=layers.some(l=>l.planet?.enabled),samples=new Map(),nodes=new Map(),surface=options.surface||{dx:20,dy:20,ox:0,oy:0};
+    const node=(x,y)=>{const key=x+','+y;if(nodes.has(key))return nodes.get(key);const h=Math.max(0,Terrain.sample(layers,global?x:Math.max(0,Math.min(1599,x)),global?y:Math.max(0,Math.min(1099,y)))||0)*.065;nodes.set(key,h);return h;};
+    const altitude=(x,y)=>{
+      const key=x.toFixed(4)+','+y.toFixed(4);if(samples.has(key))return samples.get(key);
+      const {dx,dy,ox,oy}=surface,x0=ox+Math.floor((x-ox)/dx)*dx,y0=oy+Math.floor((y-oy)/dy)*dy,u=(x-x0)/dx,v=(y-y0)/dy,a=node(x0,y0),b=node(x0+dx,y0),c=node(x0,y0+dy),d=node(x0+dx,y0+dy);
+      const h=u+v<=1?a+(b-a)*u+(c-a)*v:d+(c-d)*(1-u)+(b-d)*(1-v);samples.set(key,h);return h;
+    };
+    for(let layer=0;layer<layers.length;layer++){const source=layers[layer];if(source.visible===false||source.opacity===0)continue;
+      for(const o of source.objects||[]){
+        if(o.kind!=='building'||!types.has(o.building)||include&&!include(o,'building'))continue;
+        const mesh=model(o.building,styleOf(o),!!options.lightweight),palette=paletteFor(o),first=vertices.length/15,s=o.size/80,a=(o.rotation||0)*Math.PI/180,ca=Math.cos(a),sa=Math.sin(a),v=mesh.vertices;
+        for(let i=0;i<v.length;i+=10){
+          const x=v[i],y=v[i+1],z=v[i+2],wx=o.x+(x*ca-y*sa)*s,wy=o.y+(x*sa+y*ca)*s,k=i/10*2;
+          const ax=mesh.supports[k],ay=mesh.supports[k+1],support=altitude(o.x+(ax*ca-ay*sa)*s,o.y+(ax*sa+ay*ca)*s);
+          // Courtyards follow the terrain; low wall vertices meet it. Roofs retain their shape.
+          const contact=roles[v[i+4]]==='paving'&&z<=1.1?1:Math.max(0,1-Math.max(0,z-1)/3);
+          const base=support+(contact?(altitude(wx,wy)-support)*contact:0)+.08+(o.elevation||0),px=wx+(planet?3200:0),py=wy+(planet?1650:0),nx=v[i+5],ny=v[i+6];
+          vertices.push(px,py,base,px/(planet?8000:1600),py/(planet?4400:1100),v[i+3],...palette[roles[v[i+4]]],z*s*(planet?.37:1),nx*ca-ny*sa,nx*sa+ny*ca,v[i+7],v[i+8],v[i+9]);
+        }
         entries.push({object:o,layer,first,count:vertices.length/15-first});
       }
     }return{vertices:new Float32Array(vertices),entries};
@@ -161,5 +191,5 @@ const Buildings3D=(()=>{
     for(let i=0;i<v.length;i+=30){const points=[0,10,20].map(d=>project(v[i+d],v[i+d+1],v[i+d+2]));for(const p of points){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);}const light=.62+.34*Math.max(0,-v[i+5]*.45-v[i+6]*.6+v[i+7]*.65);faces.push({points,depth:points.reduce((s,p)=>s+p.depth,0)/3,color:colors[roles[v[i+4]]].map(c=>Math.round(c*255*light))});}
     const s=Math.min((canvas.width-14)/(maxX-minX),(canvas.height-14)/(maxY-minY)),ox=(canvas.width-(maxX+minX)*s)/2,oy=(canvas.height-(maxY+minY)*s)/2;g.clearRect(0,0,canvas.width,canvas.height);for(const f of faces.sort((a,b)=>a.depth-b.depth)){g.beginPath();f.points.forEach((p,i)=>i?g.lineTo(ox+p.x*s,oy+p.y*s):g.moveTo(ox+p.x*s,oy+p.y*s));g.closePath();g.fillStyle=`rgb(${f.color.join(',')})`;g.fill();}
   }
-  return{build,ground,near,types,styles,paletteNames,swatches,model,preview,paletteFor,invalidate(){groundCache=new WeakMap();}};
+  return{build,compact,ground,near,types,styles,paletteNames,swatches,model,preview,paletteFor,invalidate(){groundCache=new WeakMap();}};
 })();

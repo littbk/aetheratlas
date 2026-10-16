@@ -89,7 +89,10 @@ footer i{padding:0 8px;color:#9adbc8;}
 body{overflow:hidden;}
 header{background:#15232b;box-shadow:0 4px 28px #06171c22;z-index:3;position:relative;}
 aside{scrollbar-width:thin;scrollbar-color:#4c605f transparent;}
-#map{filter:drop-shadow(0 15px 22px #06171c66);}
+#map{position:absolute;inset:0;width:100%;height:100%;}
+.map-surface{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.light-mode-button{white-space:nowrap;font-size:11px;padding:5px 9px;min-width:80px;}
+.light-mode-button[aria-pressed="true"]{background:#244b45;border-color:#86bda5;color:#e4f4eb;}
 .map-tag{font-size:17px;}
 .compass{transition:transform .1s;}
 .view-switch{position:absolute;display:flex;border:1px solid #57686470;}

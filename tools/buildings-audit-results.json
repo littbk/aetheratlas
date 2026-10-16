@@ -1,0 +1,24 @@
+{
+  "map": "Aeon RPG.json",
+  "full": {
+    "bytes": 6927264,
+    "rawBytes": 10580760,
+    "triangles": 58782,
+    "entries": 10
+  },
+  "light": {
+    "bytes": 4622616,
+    "rawBytes": 6234840,
+    "triangles": 34638,
+    "entries": 10
+  },
+  "memorySavedWithoutVisualLossPercent": 34.5,
+  "lightTriangleReductionPercent": 41.1,
+  "viewerFullQuality": {
+    "entries": 12,
+    "triangles": 75844,
+    "expected": 75844,
+    "error": 0
+  },
+  "browserErrors": []
+}

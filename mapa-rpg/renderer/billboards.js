@@ -35,7 +35,7 @@ const Billboards=(()=>{
   }
   function layout(entries,scene,camera,layers,width=Infinity,height=Infinity){
     return entries.filter(entry=>!scene.visibleBounds||scene.visibleBounds(entry.object.x-entry.object.size,entry.object.y-entry.object.size,entry.object.x+entry.object.size,entry.object.y+entry.object.size,camera,width,height,180)).map(entry=>{
-      const o=entry.object,z=o.kind==='building'&&!entry.tunnel&&Buildings3D.types.has(o.building)?Buildings3D.ground(o,layers,entry.originalObject||o).highest+.8+(o.elevation||0):surfaceHeight(o.x,o.y,layers)+(o.elevation||0),p=scene.project(o.x,o.y,z,camera);
+      const o=entry.object,z=o.kind==='building'&&!entry.tunnel&&Buildings3D.types.has(o.building)?Buildings3D.ground(o,layers,entry.originalObject||o).center+.08+(o.elevation||0):surfaceHeight(o.x,o.y,layers)+(o.elevation||0),p=scene.project(o.x,o.y,z,camera);
       const scale=Math.pow(camera.zoom/Math.max(.2,p.w),.7)*(camera.planet?.5:1);
       const size=Math.min(camera.planet?56:80,Math.max(3,o.size*scale));
       return {...entry,anchor:p,size,scale};

@@ -27,14 +27,42 @@ test('3D switches to the existing flat icon at a distance',()=>{
   assert(!context.Buildings3D.near(object,{relief:1,zoom:.3,planet:false},scene));
   assert(!context.Buildings3D.near(object,{relief:0,zoom:2,planet:false},scene));
 });
-test('a building stands above the highest terrain under its rotated footprint',()=>{
-  context.Terrain.sample=(_,x)=>x>100?1000:100;
-  const object={kind:'building',building:'house',x:100,y:120,size:40,rotation:45,elevation:3};
-  const mesh=context.Buildings3D.build([{visible:true,opacity:1,objects:[object]}],false).vertices;
-  const bases=Array.from({length:mesh.length/15},(_,i)=>mesh[i*15+2]);
-  assert(bases.every(z=>z>=68),'base includes the high side of the slope and selected height');
-  assert(Array.from({length:mesh.length/15},(_,i)=>mesh[i*15+9]).some(z=>z<0),'foundation reaches down the lower side');
+test('building bases follow the rotated terrain instead of lifting the whole model to its highest point',()=>{
+  context.Terrain.sample=(_,x,y)=>2000+(x-100)*12+(y-120)*4;
+  for(const building of ['house','village','tower','castle'])for(let style=0;style<3;style++){
+    const object={kind:'building',building,buildingStyle:style,x:100,y:120,size:40,rotation:45,elevation:3};
+    for(const planet of [false,true]){
+      const model=context.Buildings3D.model(building,style),mesh=context.Buildings3D.build([{visible:true,opacity:1,objects:[object]}],planet).vertices;
+      assert.equal(mesh.length/15,model.vertices.length/10,'no extra foundation block');
+      let contacts=0;const bases=new Set();
+      for(let i=0;i<model.vertices.length;i+=10){const z=model.vertices[i+2],k=i/10*15;
+        if(z>=0&&z<=1){const x=mesh[k]-(planet?3200:0),y=mesh[k+1]-(planet?1650:0),ground=Math.max(0,context.Terrain.sample(null,x,y))*.065;
+          assert(Math.abs(mesh[k+2]-ground-3.08)<.002,'base meets local ground and explicit elevation');contacts++;bases.add(Math.round(mesh[k+2]*10));}
+      }
+      assert(contacts>0);assert(bases.size>1,'base is not a single elevated platform');
+    }
+  }
 });
+
+test('lightweight models preserve silhouette bounds while reducing triangles in every style',()=>{
+  for(const building of context.Buildings3D.types)for(let style=0;style<3;style++){
+    const full=context.Buildings3D.model(building,style),light=context.Buildings3D.model(building,style,true);
+    assert(light.vertices.length<full.vertices.length,building+' style '+style);
+    for(let axis=0;axis<3;axis++)assert(Math.abs(light.bounds.max[axis]-full.bounds.max[axis])<3,'recognizable silhouette');
+    assert.equal(context.Buildings3D.model(building,style),full,'full quality cache remains independent');
+  }
+});
+
+test('indexed geometry reproduces every vertex bit for bit while reducing resident bytes',()=>{
+  context.Terrain.sample=()=>100;
+  const objects=['house','village','tower','castle'].map((building,i)=>({kind:'building',building,x:100+i*80,y:120,size:40,rotation:30}));
+  const raw=context.Buildings3D.build([{visible:true,opacity:1,objects}],false).vertices,packed=context.Buildings3D.compact(raw);
+  assert.equal(packed.indices.length,raw.length/15);
+  const original=new Uint32Array(raw.buffer),indexed=new Uint32Array(packed.vertices.buffer);
+  for(let i=0;i<packed.indices.length;i++)for(let j=0;j<15;j++)assert.equal(indexed[packed.indices[i]*15+j],original[i*15+j]);
+  assert(packed.vertices.byteLength+packed.indices.byteLength<raw.byteLength*.85,'at least 15% memory saved without visual loss');
+});
+
 test('selected elevation survives marker validation',()=>{
   const code=fs.readFileSync(path.join(__dirname,'../renderer/billboards.js'),'utf8')+'\nglobalThis.Billboards=Billboards;';
   const view={Buildings:{names:{house:'Casa'}}};vm.runInNewContext(code,view);

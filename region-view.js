@@ -56,7 +56,7 @@ class AtlasRegionView {
   valid(p){return p&&Number.isFinite(p.worldX)&&Number.isFinite(p.worldY)&&p.worldX>=0&&p.worldX<=8000&&p.worldY>=0&&p.worldY<=4400;}
   clamp({x,y,width,height}){width=Math.max(64,Math.min(8000,width));height=Math.max(64,Math.min(4400,height));return{x:Math.max(0,Math.min(8000-width,x)),y:Math.max(0,Math.min(4400-height,y)),width,height};}
   centered(x,y){return this.clamp({x:x-this.size/2,y:y-this.size*1100/3200,width:this.size,height:this.size*1100/1600});}
-  cancel(){this.selecting=false;this.start=null;this.preview=null;this.box.hidden=true;this.sync();}
+  cancel(){const id=this.start?.id;this.selecting=false;this.start=null;if(id!==undefined&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);this.preview=null;this.box.hidden=true;this.sync();}
   renderPreview(){
     const r=this.preview,camera=this.read();this.outline.toggleAttribute('hidden',!this.selecting||!r);
     if(!r)return;

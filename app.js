@@ -25,6 +25,8 @@ function addWaterfall(p){
 const viewSettings=()=>({texture:$('textures').checked,shade:$('shade').checked,contours:$('contours').checked,altitude:$('altitude').checked,interval:+$('interval').value,planetGuides:planetGuide.marks,planetSpin:planetGuide.spinning,autoGroupWalls:$('architectureAutoGroup')?.checked!==false,planet:$('planetMode')?.checked||false});
 let activeRoute=null,billboardHits=[];
 const scene=new AtlasScene(), mapTexture=document.createElement('canvas');
+// Keep the GPU surface in the compositor. Copying it to 2D each frame forces a readback.
+scene.canvas.className='map-surface';scene.canvas.setAttribute('aria-hidden','true');canvas.before(scene.canvas);
 scene.onStreamReady=()=>scheduleCameraDraw();
 mapTexture.width=W;mapTexture.height=H;
 let flatRegion=null,flatCamera=null;
@@ -35,12 +37,17 @@ let lastPaintDraw=0;
 function schedulePaintDraw(){if(regionContext||paintFrame)return;const tick=now=>{if(now-lastPaintDraw<45){paintFrame=requestAnimationFrame(tick);return;}paintFrame=0;lastPaintDraw=now;draw();};paintFrame=requestAnimationFrame(tick);}
 let cameraFrame=0;
 function scheduleCameraDraw(){if(cameraFrame)return;cameraFrame=requestAnimationFrame(()=>{cameraFrame=0;draw();});}
-const camera=()=>{const planet=worldMode()&&!flatRegion;return {yaw,tilt,roll,flatRegion,relief:planet||tilt||submapEdit?relief:0,zoom,cx:ox,cy:oy,planet};};
+let lightweight=false;try{lightweight=localStorage.getItem('atlas-editor-lightweight')==='true';}catch{}
+const camera=()=>{const planet=worldMode()&&!flatRegion&&!!scene.gl;return {yaw,tilt,roll,flatRegion,interacting:down,editTool:tool,lightweight,relief:planet||tilt||submapEdit?relief:0,zoom,cx:ox,cy:oy,planet};};
 const navigation=new AtlasNavigation({canvas,stage:$('viewport'),read:camera,write:c=>{if(c.yaw!==undefined)yaw=c.yaw;if(c.tilt!==undefined)tilt=c.tilt;if(c.roll!==undefined)roll=c.roll;if(c.zoom!==undefined)zoom=c.zoom;if(c.cx!==undefined)ox=c.cx;if(c.cy!==undefined)oy=c.cy;},draw,scene,layers:()=>layers,location:()=>playerLocation});
 const regionView=new AtlasRegionView({canvas,stage:$('viewport'),scene,read:camera,world:()=>worldMode()&&!!scene.gl,editable:true,active:()=>flatRegion,enter:enterFlatRegion,exit:leaveFlatRegion});
 const planetGuide=new AtlasPlanetGuides({scene,read:camera,write:c=>{if(c.yaw!==undefined)yaw=c.yaw;if(c.tilt!==undefined)tilt=c.tilt;if(c.roll!==undefined)roll=c.roll;},redraw:draw,allowed:()=>camera().planet&&!!scene.gl&&!navigation.walking,marksButton:$('planetGuides'),spinButton:$('planetSpin'),settingsButton:$('planetAxis'),axisPanel:$('planetAxisPanel')});
 function enterFlatRegion(region){if(!worldMode())return;if(navigation.walking)navigation.toggle(false);end();flatCamera={yaw,tilt,roll,relief,zoom,ox,oy};flatRegion={...region};yaw=0;tilt=38;roll=0;relief=1;navigation.panel.querySelector('[data-nav="walk"]').disabled=true;textureDirty=true;fit();regionView.sync();}
 function leaveFlatRegion(){if(!flatRegion)return;end();flatRegion=null;if(flatCamera)({yaw,tilt,roll,relief,zoom,ox,oy}=flatCamera);flatCamera=null;navigation.panel.querySelector('[data-nav="walk"]').disabled=false;textureDirty=true;draw();regionView.sync();}
+const lightModeButton=document.createElement('button');lightModeButton.id='lightMode';lightModeButton.type='button';lightModeButton.className='light-mode-button';
+function syncLightMode(){lightModeButton.textContent=lightweight?'Modo leve: ligado':'Modo leve';lightModeButton.setAttribute('aria-pressed',String(lightweight));lightModeButton.title='Simplificar os modelos 3D somente no editor. O visualizador e as exportações mantêm os detalhes completos.';}
+lightModeButton.onclick=()=>{end();lightweight=!lightweight;try{localStorage.setItem('atlas-editor-lightweight',String(lightweight));}catch{}syncLightMode();textureDirty=true;draw();};
+document.querySelector('.mapbar>div:last-child').prepend(lightModeButton);syncLightMode();
 $('tilt').min=-180;$('tilt').max=180;
 function drawLayer(g,l){g.drawImage(l.c,0,0);g.drawImage(Terrain.render(l.terrain,viewSettings()),0,0,W,H);MapPaths.draw(g,l.routes);if(l.ink)g.drawImage(l.ink,0,0);Structures.drawPlan(g,l.structures);for(const tunnel of l.tunnels)drawTunnel(g,tunnel);}
 function drawTunnel(g,t){
@@ -93,8 +100,8 @@ function draw(decorations=true){
   ctx.setTransform(d,0,0,d,0,0);ctx.clearRect(0,0,r.width,r.height);
   if(textureDirty)compose();
   const result=scene.draw(r.width,r.height,d,camera());
-  if(result)ctx.drawImage(result,0,0,r.width,r.height);
-  else{tilt=0;ctx.save();ctx.translate(ox,oy);ctx.rotate((yaw+roll)*Math.PI/180);ctx.scale(zoom,zoom);ctx.drawImage(mapTexture,-W/2,-H/2);ctx.translate(-W/2,-H/2);Terrain.drawFog(ctx,layers,.35);ctx.restore();$('cameraNote').textContent='Vista plana: aceleração 3D indisponível neste navegador.';}
+  scene.canvas.style.visibility=result?'visible':'hidden';
+  if(!result){tilt=0;ctx.save();ctx.translate(ox,oy);ctx.rotate((yaw+roll)*Math.PI/180);ctx.scale(zoom,zoom);ctx.drawImage(mapTexture,-W/2,-H/2);ctx.translate(-W/2,-H/2);Terrain.drawFog(ctx,layers,.35);ctx.restore();$('cameraNote').textContent='Vista plana: aceleração 3D indisponível neste navegador.';}
   if(decorations)planetGuide.draw(ctx);else planetGuide.sync();
   billboardHits=Billboards.draw(ctx,Billboards.collect(layers,$('underground').checked),scene,camera(),layers,r.width,r.height);
   if(!navigation.walking)Billboards.drawPlayerPivot(ctx,scene,camera(),playerLocation,r.width,r.height,layers);
@@ -129,7 +136,7 @@ function demo(){textureDirty=true;activeRoute=null;tunnelStart=null;layers=[laye
 function point(e){
   const r=canvas.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;
   let p=scene.gl?scene.pick(sx,sy,tool==='water'||tool==='waterRemove'||tool==='seaErase'||tool==='waterfall'):null;
-  if(!scene.gl){const a=-(yaw+roll)*Math.PI/180,x=(sx-ox)/zoom,y=(sy-oy)/zoom;if(camera().planet){const radius=470*zoom,lon=((x/radius-yaw*Math.PI/180)/(Math.PI*2)+.5)*AtlasScene.WORLD_WIDTH,lat=(.5-y/radius)*AtlasScene.WORLD_HEIGHT;p={worldX:lon,worldY:lat,x:lon-AtlasScene.REGION_X,y:lat-AtlasScene.REGION_Y};}else p={x:W/2+x*Math.cos(a)-y*Math.sin(a),y:H/2+x*Math.sin(a)+y*Math.cos(a)};}
+  if(!scene.gl){const a=-(yaw+roll)*Math.PI/180,x=(sx-ox)/zoom,y=(sy-oy)/zoom;p={x:W/2+x*Math.cos(a)-y*Math.sin(a),y:H/2+x*Math.sin(a)+y*Math.cos(a)};p.worldX=p.x+AtlasScene.REGION_X;p.worldY=p.y+AtlasScene.REGION_Y;}
   const hit=tool==='erase'?[...billboardHits].reverse().find(h=>h.layer===active&&sx>=h.box.x&&sx<=h.box.x+h.box.w&&sy>=h.box.y&&sy<=h.box.y+h.box.h):null;
   if(hit)p={x:hit.object.x,y:hit.object.y,worldX:hit.object.x+3200,worldY:hit.object.y+1650};
   return {x:p?.x??-1,y:p?.y??-1,worldX:p?.worldX??(p?(submapEdit?p.x:AtlasScene.REGION_X+p.x):null),worldY:p?.worldY??(p?(submapEdit?p.y:AtlasScene.REGION_Y+p.y):null),sx:e.clientX,sy:e.clientY,hit,inside:!!p&&(worldMode()?p.worldX>=0&&p.worldX<8000&&p.worldY>=0&&p.worldY<4400:p.x>=0&&p.y>=0&&p.x<W&&p.y<H)};
@@ -157,14 +164,14 @@ function paint(a,b){
     schedulePaintDraw();return;
   }
   if(!worldMode())return paintLocal(a,b);
-  let dx=b.x-a.x,dy=b.y-a.y;if(Math.abs(dx)>4000)dx-=Math.sign(dx)*8000;
-  const spacing=Math.max(4,+$('size').value*.22),steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/spacing)),radius=+$('size').value/2;
-  for(let i=0;i<=steps;i++){
+  let dx=b.x-a.x,dy=b.y-a.y;if(!flatRegion&&Math.abs(dx)>4000)dx-=Math.sign(dx)*8000;
+  const spacing=Math.max(4,+$('size').value*.22),distance=Math.hypot(dx,dy),steps=Math.max(1,Math.ceil(distance/spacing)),radius=+$('size').value/2;
+  for(let i=distance?1:0;i<=(distance?steps:0);i++){
     const p={...b,x:((a.x+dx*i/steps+3200)%8000+8000)%8000-3200,y:a.y+dy*i/steps};
     if(tool==='river'||tool==='path'){
       const {gx,gy}=WorldSurface.locate(p.x,p.y),key=WorldSurface.key(gx,gy);if(activeRoute?.region!==key)activeRoute=null;
       inRegion(gx,gy,()=>{paintLocal({...p,x:p.x-gx*W,y:p.y-gy*H},{...p,x:p.x-gx*W,y:p.y-gy*H});if(activeRoute)activeRoute.region=key;});
-    }else {const stretch=Math.min(12,1/Math.max(.08,Math.cos((.5-(p.y+1650)/4400)*Math.PI)));for(const r of WorldSurface.affected(p.x,p.y,radius,stretch))inRegion(r.gx,r.gy,()=>{regionContext.stretch=stretch;const q={...p,x:r.x,y:r.y,hit:p.hit?{...p.hit,object:p.hit.originalObject||p.hit.object}:null};paintLocal(q,q);});}
+    }else {const stretch=flatRegion?1:Math.min(12,1/Math.max(.08,Math.cos((.5-(p.y+1650)/4400)*Math.PI)));for(const r of WorldSurface.affected(p.x,p.y,radius,stretch))inRegion(r.gx,r.gy,()=>{regionContext.stretch=stretch;const q={...p,x:r.x,y:r.y,hit:p.hit?{...p.hit,object:p.hit.originalObject||p.hit.object}:null};paintLocal(q,q);});}
   }
   schedulePaintDraw();
 }
@@ -333,6 +340,13 @@ canvas.onpointermove=e=>{
       if(tool==='orbit'){yaw=normalizeAngle(yaw+(next.x-gesture.x)*.35);tilt=AtlasNavigation.pitch(tilt-(next.y-gesture.y)*.25,camera().planet);}scheduleCameraDraw();}
     gesture=next;return;
   }
+  // Navigation only needs screen deltas; do not project the entire terrain while dragging.
+  if(down&&pointers.has(e.pointerId)&&(panning||orbiting)){
+    const sx=e.clientX,sy=e.clientY;
+    if(orbiting){if(e.shiftKey)roll=normalizeAngle(roll+(sx-last.sx)*.35);else{yaw=normalizeAngle(yaw+(sx-last.sx)*.35);tilt=AtlasNavigation.pitch(tilt-(sy-last.sy)*.25,camera().planet);}}
+    else{ox+=sx-last.sx;oy+=sy-last.sy;}
+    last={sx,sy};scheduleCameraDraw();return;
+  }
   const p=point(e);$('coords').textContent=p.inside?`X: ${Math.round(p.x)} · Y: ${Math.round(p.y)}`:'Fora do mapa';
   const h=p.inside?Terrain.sample(layers,p.x,p.y):null;
   $('altitudeReadout').textContent=h===null?'— m':Math.round(h)+' m';$('terrainReadout').textContent=h===null?'Passe sobre uma área de terreno':h<0?'Abaixo do nível do mar':h<70?'Costa e baixada':h<700?'Planície e colinas':h<1900?'Montanha':'Alta montanha';
@@ -352,11 +366,11 @@ function end(e){
   finishRoute();
   if(constructionStart){if(e?.type==='pointerup'){const p=point(e);if(p.inside)finishConstruction(constructionStart,p);else{constructionStart=null;constructionPreview=null;strokeStarted=false;}}else{constructionStart=null;constructionPreview=null;strokeStarted=false;}}
   if(e){pointers.delete(e.pointerId);if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);}
-  else pointers.clear();
+  else {const ids=[...pointers.keys()];pointers.clear();for(const id of ids)if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);}
   if(gesture){if(pointers.size===0)gesture=null;pending=null;down=false;last=null;return;}
   if(pending&&e?.type==='pointerup'&&indoorToolList.some(([id])=>id===tool)){const p=point(e),start=pending;pending=null;if(start.inside&&p.inside&&beginPaint(start))finishConstruction(start,p);}
   else if(pending&&e?.type==='pointerup'&&Math.hypot(e.clientX-pending.sx,e.clientY-pending.sy)<12)beginPaint(pending);
-  finishRoute();if(strokeStarted)changed();pending=null;strokeStarted=false;down=false;last=null;
+  const modified=strokeStarted;finishRoute();pending=null;strokeStarted=false;down=false;last=null;panning=false;orbiting=false;if(modified)changed();else scheduleCameraDraw();
 }
 canvas.onpointerup=end;canvas.onpointercancel=end;canvas.onlostpointercapture=e=>{if(pointers.has(e.pointerId))end(e);};
 canvas.oncontextmenu=e=>e.preventDefault();
@@ -491,7 +505,7 @@ function exportImage(){
   const c=document.createElement('canvas');c.width=Math.round(viewport.width*scale);c.height=Math.round(viewport.height*scale);const g=c.getContext('2d');
   const background=g.createRadialGradient(c.width*.45,c.height*.4,0,c.width*.45,c.height*.4,Math.max(c.width,c.height)*.8);
   background.addColorStop(0,'#304e59');background.addColorStop(1,'#152c39');g.fillStyle=background;g.fillRect(0,0,c.width,c.height);
-  const exportCamera={...camera(),fullQuality:true,zoom:zoom*scale,cx:ox*scale,cy:oy*scale},result=scene.draw(c.width,c.height,1,exportCamera);
+  const exportCamera={...camera(),lightweight:false,fullQuality:true,zoom:zoom*scale,cx:ox*scale,cy:oy*scale},result=scene.draw(c.width,c.height,1,exportCamera);
   if(result)g.drawImage(result,0,0);else{g.save();g.translate(exportCamera.cx,exportCamera.cy);g.rotate((yaw+roll)*Math.PI/180);g.scale(exportCamera.zoom,exportCamera.zoom);g.drawImage(mapTexture,-W/2,-H/2);g.restore();}
   Billboards.draw(g,Billboards.collect(layers,$('underground').checked),scene,exportCamera,layers,c.width,c.height);
   Billboards.drawPlayerPivot(g,scene,exportCamera,playerLocation,c.width,c.height,layers);

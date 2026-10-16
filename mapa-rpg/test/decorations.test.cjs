@@ -8,7 +8,7 @@ const root=path.resolve(__dirname,'../..');
 function load(name,context){vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),context,{filename:name});}
 
 test('five terrain decorations produce selectable finite 3D geometry and survive marker validation',()=>{
-  const context=vm.createContext({Terrain:{freezeLayers(){},getTheme(){return{snow:'#ffffff'};},sample(){return 120;},index(){return 0;},biomes:[]}});
+  const context=vm.createContext({Terrain:{freezeLayers(){},isTreeBiome(){return false;},getTheme(){return{snow:'#ffffff'};},sample(){return 120;},index(){return 0;},biomes:[]}});
   load('vegetation.js',context);load('billboards.js',context);
   const kinds=['grass','flower','rock','bush','mushroom'];
   const objects=kinds.map((decor,i)=>({kind:'decor',decor,x:200+i*50,y:300,size:14,rotation:i*30,seed:.3,text:'',color:'#70a070',elevation:4}));

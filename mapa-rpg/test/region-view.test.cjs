@@ -18,14 +18,14 @@ function element(){
   };
 }
 
-function setup(){
+function setup(source='../renderer/region-view.js'){
   const canvas=element(),stage=element(),entered=[];
   canvas.captured=new Set();canvas.setPointerCapture=id=>canvas.captured.add(id);
   canvas.hasPointerCapture=id=>canvas.captured.has(id);
   canvas.releasePointerCapture=id=>canvas.captured.delete(id);
   const context={document:{createElement(){const el=element();el.cancelButton=element();el.confirmButton=element();el.label=element();return el;},createElementNS(){const el=element();el.area=element();el.center=element();return el;}},window:{addEventListener(){}},Math,Number};
   vm.createContext(context);
-  vm.runInContext(fs.readFileSync(path.join(__dirname,'../renderer/region-view.js'),'utf8')+'\nthis.Region=AtlasRegionView;',context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname,source),'utf8')+'\nthis.Region=AtlasRegionView;',context);
   const scene={pick(x,y){return{worldX:x*10,worldY:y*10};},project(x,y){return{x:x/10,y:y/10,visible:true};}};
   let active=null;
   const view=new context.Region({canvas,stage,scene,read:()=>({}),world:()=>true,enter:r=>{entered.push(r);active=r;},exit:()=>{active=null;},active:()=>active});
@@ -44,6 +44,14 @@ test('mobile region presets show a preview before confirming a centered area',()
   assert.equal(view.selecting,false);
   assert.equal(view.hint.hidden,true);assert.equal(view.backButton.hidden,false);
   view.backButton.onclick();assert.equal(view.active(),null);
+});
+
+test('editor cancellation releases the captured crop pointer and allows a new selection',()=>{
+  const {canvas,view,pointer}=setup('../../region-view.js');view.button.onclick();
+  canvas.listeners.pointerdown(pointer(100,100));assert(canvas.hasPointerCapture(1));
+  view.cancel();assert(!canvas.hasPointerCapture(1));assert.equal(view.start,null);
+  view.button.onclick();canvas.listeners.pointerdown(pointer(200,200));canvas.listeners.pointerup(pointer(200,200));
+  assert(view.preview);assert(!canvas.hasPointerCapture(1));
 });
 
 test('drag selection previews picked limits and ignores a different pointer',()=>{

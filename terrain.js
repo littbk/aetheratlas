@@ -31,8 +31,11 @@ const Terrain = (() => {
     let id=t.treeStyles.findIndex(s=>s.foliage===style.foliage&&s.trunk===style.trunk&&s.ground===style.ground);
     if(id<0){if(t.treeStyles.length>=65535)throw Error('Limite de cores de vegetação atingido nesta camada.');id=t.treeStyles.push(style)-1;}return id+1;
   }
+  const frozenTreeColors=new WeakSet();
   function freezeTreeColors(t){
+    if(frozenTreeColors.has(t))return;
     const ids={};for(let i=0;i<length;i++){const type=t.biomes[i];if(t.coverage[i]&&treeBiomes.has(type)&&!t.treeStyleIds[i]){t.treeStyleIds[i]=ids[type]||(ids[type]=styleId(t,type));t.dirty=true;}}
+    frozenTreeColors.add(t);
   }
   function freezeLayers(layers){for(const l of layers){freezeTreeColors(l.terrain);for(const t of l.tiles||[])freezeTreeColors(t.terrain);}}
   function validate(data) {
@@ -84,9 +87,10 @@ const Terrain = (() => {
     const seen=new Set([start]),queue=[start];for(let i=0;i<queue.length;i++){const k=queue[i];for(const n of [k%width?k-1:-1,k%width<width-1?k+1:-1,k>=width?k-width:-1,k<length-width?k+width:-1])if(n>=0&&!seen.has(n)&&present(n)){seen.add(n);queue.push(n);}}return queue;
   }
   function sample(layers,x,y,limit=layers.length) {
-    if(x<0||y<0||x>=1600||y>=1100){if(typeof WorldSurface!=='undefined'&&layers.some(l=>l.planet?.enabled)&&x>=-3200&&x<4800&&y>=-1650&&y<2750)return WorldSurface.sample(layers,x,y);return null;}
+    let region=null;
+    if(x<0||y<0||x>=1600||y>=1100){if(typeof WorldSurface==='undefined'||!layers.some(l=>l.planet?.enabled)||x< -3200||x>=4800||y< -1650||y>=2750)return null;region=WorldSurface.locate(x,y);x-=region.gx*1600;y-=region.gy*1100;}
     const i=index(x,y);let value=0,known=false;
-    for(let n=0;n<limit;n++){const l=layers[n];if(!l.visible||!l.opacity)continue;const a=l.terrain.coverage[i]/255*l.opacity;if(a){const h=l.terrain.heights[i];value=value*(1-a)+(Number.isFinite(h)?h:defaults[l.terrain.biomes[i]]||0)*a;known=true;}}
+    for(let n=0;n<limit;n++){const l=layers[n];if(!l.visible||!l.opacity)continue;const terrain=region?WorldSurface.child(l,region.gx,region.gy)?.terrain:l.terrain;if(!terrain)continue;const a=terrain.coverage[i]/255*l.opacity;if(a){const h=terrain.heights[i];value=value*(1-a)+(Number.isFinite(h)?h:defaults[terrain.biomes[i]]||0)*a;known=true;}}
     return known?value:null;
   }
   function stamp(layers,active,x,y,options) {
@@ -127,6 +131,7 @@ const Terrain = (() => {
       if(options.mode==='brush'){t.treeStyleIds[k]=paintedStyle;t.treeExclusions.delete(k);}else if(biome!==2&&biome<8)t.treeStyleIds[k]=0;
       t.coverage[k]=Math.min(255,Math.round(t.coverage[k]+(255-t.coverage[k])*a));
     }
+    if(options.mode==='blend')frozenTreeColors.delete(t);
     t.dirty=true;
   }
   function autoColor(h) {
@@ -150,9 +155,10 @@ const Terrain = (() => {
     }
     c.putImageData(image,0,0);
     const g=t.surface.getContext('2d');g.clearRect(0,0,1600,1100);g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(t.canvas,0,0,1600,1100);
-    t.dirty=false;t.view=key;return t.surface;
+    t.dirty=false;t.view=key;t.renderRevision=(t.renderRevision||0)+1;return t.surface;
   }
   function seed(t,raster) {
+    frozenTreeColors.delete(t);
     const c=document.createElement('canvas');c.width=width;c.height=height;const g=c.getContext('2d');g.drawImage(raster,0,0,width,height);const p=g.getImageData(0,0,width,height).data;
     const coast=new Float32Array(length);coast.fill(999);
     for(let y=0;y<height;y++)for(let x=0;x<width;x++){const i=y*width+x;if(p[i*4+3]<180)coast[i]=0;else coast[i]=Math.min(x?coast[i-1]+1:1,y?coast[i-width]+1:1);}
@@ -180,7 +186,14 @@ const Terrain = (() => {
     g.putImageData(image,0,0);return highDetail=c;
   }
   // Independent continuous masks avoid interpolating categorical biome IDs.
-  function biomeTexture(t){const c=document.createElement('canvas');c.width=400;c.height=275;const g=c.getContext('2d'),im=g.createImageData(400,275);for(let i=0;i<length;i++){const h=t.heights[i],biome=t.biomes[i]||(h<0?6:h<45?3:h<700?1:h<1900?4:5),coverage=t.coverage[i];im.data[i*4]=biome===7?255:0;im.data[i*4+1]=biome===6?255:0;im.data[i*4+2]=biome===4||biome===5||(biome>=17&&biome<=20)?255:[3,8,14,15,16].includes(biome)?128:0;im.data[i*4+3]=coverage;}g.putImageData(im,0,0);return c;}
+  const biomeTextures=new WeakMap();
+  function biomeTexture(t){
+    let cached=biomeTextures.get(t);
+    if(cached&&!t.dirty&&cached.revision===t.renderRevision)return cached.canvas;
+    const c=cached?.canvas||document.createElement('canvas');c.width=400;c.height=275;const g=c.getContext('2d'),im=g.createImageData(400,275);
+    for(let i=0;i<length;i++){const h=t.heights[i],biome=t.biomes[i]||(h<0?6:h<45?3:h<700?1:h<1900?4:5),coverage=t.coverage[i];im.data[i*4]=biome===7?255:0;im.data[i*4+1]=biome===6?255:0;im.data[i*4+2]=biome===4||biome===5||(biome>=17&&biome<=20)?255:[3,8,14,15,16].includes(biome)?128:0;im.data[i*4+3]=coverage;}
+    g.putImageData(im,0,0);biomeTextures.set(t,{canvas:c,revision:t.renderRevision});return c;
+  }
 
   return {create,copy,restore,serialize,validate,sample,fogStamp,seaErase,fogAt,fogTexture,drawFog,waterFill,waterMesh,waterRegion,stamp,render,seed,index,length,setTheme,getTheme,defaultTheme,biomes,isTreeBiome:type=>treeBiomes.has(type),freezeTreeColors,freezeLayers,detailTexture,biomeTexture};
 })();
