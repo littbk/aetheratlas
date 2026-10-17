@@ -101,3 +101,12 @@ test('text color previews immediately and commits a single overlay-only undo act
  assert.deepEqual(counts(),{undo:1,changes:0});assert.equal(c.textureDirty,false);
  el('selectionColor').onchange();assert.deepEqual(counts(),{undo:1,changes:1});el('selectionColor').onblur();assert.deepEqual(counts(),{undo:1,changes:1});
 });
+
+test('rotating a house previews its resident mesh without marking the terrain dirty',()=>{
+ const {c}=harness(),o={kind:'building',building:'house',x:100,y:100,size:40,rotation:0,elevation:0};c.Buildings3D.styles={house:['Casa']};c.Buildings.names.house='Casa';
+ c.layers[0].objects=[o];c.billboardHits=[{layer:0,object:o,box:{x:90,y:90,w:20,h:20}}];c.Selector.pick({clientX:100,clientY:100,pointerId:1});c.Selector.finish();
+ drawGizmo(c);let previews=0;c.scene.transformBuilding=(object,previous)=>{assert.equal(object,o);assert.equal(previous.rotation,0);previews++;return true;};
+ const h=c.Selector.gizmo.handles.find(h=>h.mode==='rotate');c.pointers.set(1,{x:h.x,y:h.y});
+ c.canvas.onpointerdown({clientX:h.x,clientY:h.y,pointerId:1});c.canvas.onpointermove({clientX:h.x+20,clientY:h.y+25,pointerId:1});
+ assert.equal(previews,1);assert.equal(c.textureDirty,false);assert.notEqual(o.rotation,0);
+});

@@ -237,7 +237,7 @@ const Selector=(()=>{
       selected.object.size=origin.size*factor;selected.object.rotation=((origin.rotation+angle*180/Math.PI+180)%360+360)%360-180;selected.object.elevation=origin.elevation+offset;
     }
     $('status').textContent=drag.mode==='scale'?`Escala ${Math.round(factor*100)}%`:drag.mode==='rotate'?`Rotação ${Math.round(angle*180/Math.PI)}°`:`Altura ${Math.round((selected.object?.elevation??origin.parts?.[0]?.part.elevation)||0)} m`;
-    if(selected.object.building==='floatingIsland'&&scene.transformBuilding?.(selected.object,previous)){if(typeof scheduleCameraDraw==='function')scheduleCameraDraw();else draw();}
+    if(selected.collection==='objects'&&selected.object.kind==='building'&&scene.transformBuilding?.(selected.object,previous)){if(typeof scheduleCameraDraw==='function')scheduleCameraDraw();else draw();}
     else{textureDirty=true;if(typeof scheduleCameraDraw==='function')scheduleCameraDraw();else draw();}
   }
   function remove(){

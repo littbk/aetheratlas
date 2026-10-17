@@ -71,6 +71,22 @@ try:
     """)
     full=js("({bytes:scene.buildings.vertices.byteLength+scene.buildings.indices.byteLength,rawBytes:scene.buildings.originalBytes,triangles:scene.buildings.indices.length/3,entries:scene.buildings.entries.length})")
     check("scene.buildings.indices.length>0&&scene.gl.getError()===0",'indexed full quality meshes render on GPU')
+    js("""tool='select';window.rotationOriginal={...testBuilding.object};
+        const hit=billboardHits.find(h=>(h.originalObject||h.object)===testBuilding.object),rotationRect=canvas.getBoundingClientRect();
+        if(!hit)throw Error('Missing building selection hit');
+        Selector.pick({clientX:rotationRect.left+hit.box.x+hit.box.w/2,clientY:rotationRect.top+hit.box.y+hit.box.h/2,pointerId:1});Selector.finish();draw();
+        if(Selector.selected?.object!==testBuilding.object)throw Error('Wrong building selected');
+        window.rotationTerrain=scene.vertices;window.rotationMesh=scene.buildings.vertices;window.rotationUpdates=0;
+        window.rotationUpdate=scene.update;scene.update=function(...args){rotationUpdates++;return rotationUpdate.apply(this,args);};
+    """)
+    handle=js("(()=>{const h=Selector.gizmo.handles.find(h=>h.mode==='rotate'),r=canvas.getBoundingClientRect();return {x:h.x+r.left,y:h.y+r.top};})()")
+    mouse('mousePressed',handle,1)
+    for i in range(12):
+        mouse('mouseMoved',{'x':handle['x']+i*3,'y':handle['y']+i*2},1)
+        js('new Promise(resolve=>requestAnimationFrame(()=>resolve(true)))')
+    check('testBuilding.object.rotation!==rotationOriginal.rotation&&rotationUpdates===0&&scene.vertices===rotationTerrain&&scene.buildings.vertices===rotationMesh&&scene.gl.getError()===0','real building rotation drag reuses terrain and GPU meshes on Aeon RPG')
+    mouse('mouseReleased',handle)
+    js("scene.update=rotationUpdate;for(const key of Object.keys(testBuilding.object))delete testBuilding.object[key];Object.assign(testBuilding.object,rotationOriginal);Selector.clear();textureDirty=true;flushModels();")
     (root/'buildings-map-full-preview.png').write_bytes(base64.b64decode(call('Page.captureScreenshot',{'format':'png'})['data']))
     js('lightModeButton.click();flushModels()')
     light=js("({bytes:scene.buildings.vertices.byteLength+scene.buildings.indices.byteLength,rawBytes:scene.buildings.originalBytes,triangles:scene.buildings.indices.length/3,entries:scene.buildings.entries.length})")
