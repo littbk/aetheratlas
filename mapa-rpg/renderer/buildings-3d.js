@@ -1,7 +1,7 @@
 'use strict';
 // Architecture meshes are cached independently of their color palettes.
 const Buildings3D=(()=>{
-  const styles={house:['Chalé enxaimel','Casa mediterrânea','Casa nórdica'],village:['Vila medieval','Vila mediterrânea','Aldeia nórdica'],tower:['Torre de vigia','Torre arcana','Torre oriental'],castle:['Fortaleza real','Palácio das dunas','Cidadela nórdica'],temple:['Santuário clássico','Templo de cúpula','Pagode'],bridge:['Ponte de pedra','Ponte coberta','Passarela de madeira'],camp:['Viajantes','Tendas nômades','Acampamento militar'],ruin:['Abadia partida','Colunata antiga','Fortaleza arruinada'],windmill:['Moinho holandês','Moinho de pedra','Moinho de madeira'],tunnel:['Arco de portal','Portão fortificado','Portal arcano'],door:['Porta de carvalho','Porta palaciana','Porta rúnica'],cave:['Gruta rochosa','Gruta cristalina','Mina escorada']};
+  const styles={floatingIsland:['Ilha verde','Ilha rochosa','Ilha cristalina'],house:['Chalé enxaimel','Casa mediterrânea','Casa nórdica'],village:['Vila medieval','Vila mediterrânea','Aldeia nórdica'],tower:['Torre de vigia','Torre arcana','Torre oriental'],castle:['Fortaleza real','Palácio das dunas','Cidadela nórdica'],temple:['Santuário clássico','Templo de cúpula','Pagode'],bridge:['Ponte de pedra','Ponte coberta','Passarela de madeira'],camp:['Viajantes','Tendas nômades','Acampamento militar'],ruin:['Abadia partida','Colunata antiga','Fortaleza arruinada'],windmill:['Moinho holandês','Moinho de pedra','Moinho de madeira'],tunnel:['Arco de portal','Portão fortificado','Portal arcano'],door:['Porta de carvalho','Porta palaciana','Porta rúnica'],cave:['Gruta rochosa','Gruta cristalina','Mina escorada']};
   const types=new Set(Object.keys(styles)),roles=['stone','plaster','roof','wood','trim','dark','metal','fabric','glass','rock','moss','crystal','paving'];
   const neutral={stone:[.64,.62,.57],plaster:[.83,.80,.71],roof:[.40,.43,.44],wood:[.36,.29,.22],trim:[.89,.84,.70],dark:[.10,.14,.16],metal:[.29,.32,.33],fabric:[.74,.69,.57],glass:[.43,.66,.69],rock:[.49,.52,.49],moss:[.31,.43,.27],crystal:[.52,.77,.80],paving:[.54,.54,.50]};
   const cache=new Map();let groundCache=new WeakMap();
@@ -93,6 +93,11 @@ const Buildings3D=(()=>{
       if(variant===1){for(const x of [-14,14])place(x,1,0,.65,0,()=>turret(0));arch(0,0,8,10,9,3,'stone',12);box(0,0,21,8,20,3,'stone',3);roof(0,0,25,12,23,8);for(const x of [-6,-3,0,3,6])beam([x,-3,15],[x,-3,20],.18,'metal',6);}
       if(variant===2){for(const x of [-10,10])lathe(x,0,[[1,3],[3,3.5],[15,2],[19,0]],'stone',3,8);arch(0,0,8,10,3,2,'trim',16);arch(0,-.1,7.5,10,1,.4,'crystal',5,16);for(let i=0;i<7;i++){const a=i*Math.PI/6;place(Math.cos(a)*10,0,10+Math.sin(a)*10,1,0,()=>lathe(0,0,[[0,.7],[2,0]],'crystal',5,5));}}
     };
+    if(type==='floatingIsland'){
+      lathe(0,0,[[-32,2],[-23,12],[-12,27],[-3,40],[0,42]],'rock',3,16,.72,.13);
+      lathe(0,0,[[0,42],[1.2,41],[2,38]],style===1?'rock':'moss',3,20,.72,.13);
+      if(style===2)for(const [x,y,h] of [[-15,0,14],[12,8,20],[4,-14,9]])lathe(x,y,[[2,3],[h*.7,2],[h,0]],'crystal',5,6);
+    }
     if(type==='house')cottage(style);
     if(type==='village'){
       // Shared paved ground beneath all houses, paths and the central well.
@@ -161,6 +166,7 @@ const Buildings3D=(()=>{
     const packed=new Float32Array(unique),small=unique.length/15<=65536;
     return {vertices:packed,indices:small?new Uint16Array(indices):indices,originalBytes:vertices.byteLength};
   }
+  const islandCache=new WeakMap();
   function build(layers,planet,include=null,options={}){
     if(!include)Terrain.freezeLayers(layers);const vertices=[],entries=[];
     const global=layers.some(l=>l.planet?.enabled),samples=new Map(),nodes=new Map(),surface=options.surface||{dx:20,dy:20,ox:0,oy:0};
@@ -175,12 +181,29 @@ const Buildings3D=(()=>{
         if(o.kind!=='building'||!types.has(o.building)||include&&!include(o,'building'))continue;
         const mesh=model(o.building,styleOf(o),!!options.lightweight),palette=paletteFor(o),first=vertices.length/15,s=o.size/80,a=(o.rotation||0)*Math.PI/180,ca=Math.cos(a),sa=Math.sin(a),v=mesh.vertices;
         for(let i=0;i<v.length;i+=10){
+          if(o.building==='floatingIsland'&&o.surface){const first=Math.floor(i/30)*30;if(v[first+2]>=0&&v[first+12]>=0&&v[first+22]>=0)continue;}
+
           const x=v[i],y=v[i+1],z=v[i+2],wx=o.x+(x*ca-y*sa)*s,wy=o.y+(x*sa+y*ca)*s,k=i/10*2;
           const ax=mesh.supports[k],ay=mesh.supports[k+1],support=altitude(o.x+(ax*ca-ay*sa)*s,o.y+(ax*sa+ay*ca)*s);
           // Courtyards follow the terrain; low wall vertices meet it. Roofs retain their shape.
-          const contact=roles[v[i+4]]==='paving'&&z<=1.1?1:Math.max(0,1-Math.max(0,z-1)/3);
+          const contact=o.building==='floatingIsland'?0:roles[v[i+4]]==='paving'&&z<=1.1?1:Math.max(0,1-Math.max(0,z-1)/3);
           const base=support+(contact?(altitude(wx,wy)-support)*contact:0)+.08+(o.elevation||0),px=wx+(planet?3200:0),py=wy+(planet?1650:0),nx=v[i+5],ny=v[i+6];
           vertices.push(px,py,base,px/(planet?8000:1600),py/(planet?4400:1100),v[i+3],...palette[roles[v[i+4]]],z*s*(planet?.37:1),nx*ca-ny*sa,nx*sa+ny*ca,v[i+7],v[i+8],v[i+9]);
+        }
+        if(o.building==='floatingIsland'&&o.surface){
+          const project=o.surface;let cached=islandCache.get(project);
+          if(!cached){
+            const local=project.layers.map(l=>({...l,planet:{enabled:false},terrain:Terrain.validate(l.terrain)}));
+            const parts=build(local,false).vertices,architecture=Structures.build(local,false).vertices;
+            const c=document.createElement('canvas');c.width=200;c.height=138;const g=c.getContext('2d');for(const l of local)if(l.visible){g.globalAlpha=l.opacity;g.drawImage(Terrain.render(l.terrain,{texture:true,shade:true}),0,0,200,138);MapPaths.draw(g,l.routes||[]);}cached={local,parts,architecture,appearance:{width:200,height:138,pixels:Array.from(g.getImageData(0,0,200,138).data)}};islandCache.set(project,cached);
+          }
+          const scale=84/1300,base=altitude(o.x,o.y)+.08+(o.elevation||0),appearance=project.appearance||cached.appearance;
+          const tint=(x,y)=>{if(appearance?.pixels?.length===appearance.width*appearance.height*4){const ix=Math.max(0,Math.min(appearance.width-1,Math.floor(x/1600*appearance.width))),iy=Math.max(0,Math.min(appearance.height-1,Math.floor(y/1100*appearance.height))),k=(iy*appearance.width+ix)*4;return appearance.pixels.slice(k,k+3).map(v=>v/255);}return [.42,.60,.32];};
+          const push=(x,y,z,color,nx=0,ny=0,nz=1,mat=12,u=x,w=y)=>{const px=o.x+(x*ca-y*sa)*s+(planet?3200:0),py=o.y+(x*sa+y*ca)*s+(planet?1650:0);vertices.push(px,py,base,px/(planet?8000:1600),py/(planet?4400:1100),mat,...color,z*s*(planet?.37:1),nx*ca-ny*sa,nx*sa+ny*ca,nz,u,w);};
+          const step=options.lightweight?32:16;
+          const top=(x,y)=>{const h=Terrain.sample(cached.local,x,y);return h===null?null:{x:(x-800)*scale,y:(y-550)*scale,z:2+(h-(project.islandDatum??120))*.065*scale,color:tint(x,y)};};
+          for(let y=120;y<980;y+=step)for(let x=150;x<1450;x+=step){const a=top(x,y),b=top(Math.min(1450,x+step),y),c=top(x,Math.min(980,y+step)),d=top(Math.min(1450,x+step),Math.min(980,y+step));for(const tri of [[a,b,c],[b,d,c]])if(tri.every(Boolean))for(const q of tri)push(q.x,q.y,q.z,q.color);}
+          for(const mesh of [cached.parts,cached.architecture])for(let i=0;i<mesh.length;i+=15)push((mesh[i]-800)*scale,(mesh[i+1]-550)*scale,2+((mesh[i+2]-(project.islandDatum??120)*.065)+mesh[i+9])*scale,Array.from(mesh.subarray(i+6,i+9)),mesh[i+10],mesh[i+11],mesh[i+12],mesh[i+5],mesh[i+13],mesh[i+14]);
         }
         entries.push({object:o,layer,first,count:vertices.length/15-first});
       }

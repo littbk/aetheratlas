@@ -70,3 +70,12 @@ test('selected elevation survives marker validation',()=>{
   assert.equal(view.Billboards.validate([marker])[0].elevation,25);
   assert.throws(()=>view.Billboards.validate([{...marker,elevation:800}]));
 });
+
+ test('floating islands retain an underside and explicit elevation without changing terrain',()=>{
+  const o={kind:'building',building:'floatingIsland',x:800,y:550,size:100,rotation:20,elevation:100};
+  const mesh=context.Buildings3D.build([{visible:true,opacity:1,objects:[o]}],false);
+  assert.equal(mesh.entries.length,1);assert(mesh.vertices.every(Number.isFinite));
+  const lifts=Array.from({length:mesh.vertices.length/15},(_,i)=>mesh.vertices[i*15+9]);
+  assert(Math.min(...lifts)<-20);assert(Math.max(...lifts)>0);
+  assert(mesh.vertices[2]>=100);
+});

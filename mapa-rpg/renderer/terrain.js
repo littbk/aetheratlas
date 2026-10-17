@@ -54,7 +54,7 @@ const Terrain = (() => {
   function fogStamp(t,x,y,size,reveal=false,stretch=1){const radius=Math.max(2,size/2);for(let j=Math.max(0,Math.floor((y-radius)/step));j<=Math.min(height-1,Math.ceil((y+radius)/step));j++)for(let i=Math.max(0,Math.floor((x-radius*stretch)/step));i<=Math.min(width-1,Math.ceil((x+radius*stretch)/step));i++)if(Math.hypot((i*step+2-x)/stretch,j*step+2-y)<=radius)t.fog[j*width+i]=reveal?0:255;t.dirty=true;}
   function seaErase(layers,x,y,size,stretch=1){const radius=Math.max(2,size/2);let changed=false;for(const layer of layers){if(layer.locked)continue;const t=layer.terrain;let layerChanged=false;for(let j=Math.max(0,Math.floor((y-radius)/step));j<=Math.min(height-1,Math.ceil((y+radius)/step));j++)for(let i=Math.max(0,Math.floor((x-radius*stretch)/step));i<=Math.min(width-1,Math.ceil((x+radius*stretch)/step));i++){if(Math.hypot((i*step+2-x)/stretch,j*step+2-y)>radius)continue;const k=j*width+i;t.coverage[k]=0;t.heights[k]=0;t.biomes[k]=0;t.treeStyleIds[k]=0;t.treeExclusions.delete(k);delete t.waterLevels[k];delete t.waterColors[k];layerChanged=true;}if(layerChanged)t.dirty=true;changed=changed||layerChanged;}return changed;}
   function fogAt(layers,x,y){if(!Number.isFinite(x)||!Number.isFinite(y))return false;if(typeof WorldSurface!=='undefined'&&layers.some(l=>l.planet?.enabled)){const {gx,gy}=WorldSurface.locate(x,y);return fogAt(WorldSurface.group(layers,gx,gy),x-gx*1600,y-gy*1100);}if(x<0||y<0||x>=1600||y>=1100)return false;return layers.some(l=>l.visible!==false&&l.opacity!==0&&l.terrain?.fog?.[index(x,y)]===255);}
-  function fogTexture(t,color){const c=document.createElement('canvas');c.width=width;c.height=height;const g=c.getContext('2d'),im=g.createImageData(width,height);if(color){const rgb=hexRgb(color);for(let k=0;k<length;k++)if(t.fog?.[k]){im.data.set(rgb,k*4);im.data[k*4+3]=255;}}else{const hash=(x,y)=>{const n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n);},noise=(x,y)=>{const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy);return (hash(ix,iy)*(1-sx)+hash(ix+1,iy)*sx)*(1-sy)+(hash(ix,iy+1)*(1-sx)+hash(ix+1,iy+1)*sx)*sy;};for(let k=0;k<length;k++)if(t.fog?.[k]){const x=k%width,y=Math.floor(k/width),billow=noise(x*.064,y*.064)*.55+noise(x*.164,y*.164)*.3+noise(x*.384,y*.384)*.15,shade=Math.round(184+billow*69),p=k*4;im.data[p]=shade;im.data[p+1]=Math.min(255,shade+5);im.data[p+2]=Math.min(255,shade+9);im.data[p+3]=255;}}g.putImageData(im,0,0);return c;}
+  function fogTexture(t,color){const c=document.createElement('canvas');c.width=width;c.height=height;const g=c.getContext('2d'),im=g.createImageData(width,height);if(color){const rgb=hexRgb(color);for(let k=0;k<length;k++)if(t.fog?.[k]){im.data.set(rgb,k*4);im.data[k*4+3]=255;}}else{const hash=(x,y)=>{const n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n);},noise=(x,y)=>{const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy);return (hash(ix,iy)*(1-sx)+hash(ix+1,iy)*sx)*(1-sy)+(hash(ix,iy+1)*(1-sx)+hash(ix+1,iy+1)*sx)*sy;};for(let k=0;k<length;k++)if(t.fog?.[k]){const x=k%width,y=Math.floor(k/width),billow=noise(x*.064,y*.064)*.55+noise(x*.164,y*.164)*.3+noise(x*.384,y*.384)*.15,shade=Math.round(184+billow*69),p=k*4;im.data[p]=shade;im.data[p+1]=Math.min(255,shade+5);im.data[p+2]=Math.min(255,shade+9);im.data[p+3]=Math.round(50+billow*100);}}g.putImageData(im,0,0);return c;}
   function drawFog(g,layers,alpha=1){g.save();g.imageSmoothingEnabled=false;g.globalAlpha=alpha;for(const l of layers)if(l.visible!==false&&l.opacity!==0&&l.terrain?.fog?.some(v=>v))g.drawImage(fogTexture(l.terrain),0,0,1600,1100);g.restore();}
   function waterFill(layers,x,y,level=null){
     const ground=new Float32Array(length);for(let k=0;k<length;k++)ground[k]=sample(layers,k%width*step+2,Math.floor(k/width)*step+2)??0;
@@ -200,7 +200,7 @@ const Terrain = (() => {
 
 // Native canvas icons remain crisp at any marker size and need no external assets.
 const Buildings = (()=>{
-  const names={house:'Casa',village:'Vila',tower:'Torre',castle:'Castelo',temple:'Templo',bridge:'Ponte',camp:'Acampamento',ruin:'Ruínas',windmill:'Moinho',tunnel:'Portal',door:'Porta',cave:'Caverna'};
+  const names={floatingIsland:'Ilha flutuante',house:'Casa',village:'Vila',tower:'Torre',castle:'Castelo',temple:'Templo',bridge:'Ponte',camp:'Acampamento',ruin:'Ruínas',windmill:'Moinho',tunnel:'Portal',door:'Porta',cave:'Caverna'};
   function draw(c,x,y,type,size=38,rotation=0,style=0,palette=0){
     c.save();c.translate(x,y);c.rotate((type==='castle'?0:rotation)*Math.PI/180);c.scale(size/40,size/40);c.lineJoin='round';c.lineCap='round';c.lineWidth=2;c.strokeStyle='#344b47';
     const swatches=Buildings3D.swatches[Number.isInteger(palette)&&palette>=0&&palette<3?palette:0],shade=i=>swatches[i],wall=shade(1),roofColor=shade(2),wood=shade(3),trim=shade(4),stone=shade(0),dark=shade(5),fabric=shade(7),rock=shade(9);
@@ -208,6 +208,7 @@ const Buildings = (()=>{
     const poly=(points,fill)=>{c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fillStyle=fill;c.fill();c.stroke();};
     const rect=(x,y,w,h,fill='#e3d4ae')=>{c.fillStyle=fill;c.fillRect(x,y,w,h);c.strokeRect(x,y,w,h);};
     const line=(a,b)=>{c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke();};
+    if(type==='floatingIsland'){poly([[-21,0],[-10,9],[0,24],[14,8],[21,0]],rock);poly([[-21,0],[-12,-8],[10,-10],[21,0],[7,7],[-10,6]],'#71965d');}
     const house=(x,y,s=1,variant=0)=>{c.save();c.translate(x,y);c.scale(s,s);rect(-13,-3,26,22,wall);if(variant===0){rect(-15,-4,3,23,wood);rect(12,-4,3,23,wood);rect(-3,7,7,12,dark);poly([[-18,-3],[0,-19],[18,-3]],roofColor);}else if(variant===1){rect(-3,7,7,12,dark);poly([[-17,-3],[-10,-13],[0,-17],[13,-10],[17,-3]],roofColor);c.fillStyle=trim;c.beginPath();c.ellipse(0,-5,8,3,0,0,Math.PI*2);c.fill();}else{rect(-3,7,7,12,dark);poly([[-18,-3],[-13,-8],[-8,-19],[0,-14],[8,-20],[14,-7],[18,-3]],roofColor);rect(-17,1,34,3,wood);}rect(-10,2,5,7,shade(8));rect(5,2,5,7,shade(8));c.restore();};
     const tower=(x,y,s=1,variant=0)=>{c.save();c.translate(x,y);c.scale(s,s);rect(-9,-17,18,35,stone);rect(-13,-20,26,8,trim);for(let j=-12;j<=8;j+=10)rect(j,-26,5,7,stone);rect(-3,6,6,12,dark);if(variant===1)poly([[-12,-20],[0,-31],[12,-20]],roofColor);if(variant===2){rect(-14,-20,28,3,wood);rect(-12,-28,24,3,roofColor);}for(let j=-8;j<=8;j+=8){rect(j-2,-12,4,5,shade(8));}line([-3,-8],[3,-8]);c.restore();};
     if(type==='tunnel'||type==='cave'){
@@ -232,3 +233,20 @@ const Buildings = (()=>{
   }
   return {names,draw};
 })();
+
+// Independent, bounded surface shared by island editing and the player view.
+const FloatingSurface={
+  normalize(project){
+    if(project.islandDatum===0)return project;
+    const copy=structuredClone(project),datum=Number.isFinite(copy.islandDatum)?copy.islandDatum:120;
+    for(const l of copy.layers){for(let k=0;k<l.terrain.heights.length;k++)if(l.terrain.coverage[k])l.terrain.heights[k]-=datum;for(const k of Object.keys(l.terrain.waterLevels||{}))l.terrain.waterLevels[k]-=datum;}
+    copy.islandDatum=0;return copy;
+  },
+  contains(x,y){return ((x-800)/650)**2+((y-550)/430)**2<=1;},
+  create(){
+    const t=Terrain.create(),c=document.createElement('canvas');c.width=1600;c.height=1100;
+    for(let y=0;y<275;y++)for(let x=0;x<400;x++)if(this.contains(x*4+2,y*4+2)){const k=y*400+x;t.coverage[k]=255;t.biomes[k]=1;t.heights[k]=0;}
+    return {format:'aether-atlas',version:4,islandDatum:0,width:1600,height:1100,title:'Superfície da ilha',world:{type:'flat',patches:[]},camera:{yaw:0,tilt:38,roll:0,relief:1},layers:[{name:'Superfície da ilha',visible:true,locked:false,opacity:1,planet:{enabled:false},terrain:Terrain.serialize(t),image:c.toDataURL(),objects:[],routes:[],structures:[],tunnels:[]}]};
+  },
+  mask(layers){for(const l of layers){const t=l.terrain;for(let y=0;y<275;y++)for(let x=0;x<400;x++)if(!this.contains(x*4+2,y*4+2)){const k=y*400+x;t.coverage[k]=0;t.heights[k]=0;t.fog[k]=0;delete t.waterLevels[k];delete t.waterColors[k];}t.dirty=true;for(const c of [l.c,l.ink])if(c){const g=c.getContext('2d');g.save();g.globalCompositeOperation='destination-in';g.beginPath();g.ellipse(800,550,650,430,0,0,Math.PI*2);g.fill();g.restore();}}}
+};

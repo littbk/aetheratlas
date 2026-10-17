@@ -135,6 +135,7 @@
   const chooseRight=tabs(right,[['layers','Camadas','layers',[layerCreate,layerList,layerActions,opacity]],['camera','Câmera','camera',[cameraPanel]],['view','Visualização','view',[viewPanel]],['drive','Google Drive','cloud',[drive]]],'layers');
   if(selection)right.querySelector('.ui-scroll').prepend(selection);
   right.insertBefore(layerCreate,right.querySelector('.ui-scroll'));
+  const globalRelief=setting('relief');globalRelief.classList.add('global-relief');globalRelief.querySelector('label').textContent='Relevo global';right.append(globalRelief);
   const toolGroups={};for(const [id] of leftItems)for(const b of $('ui-'+id).querySelectorAll('[data-tool]'))toolGroups[b.dataset.tool]=id;
   document.addEventListener('click',e=>{const b=e.target.closest('[data-tool]');if(b){const group=toolGroups[b.dataset.tool];if(group)leftTab(group);if(b.dataset.tool==='select')chooseRight('layers');syncPropertyPanels();syncLocationPanels();if(group==='terrain'&&innerWidth<=860)requestAnimationFrame(()=>propertyPanel.scrollIntoView({block:'start',behavior:'smooth'}));}});syncPropertyPanels();syncLocationPanels();
   for(const button of document.querySelectorAll('[data-tool]'))iconButton(button,button.dataset.tool,button.textContent.trim().replace(/^[^\p{L}]+/u,''));

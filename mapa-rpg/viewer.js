@@ -81,14 +81,14 @@ export class MapViewer {
     if(result) g.drawImage(result,0,0,width,height);
     else { this.c.tilt=0; g.save();g.translate(this.c.cx,this.c.cy);g.rotate((this.c.yaw+this.c.roll)*Math.PI/180);g.scale(this.c.zoom,this.c.zoom);g.drawImage(this.texture,-800,-550);g.translate(-800,-550);Terrain.drawFog(g,this.layers,1);g.restore(); }
     this.guide.draw(g);
-    Billboards.draw(g,Billboards.collect(this.layers,true),this.scene,this.camera(),this.layers,width,height);
+    this.billboardHits=Billboards.draw(g,Billboards.collect(this.layers,true),this.scene,this.camera(),this.layers,width,height);
     Billboards.drawSubmapEntries(g,this.patches,this.scene,this.camera(),width,height);
     if(!this.navigation.walking)Billboards.drawPlayerPivot(g,this.scene,this.camera(),this.playerLocation,width,height,this.layers);
     this.navigation.drawCharacter(g);
     this.onChange(this.c,!!this.scene.gl);
   }
   fit(reset=false) {
-    if(reset&&this.flatRegion)Object.assign(this.c,{yaw:0,tilt:38,roll:0,relief:1});else if(reset&&this.initial) Object.assign(this.c,this.initial);
+    if(reset&&this.flatRegion)Object.assign(this.c,{yaw:0,tilt:38,roll:0});else if(reset&&this.initial) Object.assign(this.c,this.initial);
     if(this.camera().planet){this.c.zoom=Math.min(this.stage.clientWidth,this.stage.clientHeight)/1168*.78;this.c.cx=this.stage.clientWidth/2;this.c.cy=this.stage.clientHeight/2;this.draw();return;}
     const c={...this.camera(),cx:0,cy:0,zoom:1};
     const points=this.flatRegion?[[this.flatRegion.x,this.flatRegion.y],[this.flatRegion.x+this.flatRegion.width,this.flatRegion.y],[this.flatRegion.x,this.flatRegion.y+this.flatRegion.height],[this.flatRegion.x+this.flatRegion.width,this.flatRegion.y+this.flatRegion.height]].map(([x,y])=>this.scene.project(x-3200,y-1650,0,c)):this.layers.some(l=>l.planet?.enabled)?[[0,0],[400,0],[800,0],[1200,0],[1600,550],[1200,1100],[800,1100],[400,1100],[0,550]].map(([x,y])=>this.scene.project(x,y,0,c)):[[0,0],[1600,0],[0,1100],[1600,1100]].map(([x,y])=>this.scene.project(x,y,0,c));
@@ -99,8 +99,14 @@ export class MapViewer {
   }
   enterFlatRegion(region){
     if(!this.layers.some(l=>l.planet?.enabled))return;if(this.navigation.walking)this.navigation.toggle(false);
-    this.flatCamera={...this.c};this.flatRegion={...region};Object.assign(this.c,{yaw:0,tilt:38,roll:0,relief:1});this.navigation.panel.querySelector('[data-nav="walk"]').disabled=true;
+    this.flatCamera={...this.c};this.flatRegion={...region};Object.assign(this.c,{yaw:0,tilt:38,roll:0});this.navigation.panel.querySelector('[data-nav="walk"]').disabled=true;
     this.scene.update(this.texture,this.layers,this.camera(),this.patches);this.fit();this.regionView.sync();
+  }
+  async focusFloatingIsland(object){
+    this.guide.setSpinning(false);if(this.navigation.walking)this.navigation.toggle(false);
+    this.flatRegion=null;this.flatCamera=null;this.regionView.cancel();
+    await this.loadFlatSubmap(object.surface?FloatingSurface.normalize(object.surface):FloatingSurface.create(),object.text||'Ilha flutuante');
+    FloatingSurface.mask(this.layers);this.returnButton.hidden=false;this.draw();
   }
   leaveFlatRegion(){
     if(!this.flatRegion)return;this.flatRegion=null;if(this.flatCamera)Object.assign(this.c,this.flatCamera);this.flatCamera=null;this.navigation.panel.querySelector('[data-nav="walk"]').disabled=false;
@@ -173,7 +179,7 @@ export class MapViewer {
       else {this.c.cx=g.c.cx+p.x-g.x;this.c.cy=g.c.cy+p.y-g.y;}
       this.draw();
     });
-    const end=e=>{if(e.type==='pointerup'&&this.clickStart?.id===e.pointerId){const r=element.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,p=this.scene.pick(x,y),submap=p&&this.camera().planet?Billboards.hitSubmap(x,y,this.patches,this.scene,this.camera()):null;this.clickStart=null;if(submap){this.openSubmap(submap);this.pointers.delete(e.pointerId);this.snapshotGesture();return;}}this.clickStart=null;this.pointers.delete(e.pointerId);this.snapshotGesture();};
+    const end=e=>{if(e.type==='pointerup'&&this.clickStart?.id===e.pointerId){const r=element.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,p=this.scene.pick(x,y),submap=p&&this.camera().planet?Billboards.hitSubmap(x,y,this.patches,this.scene,this.camera()):null;this.clickStart=null;const island=e.button===0&&[...(this.billboardHits||[])].reverse().find(h=>h.object.building==='floatingIsland'&&x>=h.box.x&&x<=h.box.x+h.box.w&&y>=h.box.y&&y<=h.box.y+h.box.h);if(island){this.pointers.delete(e.pointerId);this.snapshotGesture();this.focusFloatingIsland(island.object);return;}if(submap){this.openSubmap(submap);this.pointers.delete(e.pointerId);this.snapshotGesture();return;}}this.clickStart=null;this.pointers.delete(e.pointerId);this.snapshotGesture();};
     element.addEventListener('pointerup',end);element.addEventListener('pointercancel',end);element.addEventListener('lostpointercapture',end);
     element.addEventListener('keydown',e=>{
       if(e.code==='Space'){this.space=true;e.preventDefault();}if(e.key==='Home'){this.fit(true);e.preventDefault();}

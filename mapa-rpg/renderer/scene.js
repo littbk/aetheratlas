@@ -66,7 +66,7 @@ class AtlasScene {
       varying vec3 canopyColor; varying highp vec3 architecturalPoint; varying vec3 surfaceNormal; varying highp vec2 materialUV;
       float cloudHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float cloudNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(cloudHash(i),cloudHash(i+vec2(1.,0.)),f.x),mix(cloudHash(i+vec2(0.,1.)),cloudHash(i+vec2(1.,1.)),f.x),f.y);}
-      vec4 fogColor(vec4 color){if(texcoord.x<0.||texcoord.y<0.||texcoord.x>1.||texcoord.y>1.)return color;float fog=step(.5,1.-texture2D(shadowMap,texcoord).g);if(fog<.5)return color;vec2 p=texcoord*terrainSize;float billow=cloudNoise(p*.016)*.55+cloudNoise(p*.041)*.3+cloudNoise(p*.096)*.15;float shade=.72+billow*.27;vec3 cloud=vec3(shade,shade+.018,shade+.035);return mix(color,vec4(cloud,1.),fog*(fogPreview>.5?.43:1.));}
+      vec4 fogColor(vec4 color){if(texcoord.x<0.||texcoord.y<0.||texcoord.x>1.||texcoord.y>1.)return color;float fog=step(.5,1.-texture2D(shadowMap,texcoord).g);if(fog<.5)return color;vec2 p=texcoord*terrainSize;float billow=cloudNoise(p*.016)*.55+cloudNoise(p*.041)*.3+cloudNoise(p*.096)*.15;float density=smoothstep(.30,.72,billow);float shade=.65+billow*.22;vec3 cloud=vec3(shade,shade+.035,shade+.055);return mix(color,vec4(cloud,1.),density*(fogPreview>.5?.32:.62));}
       float groundShadow(){
         vec2 p=texcoord;
         if(p.x<0.||p.y<0.||p.x>1.||p.y>1.)return 1.;return texture2D(shadowMap,p).r;
@@ -84,6 +84,7 @@ class AtlasScene {
         if(surfaceVisible<.5)discard;if(flatMode>.5&&(texcoord.x<regionClip.x||texcoord.y<regionClip.y||texcoord.x>regionClip.z||texcoord.y>regionClip.w))discard;
         if(waterMode>.5){gl_FragColor=fogColor(vec4(waterSurface(canopyColor,texcoord*terrainSize)*sphereLight,1.));return;}
         if(treeMode>1.5){
+          if(surfaceVisible>11.5&&surfaceVisible<12.5){float grain=texture2D(terrainDetail,materialUV/43.).r;gl_FragColor=fogColor(vec4(canopyColor*(.94+grain*.12)*sphereLight,1.));return;}
           if(surfaceVisible>8.5&&surfaceVisible<10.5){
             vec3 result;
             if(surfaceVisible>9.5)result=waterSurface(canopyColor,texcoord*terrainSize);

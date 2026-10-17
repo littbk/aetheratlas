@@ -5,6 +5,9 @@ const Selector=(()=>{
   panel.innerHTML='<h3>OBJETO SELECIONADO</h3><strong id="selectionName"></strong><p class="muted">Arraste no mapa ou informe a posição.</p><div class="selection-position"><label>X <input id="selectionX" type="number" min="0" max="1599" step="1"></label><label>Y <input id="selectionY" type="number" min="0" max="1099" step="1"></label></div><button id="selectionMove" type="button">Aplicar posição</button><div id="selectionBuildingStyle" hidden><label for="selectionBuildingVariant">Arquitetura</label><select id="selectionBuildingVariant"></select><label for="selectionBuildingPalette">Paleta</label><select id="selectionBuildingPalette"></select></div><div id="selectionEnds" hidden><p class="muted">Arraste A/B livremente ou use as setas: X largura, Y profundidade, Z altura.</p><div id="selectionEndRows"></div></div><label for="selectionLayer">Camada de destino</label><select id="selectionLayer"></select><button id="selectionTransfer" type="button">Mover para camada</button><div id="selectionTint"><label>Cor <input id="selectionColor" type="color"></label><label id="selectionTrunkLabel">Tronco <input id="selectionTrunk" type="color"></label></div><button id="selectionDelete" type="button">Excluir seleção</button><button id="selectionClear" type="button">Limpar seleção</button>';
   document.querySelector('#layersPanel .section-title').after(panel);
   Buildings3D.paletteNames.forEach((name,index)=>$('selectionBuildingPalette').add(new Option(name,index)));
+  const islandPanel=document.createElement('div');islandPanel.id='selectionIsland';islandPanel.hidden=true;
+  islandPanel.innerHTML='<h3>ILHA FLUTUANTE</h3><label>Tamanho da ilha <input id="selectionIslandSize" type="number" min="8" max="160" step="1"></label><label>Altura de suspensão <input id="selectionIslandHeight" type="number" min="-100" max="500" step="1"></label><label>Rotação (graus) <input id="selectionIslandRotation" type="number" min="-360" max="360" step="1"></label><button id="selectionIslandApply" type="button">Aplicar tamanho e altura</button><button id="selectionIslandEdit" type="button">Editar superfície da ilha</button>';
+  $('selectionBuildingStyle').after(islandPanel);
   const materialPanel=document.createElement('div');materialPanel.id='selectionArchitectureStyle';materialPanel.hidden=true;
   materialPanel.innerHTML='<label for="selectionArchitectureMaterial">Material da arquitetura</label><select id="selectionArchitectureMaterial"></select><p class="muted">Aplica ao objeto ou grupo selecionado. A cor pode ser ajustada abaixo.</p>';
   $('selectionBuildingStyle').after(materialPanel);
@@ -17,7 +20,7 @@ const Selector=(()=>{
     if(selected.generated)return !storage.terrain.treeExclusions.has(selected.entry.index)&&(storage.terrain.biomes[selected.entry.index]===2||storage.terrain.biomes[selected.entry.index]>=8);
     return storage[selected.collection].includes(selected.object);
   };
-  function clear(){selected=null;drag=null;gizmo=null;attachEnd=null;panel.hidden=true;draw();}
+  function clear(){commitColor();selected=null;drag=null;gizmo=null;attachEnd=null;panel.hidden=true;draw();}
   const members=()=>selected.members||[selected.object];
   const is3D=()=>selected&&(selected.collection==='structures'||selected.generated||selected.object?.kind==='tree'||selected.object?.kind==='decor'||selected.object?.kind==='building'&&Buildings3D.types.has(selected.object.building));
   const points=()=>selected.collection==='structures'?[...new Set(members().flatMap(o=>[...o.points,...(o.foundationPoints||[])]))]:selected.generated?[{x:selected.entry.localX??selected.entry.x,y:selected.entry.localY??selected.entry.y}]:selected.collection==='routes'?selected.object.points:selected.collection==='tunnels'?[selected.object.a,selected.object.b]:[selected.object];
@@ -28,6 +31,8 @@ const Selector=(()=>{
     panel.hidden=tool!=='select';
     const o=selected.object||selected.entry,c=center(),tree=selected.generated||o.kind==='tree';
     const species={forest:'Floresta de copas',palms:'Coqueiro',pines:'Pinheiro',magic:'Árvore mágica',autumn:'Árvore outonal',jungle:'Árvore de selva',snowForest:'Pinheiro nevado'};
+    islandPanel.hidden=o.building!=='floatingIsland';
+    if(!islandPanel.hidden){$('selectionIslandSize').value=o.size;$('selectionIslandHeight').value=o.elevation||0;$('selectionIslandRotation').value=o.rotation||0;}
     $('selectionName').textContent=tree?(species[o.species||Terrain.biomes[o.type]]||'Árvore'):o.text||({building:Buildings.names[o.building],marker:'Marcador',text:'Texto',river:'Rio',path:'Caminho'}[o.kind])||(selected.collection==='tunnels'?'Túnel':'Objeto');
     if(o.kind==='decor')$('selectionName').textContent=({grass:'Grama',flower:'Flores',rock:'Pedras',bush:'Arbusto',mushroom:'Cogumelos'})[o.decor];
     if(o.kind==='waterfall')$('selectionName').textContent='Cachoeira';
@@ -99,7 +104,7 @@ const Selector=(()=>{
     return null;
   }
   function pick(e){
-    attachEnd=null;
+    commitColor();attachEnd=null;
     const item=hit(e);if(!item){clear();return;}
     selected={...item,source:item.region?WorldSurface.child(layers[item.layer],item.region.gx,item.region.gy):layers[item.layer]};if(item.collection==='structures')selected.members=Structures.connected(selected.source.structures,item.object,$('architectureAutoGroup')?.checked!==false);active=item.layer;
     const p=point(e),c=center();drag={id:e.pointerId,mode:'move',start:p.inside?{x:p.x-(selected.region?.gx||0)*1600,y:p.y-(selected.region?.gy||0)*1100}:c,center:c,moved:false};
@@ -169,12 +174,21 @@ const Selector=(()=>{
     remember();detach();const source=selected.source,collection=selected.collection,object=selected.object;
     if(collection==='structures')Structures.prepareEdit(dest);for(const item of members()){source[collection].splice(source[collection].indexOf(item),1);dest[collection].push(item);}selected.layer=index;selected.source=dest;active=index;changed();
   }
-  function recolor(color,trunk){
+  let colorSession=null;
+  function previewColor(color,trunk){
     if(!/^#[0-9a-f]{6}$/i.test(color)||!editable())return;
-    remember();detach();for(const item of members())item.color=color;if(selected.object.kind==='tree'&&/^#[0-9a-f]{6}$/i.test(trunk))selected.object.trunkColor=trunk;changed();
+    const o=selected.object;if(o?.color===color&&(!trunk||o.kind!=='tree'||o.trunkColor===trunk))return;
+    if(!colorSession||colorSession.object!==o){remember();detach();colorSession={object:selected.object,overlayOnly:selected.collection==='objects'&&['text','marker','building'].includes(selected.object.kind)};}
+    for(const item of members())item.color=color;
+    if(selected.object.kind==='tree'&&/^#[0-9a-f]{6}$/i.test(trunk))selected.object.trunkColor=trunk;
+    if(!colorSession.overlayOnly)textureDirty=true;
+    if(typeof scheduleCameraDraw==='function')scheduleCameraDraw();else draw();
   }
+  function commitColor(){if(!colorSession)return;const session=colorSession;colorSession=null;changed({overlayOnly:session.overlayOnly});}
+  function recolor(color,trunk){previewColor(color,trunk);commitColor();}
   function startHandle(e,handle){
     if(!editable())return false;
+    if(handle.mode==='edit-island'){$('selectionIslandEdit').onclick();return true;}
     const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
     drag={id:e.pointerId,mode:handle.mode,startScreen:{x,y},centerScreen:handle.center,moved:false};
     if(handle.mode==='endpoint'||handle.mode==='endpoint-axis'){const p=selected.object.points[handle.index],ground=point(e),key=selected.object.kind?.startsWith('bridge')?'bridgeEndHeights':'endHeights';drag.index=handle.index;drag.axis=handle.axis;drag.start={x:ground.x-(selected.region?.gx||0)*1600,y:ground.y-(selected.region?.gy||0)*1100};drag.origin={x:p.x,y:p.y,height:selected.object[key]?.[handle.index]||0};drag.center={x:p.x,y:p.y};}
@@ -206,6 +220,7 @@ const Selector=(()=>{
         drag.origin={pivot,vertices:vertices.map(point=>({point,x:point.x,y:point.y})),parts:parts.map(part=>({part,width:part.width,height:part.height,base:part.base||0,elevation:part.elevation||0}))};
       }else drag.origin={size:selected.object.size,rotation:selected.object.rotation||0,elevation:selected.object.elevation||0};
     }
+    const previous=selected.collection==='objects'?{size:selected.object.size,rotation:selected.object.rotation,elevation:selected.object.elevation}:null;
     let factor=1,angle=0,offset=0;
     if(drag.mode==='scale')factor=Math.max(.1,Math.min(4,Math.hypot(x-screenCenter.x,y-screenCenter.y)/Math.max(12,Math.hypot(start.x-screenCenter.x,start.y-screenCenter.y))));
     if(drag.mode==='rotate')angle=Math.atan2(y-screenCenter.y,x-screenCenter.x)-Math.atan2(start.y-screenCenter.y,start.x-screenCenter.x);
@@ -222,7 +237,8 @@ const Selector=(()=>{
       selected.object.size=origin.size*factor;selected.object.rotation=((origin.rotation+angle*180/Math.PI+180)%360+360)%360-180;selected.object.elevation=origin.elevation+offset;
     }
     $('status').textContent=drag.mode==='scale'?`Escala ${Math.round(factor*100)}%`:drag.mode==='rotate'?`Rotação ${Math.round(angle*180/Math.PI)}°`:`Altura ${Math.round((selected.object?.elevation??origin.parts?.[0]?.part.elevation)||0)} m`;
-    textureDirty=true;draw();
+    if(selected.object.building==='floatingIsland'&&scene.transformBuilding?.(selected.object,previous)){if(typeof scheduleCameraDraw==='function')scheduleCameraDraw();else draw();}
+    else{textureDirty=true;if(typeof scheduleCameraDraw==='function')scheduleCameraDraw();else draw();}
   }
   function remove(){
     if(!valid())return;
@@ -254,6 +270,7 @@ const Selector=(()=>{
       const handles=[{mode:'scale',x:box.x+box.w+20,y:box.y+box.h+20,label:'↗',caption:'Escala',color:'#9adbc8'},
         {mode:'rotate',x:box.x+box.w+22,y:box.y-22,label:'↻',caption:'Girar',color:'#f3ca82'},
         {mode:'height',x:box.x-22,y:box.y-22,label:'↑',caption:'Altura',color:'#b8b2ff'}];
+      if(selected.object.building==='floatingIsland')handles.push({mode:'edit-island',x:box.x+box.w-45,y:box.y+box.h+20,label:'✎',caption:'Editar ilha',color:'#a9d8ff'});
       if(selected.collection==='structures'&&selected.object.points.length===2&&!selected.object.close&&!selected.object.fill){
         for(let i=0;i<2;i++){const p=selected.object.points[i],gx=p.x+(selected.region?.gx||0)*1600,gy=p.y+(selected.region?.gy||0)*1100;
           const part=selected.object,bridge=part.kind?.startsWith('bridge'),c=camera(),tc={...c,relief:1},ground=bridge?Billboards.surfaceHeight(gx,gy,layers):Math.max(...part.points.map(v=>Billboards.surfaceHeight(v.x+(selected.region?.gx||0)*1600,v.y+(selected.region?.gy||0)*1100,layers)));
@@ -285,8 +302,20 @@ const Selector=(()=>{
   $('selectionEndRows').addEventListener('click',e=>{const button=e.target.closest('[data-apply-end]');if(!button)return;const i=Number(button.dataset.applyEnd),row=button.parentElement;setEnd(i,Number(row.querySelector('[data-axis=x]').value),Number(row.querySelector('[data-axis=y]').value),Number(row.querySelector('[data-axis=height]').value));});
   $('selectionEndRows').addEventListener('click',e=>{const button=e.target.closest('[data-attach-end]');if(!button||!editable())return;attachEnd=Number(button.dataset.attachEnd);notify(`Clique no objeto que receberá o apoio ${attachEnd?'B':'A'}. Esc cancela.`);});
   $('selectionTransfer').onclick=()=>transfer(Number($('selectionLayer').value));
+  $('selectionColor').oninput=()=>previewColor($('selectionColor').value,$('selectionTrunk').value);
   $('selectionColor').onchange=() => recolor($('selectionColor').value,$('selectionTrunk').value);
+  $('selectionColor').onblur=commitColor;
+  $('selectionTrunk').oninput=()=>previewColor($('selectionColor').value,$('selectionTrunk').value);
   $('selectionTrunk').onchange=() => recolor($('selectionColor').value,$('selectionTrunk').value);
+  $('selectionTrunk').onblur=commitColor;
+  $('selectionIslandApply').onclick=()=>{
+    if(!editable()||selected.object.building!=='floatingIsland')return;
+    const size=Number($('selectionIslandSize').value),height=Number($('selectionIslandHeight').value),rotation=Number($('selectionIslandRotation').value);
+    if(![size,height,rotation].every(Number.isFinite)||size<8||size>160||height< -100||height>500||Math.abs(rotation)>360){notify('Informe tamanho de 8 a 160, altura de -100 a 500 e rotação de -360 a 360.');return;}
+    const o=selected.object;if(o.size===size&&(o.elevation||0)===height&&(o.rotation||0)===rotation)return;
+    remember();Object.assign(o,{size,elevation:height,rotation});textureDirty=true;changed();
+  };
+  $('selectionIslandEdit').onclick=()=>{if(!editable()||selected.object.building!=='floatingIsland')return;const o=selected.object;finish();clear();window.focusFloatingIsland?.(o);};
   $('selectionClear').onclick=clear;
   $('selectionDelete').onclick=remove;
   const oldDown=canvas.onpointerdown,oldMove=canvas.onpointermove,oldUp=canvas.onpointerup,oldCancel=canvas.onpointercancel;

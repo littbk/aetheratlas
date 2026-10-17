@@ -44,3 +44,21 @@ test('2D fallback uses the displayed flat map coordinates for a planet project',
   const p=c.point({clientX:40+500+(dx*Math.cos(a)-dy*Math.sin(a))*1.5,clientY:60+400+(dx*Math.sin(a)+dy*Math.cos(a))*1.5});
   assert(p.inside);assert(Math.abs(p.x-x)<1e-8);assert(Math.abs(p.y-y)<1e-8);assert.equal(p.worldX,4120);
 });
+
+test('island drag updates only its resident GPU geometry without rebuilding terrain',()=>{
+ const c=context(),scene=Object.create(c.AtlasScene.prototype),o={x:100,y:100,size:80,rotation:90,elevation:30},v=new Float32Array(6*15);
+ for(let i=0;i<6;i++){const k=i*15;v[k]=101;v[k+1]=100;v[k+2]=10;v[k+3]=101/1600;v[k+4]=100/1100;v[k+9]=5;v[k+10]=1;}
+ const other=v.slice(45);let uploads=0;
+ scene.gl={ARRAY_BUFFER:1,bindBuffer(){},bufferSubData(target,offset,data){uploads++;assert.equal(offset,0);assert.equal(data.length,45);}};
+ scene.buildings={vertices:v,indices:new Uint16Array([0,1,2,3,4,5]),entries:[{sourceObject:o,object:{x:100,y:100},first:0,count:3}]};
+ assert(scene.transformBuilding(o,{size:40,rotation:0,elevation:10}));assert.equal(uploads,1);
+ assert(Math.abs(v[0]-100)<.001);assert(Math.abs(v[1]-102)<.001);assert.equal(v[2],30);assert.equal(v[9],10);assert(Math.abs(v[11]-1)<.001);
+ assert.deepEqual(v.slice(45),other);
+ assert.equal(scene.transformBuilding({},{}),false);
+});
+
+test('legacy island datum is normalized without changing the source or relative relief',()=>{
+ const c=context();c.structuredClone=structuredClone;vm.runInContext('globalThis.Island=FloatingSurface',c);
+ const old={layers:[{terrain:{heights:[120,360],coverage:[255,255],waterLevels:{1:180}}}]};
+ const result=c.Island.normalize(old);assert.equal(result.islandDatum,0);assert.deepEqual(Array.from(result.layers[0].terrain.heights),[0,240]);assert.equal(result.layers[0].terrain.waterLevels[1],60);assert.deepEqual(old.layers[0].terrain.heights,[120,360]);assert.equal(c.Island.normalize(result),result);
+});

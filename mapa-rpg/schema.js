@@ -60,7 +60,7 @@ export function validateProject(project) {
     const objects = layer.objects ?? [], routes = layer.routes ?? [], tunnels = layer.tunnels ?? [], structures = layer.structures ?? [];
     if (!Array.isArray(structures) || structures.length > 3000 || !Array.isArray(objects) || objects.length > 2000 || !Array.isArray(routes) || routes.length > 2000 ||
         !Array.isArray(tunnels) || tunnels.length > 1000) fail('Objetos do mapa inválidos.');
-    const buildings = ['house','village','tower','castle','temple','bridge','camp','ruin','windmill','tunnel','door','cave'];
+    const buildings = ['floatingIsland','house','village','tower','castle','temple','bridge','camp','ruin','windmill','tunnel','door','cave'];
     for (const o of objects) if (!o || !['building','marker','text','tree','decor'].includes(o.kind) || !point(o) ||
       (o.elevation!==undefined&&!inRange(o.elevation,-100,500)) || !inRange(o.size,8,160) || !inRange(o.rotation,-360,360) || typeof o.text !== 'string' || o.text.length > 240 ||
       !/^#[0-9a-f]{6}$/i.test(o.color) || (o.kind === 'building' && (!buildings.includes(o.building) || (o.buildingStyle!==undefined&&!Number.isInteger(o.buildingStyle)) || (o.buildingStyle!==undefined&&!inRange(o.buildingStyle,0,2)) || (o.buildingPalette!==undefined&&!Number.isInteger(o.buildingPalette)) || (o.buildingPalette!==undefined&&!inRange(o.buildingPalette,0,2)))) ||

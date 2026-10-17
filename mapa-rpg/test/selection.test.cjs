@@ -84,3 +84,20 @@ test('endpoint arrows constrain X, Y and height without removing free movement',
   assert.deepEqual(counts(),{undo:3,changes:3});
 });
 
+
+test('selecting an island retains transformation controls and opens its surface only on request',()=>{
+ const {c,el,counts}=harness();let opened=0;c.window.focusFloatingIsland=()=>opened++;
+ const o={kind:'building',building:'floatingIsland',x:100,y:100,size:80,elevation:100,rotation:0};c.layers[0].objects=[o];c.billboardHits=[{layer:0,object:o,box:{x:90,y:90,w:20,h:20}}];
+ c.Selector.pick({clientX:100,clientY:100,pointerId:1});c.Selector.finish();assert.equal(opened,0);assert.equal(c.Selector.selected.object,o);
+ el('selectionIslandSize').value='120';el('selectionIslandHeight').value='160';el('selectionIslandRotation').value='45';el('selectionIslandApply').onclick();
+ assert.equal(o.size,120);assert.equal(o.elevation,160);assert.equal(o.rotation,45);assert.deepEqual(counts(),{undo:1,changes:1});
+ el('selectionIslandEdit').onclick();assert.equal(opened,1);assert.equal(c.Selector.selected,null);
+});
+
+test('text color previews immediately and commits a single overlay-only undo action',()=>{
+ const {c,el,counts}=harness(),o={kind:'text',text:'Velho Pantano',x:100,y:100,size:26,color:'#296d63'};
+ c.layers[0].objects=[o];c.billboardHits=[{layer:0,object:o,box:{x:90,y:90,w:20,h:20}}];c.Selector.pick({clientX:100,clientY:100,pointerId:1});c.Selector.finish();
+ for(const color of ['#ff0000','#00ff00','#0000ff']){el('selectionColor').value=color;el('selectionColor').oninput();assert.equal(o.color,color);}
+ assert.deepEqual(counts(),{undo:1,changes:0});assert.equal(c.textureDirty,false);
+ el('selectionColor').onchange();assert.deepEqual(counts(),{undo:1,changes:1});el('selectionColor').onblur();assert.deepEqual(counts(),{undo:1,changes:1});
+});
