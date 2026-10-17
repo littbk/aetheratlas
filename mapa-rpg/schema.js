@@ -1,7 +1,7 @@
 ﻿export const MAX_PROJECT_BYTES = 80 * 1024 * 1024;
 export const projectPathPattern = /^atlas-do-reino\/projects\/[0-9a-f-]{36}\.json$/;
 
-const recoveredBiomeHeights=[30,45,420,900,1200,1000,1800,170,15,240,330,220,500,15];
+const recoveredBiomeHeights=[30,45,420,900,1200,1000,1800,170,15,240,330,220,500,15,240,240];
 
 export function validateProject(project) {
   const fail = message => { throw new Error(message); };
@@ -26,7 +26,7 @@ export function validateProject(project) {
   if(project.world?.playerLocation!==undefined){const p=project.world.playerLocation;
     if(!p||!inRange(p.x,0,8000)||!inRange(p.y,0,4400))fail('LOCAL ATUAL inválido.');}
   if (project.theme !== undefined) for (const [key,value] of Object.entries(project.theme))
-    if (['grass','trees','water','lava','sand','rock','snow','forest','palms','pines','magic','autumn','jungle','snowForest','trunk'].includes(key) && !/^#[0-9a-f]{6}$/i.test(value)) fail('Paleta de cores inválida.');
+    if (['grass','trees','water','lava','sand','rock','snow','forest','palms','pines','magic','autumn','jungle','snowForest','trunk','acacia','savannaScrub'].includes(key) && !/^#[0-9a-f]{6}$/i.test(value)) fail('Paleta de cores inválida.');
   for (const layer of project.layers) {
     if (!layer || typeof layer.name !== 'string' || typeof layer.visible !== 'boolean' ||
         typeof layer.locked !== 'boolean' || !inRange(layer.opacity, 0, 1) || !png(layer.image) ||
@@ -35,10 +35,10 @@ export function validateProject(project) {
       const t = layer.terrain;
       if (!t || !['heights', 'coverage', 'biomes'].every(k => Array.isArray(t[k]) && t[k].length === 110000)) fail('Dados de relevo inválidos.');
       for (let i = 0; i < 110000; i++) {
-        if(t.biomes[i]>=14&&t.biomes[i]<=27&&(t.heights[i]===null||Number.isNaN(t.heights[i])))t.heights[i]=recoveredBiomeHeights[t.biomes[i]-14];
+        if(t.biomes[i]>=14&&t.biomes[i]<=29&&(t.heights[i]===null||Number.isNaN(t.heights[i])))t.heights[i]=recoveredBiomeHeights[t.biomes[i]-14];
         if (!inRange(t.heights[i], -500, 3000) ||
           !Number.isInteger(t.coverage[i]) || !inRange(t.coverage[i], 0, 255) ||
-          !Number.isInteger(t.biomes[i]) || !inRange(t.biomes[i], 0, 27)) fail('Altitude ou bioma inválido.');
+          !Number.isInteger(t.biomes[i]) || !inRange(t.biomes[i], 0, 29)) fail('Altitude ou bioma inválido.');
       }
       if(t.fog!==undefined&&(!Array.isArray(t.fog)||t.fog.length!==110000||t.fog.some(v=>v!==0&&v!==255)))fail('Cobertura FOG inválida.');
       if(t.waterColors!==undefined&&(!t.waterColors||typeof t.waterColors!=='object'||Array.isArray(t.waterColors)||Object.keys(t.waterColors).length>110000||Object.entries(t.waterColors).some(([k,v])=>!/^(0|[1-9][0-9]*)$/.test(k)||+k>=110000||typeof v!=='string'||!/^#[0-9a-f]{6}$/i.test(v))))fail('Cor de água inválida.');
@@ -46,6 +46,7 @@ export function validateProject(project) {
       if(t.treeStyles!==undefined||t.treeStyleIds!==undefined){
         if(!Array.isArray(t.treeStyles)||t.treeStyles.length>65535||t.treeStyles.some(s=>!s||!['foliage','trunk','ground'].every(k=>/^#[0-9a-f]{6}$/i.test(s[k])))||!Array.isArray(t.treeStyleIds)||t.treeStyleIds.length!==110000||t.treeStyleIds.some(id=>!Number.isInteger(id)||!inRange(id,0,t.treeStyles.length)))fail('Cores de vegetação inválidas.');
       }
+      if(t.treeOverlay!==undefined&&(!t.treeOverlay||Array.isArray(t.treeOverlay)||typeof t.treeOverlay!=='object'||Object.keys(t.treeOverlay).length>110000||Object.entries(t.treeOverlay).some(([k,v])=>!/^(0|[1-9][0-9]*)$/.test(k)||+k>=110000||!v||![2,8,9,10,11,12,13,24,25,26,27,28,29].includes(v.type)||!Number.isInteger(v.style)||!inRange(v.style,1,t.treeStyles?.length||0))))fail('Vegetação independente inválida.');
       if(t.treeExclusions!==undefined&&(!Array.isArray(t.treeExclusions)||t.treeExclusions.length>110000||t.treeExclusions.some(i=>!Number.isInteger(i)||!inRange(i,0,109999))))fail('Árvores removidas inválidas.');
     }
     if(layer.tiles!==undefined){
@@ -64,7 +65,7 @@ export function validateProject(project) {
     for (const o of objects) if (!o || !['building','marker','text','tree','decor'].includes(o.kind) || !point(o) ||
       (o.elevation!==undefined&&!inRange(o.elevation,-100,500)) || !inRange(o.size,8,160) || !inRange(o.rotation,-360,360) || typeof o.text !== 'string' || o.text.length > 240 ||
       !/^#[0-9a-f]{6}$/i.test(o.color) || (o.kind === 'building' && (!buildings.includes(o.building) || (o.buildingStyle!==undefined&&!Number.isInteger(o.buildingStyle)) || (o.buildingStyle!==undefined&&!inRange(o.buildingStyle,0,2)) || (o.buildingPalette!==undefined&&!Number.isInteger(o.buildingPalette)) || (o.buildingPalette!==undefined&&!inRange(o.buildingPalette,0,2)))) ||
-      (o.kind === 'tree' && (!['forest','palms','pines','magic','autumn','jungle','snowForest'].includes(o.species) || !/^#[0-9a-f]{6}$/i.test(o.trunkColor) || !inRange(o.seed,0,1))) ||
+      (o.kind === 'tree' && (!['forest','palms','pines','magic','autumn','jungle','snowForest','redwood','birch','taiga','mangrove','acacia','savannaScrub'].includes(o.species) || !/^#[0-9a-f]{6}$/i.test(o.trunkColor) || !inRange(o.seed,0,1))) ||
       (o.kind === 'decor' && (!['grass','flower','rock','bush','mushroom'].includes(o.decor) || !inRange(o.seed,0,1))) ||
       (o.kind === 'marker' && !['◇','♜','▲','✦','♣'].includes(o.symbol))) fail('Marcador inválido.');
     let count = 0;

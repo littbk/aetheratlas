@@ -438,6 +438,25 @@ class AtlasScene {
     this.performanceStats={...this.performanceStats,frameMs:elapsed,renderScale:this.renderScale||1};
     return this.canvas;
   }
+  regionBounds(left,top,right,bottom){
+    if(!this.pickCamera||!this.vertices?.length)return null;
+    this.pick((left+right)/2,(top+bottom)/2);
+    const index=this.pickMeshes?.get(this.vertices);if(!index)return null;
+    const candidates=new Set(),maxX=Math.ceil((this.pickWidth||2048)/64),maxY=Math.ceil((this.pickHeight||2048)/64);
+    for(let y=Math.max(-1,Math.floor(top/64));y<=Math.min(maxY,Math.floor(bottom/64));y++)for(let x=Math.max(-1,Math.floor(left/64));x<=Math.min(maxX,Math.floor(right/64));x++)for(const i of index.bins.get(x+','+y)||[])candidates.add(i);
+    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    const planes=[p=>p.x-left,p=>right-p.x,p=>p.y-top,p=>bottom-p.y];if(this.spherical)planes.push(p=>p.q-1);
+    for(const i of candidates){
+      let polygon=[0,1,2].map(j=>{const p=this.projected[i+j],k=(i+j)*6;return{x:p.x,y:p.y,q:1/p.w,u:this.vertices[k+3]/p.w,v:this.vertices[k+4]/p.w};});
+      // Clip in screen space while retaining perspective-correct geographic UVs.
+      for(const plane of planes){const input=polygon;polygon=[];if(!input.length)break;for(let j=0;j<input.length;j++){
+        const a=input[j],b=input[(j+1)%input.length],da=plane(a),db=plane(b);if(da>=0)polygon.push(a);
+        if((da>=0)!==(db>=0)){const t=da/(da-db),p={};for(const key of ['x','y','q','u','v'])p[key]=a[key]+(b[key]-a[key])*t;polygon.push(p);}
+      }}
+      for(const p of polygon){const x=p.u/p.q*8000,y=p.v/p.q*4400;x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}
+    }
+    return Number.isFinite(x0)?{x0,y0,x1,y1}:null;
+  }
   pick(x,y,includeWater=false) {
     if(!this.pickCamera)return null;
     if(!this.projectedReady){this.projected=[];for(const range of this.terrainRanges||[{first:0,count:this.vertices.length/6}])for(let j=range.first;j<range.first+range.count;j++){const i=j*6;this.projected[j]=this.project(this.vertices[i],this.vertices[i+1],this.vertices[i+2],this.pickCamera,this.spherical);}this.projectedReady=true;}

@@ -1,0 +1,1382 @@
+[
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": -180,
+    "lat": 0,
+    "area": {
+      "x": 0,
+      "y": 2004.6084081623987,
+      "width": 8000,
+      "height": 390.7833040077446
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": -135,
+    "lat": 0,
+    "area": {
+      "x": 820.5596741140594,
+      "y": 2004.6084082380848,
+      "width": 358.8806518820418,
+      "height": 390.783303856374
+    },
+    "count": 1089,
+    "maxOutside": 2.2737367544323206e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": -90,
+    "lat": 0,
+    "area": {
+      "x": 1820.5596733015027,
+      "y": 2004.6084082380848,
+      "width": 358.8275626380446,
+      "height": 390.783303856374
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": -45,
+    "lat": 0,
+    "area": {
+      "x": 2820.5596749266183,
+      "y": 2004.60840831377,
+      "width": 358.8806494443684,
+      "height": 390.7833037050043
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": 0,
+    "area": {
+      "x": 3825.208466563147,
+      "y": 2010.5492156672321,
+      "width": 350.44747454015896,
+      "height": 380.45689585902255
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 45,
+    "lat": 0,
+    "area": {
+      "x": 4820.559671676398,
+      "y": 2004.6084081623992,
+      "width": 358.8806559448076,
+      "height": 390.7833040077446
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 90,
+    "lat": 0,
+    "area": {
+      "x": 5820.559671676398,
+      "y": 2004.6084081623985,
+      "width": 358.8806559448067,
+      "height": 390.78330400774485
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 135,
+    "lat": 0,
+    "area": {
+      "x": 6820.559671676398,
+      "y": 2004.6084081623987,
+      "width": 358.8806559448067,
+      "height": 390.7833040077451
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 179,
+    "lat": 0,
+    "area": {
+      "x": 0,
+      "y": 2004.6093460609045,
+      "width": 8000,
+      "height": 390.78142822090695
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": -120,
+    "lat": 35,
+    "area": {
+      "x": 1091.59592362455,
+      "y": 1149.5449217421512,
+      "width": 483.7163278393407,
+      "height": 399.18493758882005
+    },
+    "count": 1089,
+    "maxOutside": 2.2737367544323206e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": 35,
+    "area": {
+      "x": 3758.2625909433596,
+      "y": 1149.544921742151,
+      "width": 483.71632605887453,
+      "height": 399.1849392962531
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 120,
+    "lat": 35,
+    "area": {
+      "x": 6424.929261454565,
+      "y": 1149.5449217421558,
+      "width": 483.7163225005452,
+      "height": 399.184937314581
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": -120,
+    "lat": -35,
+    "area": {
+      "x": 1091.3544145586413,
+      "y": 2851.2699408141793,
+      "width": 483.71632638926644,
+      "height": 399.18492558239086
+    },
+    "count": 1089,
+    "maxOutside": 2.2737367544323206e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": -35,
+    "area": {
+      "x": 3758.02108069692,
+      "y": 2851.269941530777,
+      "width": 483.71632695179505,
+      "height": 399.1849248657941
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 120,
+    "lat": -35,
+    "area": {
+      "x": 6424.687746449881,
+      "y": 2851.2699410884156,
+      "width": 483.7163329460882,
+      "height": 399.1849253081509
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": -60,
+    "lat": 70,
+    "area": {
+      "x": 1907.2548549566593,
+      "y": 293.9672410684908,
+      "width": 1520.1392818162187,
+      "height": 417.3808847439999
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 60,
+    "lat": 70,
+    "area": {
+      "x": 4573.9215275257675,
+      "y": 293.9672410684926,
+      "width": 1520.13926666131,
+      "height": 417.38088553776345
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": -60,
+    "lat": -70,
+    "area": {
+      "x": 1905.9391881653246,
+      "y": 3688.6518084291447,
+      "width": 1520.1392906175338,
+      "height": 417.3808718125292
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 60,
+    "lat": -70,
+    "area": {
+      "x": 4572.605833785887,
+      "y": 3688.651807635378,
+      "width": 1520.139313292877,
+      "height": 417.3808726062939
+    },
+    "count": 1089,
+    "maxOutside": 9.094947017729282e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": 88,
+    "area": {
+      "x": 0,
+      "y": 0,
+      "width": 8000,
+      "height": 313.7086682573165
+    },
+    "count": 1089,
+    "maxOutside": 1.1368683772161603e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": -88,
+    "area": {
+      "x": 0,
+      "y": 4086.2911716681815,
+      "width": 8000,
+      "height": 313.7088283318185
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": 90,
+    "area": {
+      "x": 0,
+      "y": 0,
+      "width": 8000,
+      "height": 277.20057231198484
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": -90,
+    "area": {
+      "x": 0,
+      "y": 4122.799418589957,
+      "width": 8000,
+      "height": 277.200581410043
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": -180,
+    "lat": 0,
+    "area": {
+      "x": 0,
+      "y": 1833.5636159968212,
+      "width": 8000,
+      "height": 732.8725181837317
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": -135,
+    "lat": 0,
+    "area": {
+      "x": 666.6343960499133,
+      "y": 1833.5636159496723,
+      "width": 666.7312061334134,
+      "height": 732.8725180222916
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": -90,
+    "lat": 0,
+    "area": {
+      "x": 1666.634397816673,
+      "y": 1833.5728325793777,
+      "width": 651.3388814007451,
+      "height": 732.8633014621157
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": -45,
+    "lat": 0,
+    "area": {
+      "x": 2666.6343942831572,
+      "y": 1833.5636160887327,
+      "width": 666.7312114336855,
+      "height": 732.8725178137017
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": 0,
+    "area": {
+      "x": 3673.0621802848896,
+      "y": 1841.5275418278338,
+      "width": 660.3034183649056,
+      "height": 724.4931194566134
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 45,
+    "lat": 0,
+    "area": {
+      "x": 4666.634401350206,
+      "y": 1833.5636158106108,
+      "width": 666.7311972995885,
+      "height": 732.8725183699421
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 90,
+    "lat": 0,
+    "area": {
+      "x": 5666.634401350206,
+      "y": 1833.5636158106108,
+      "width": 666.7311972995894,
+      "height": 732.8725183699421
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 135,
+    "lat": 0,
+    "area": {
+      "x": 6666.634401350206,
+      "y": 1833.5636158106108,
+      "width": 666.7311972995894,
+      "height": 732.8725183699421
+    },
+    "count": 1089,
+    "maxOutside": 2.2737367544323206e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 179,
+    "lat": 0,
+    "area": {
+      "x": 0,
+      "y": 1833.5584663425186,
+      "width": 8000,
+      "height": 732.88186640972
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": -120,
+    "lat": 35,
+    "area": {
+      "x": 920.6503921257422,
+      "y": 978.8657477169754,
+      "width": 805.6536765129676,
+      "height": 732.7194363255774
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": 35,
+    "area": {
+      "x": 3587.317060499556,
+      "y": 978.8657473875716,
+      "width": 805.6536768895007,
+      "height": 730.5665618751324
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 120,
+    "lat": 35,
+    "area": {
+      "x": 6253.98372606346,
+      "y": 978.8657476236386,
+      "width": 805.6536784542568,
+      "height": 732.7194364584828
+    },
+    "count": 1089,
+    "maxOutside": 6.821210263296962e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": -120,
+    "lat": -35,
+    "area": {
+      "x": 940.3625958355964,
+      "y": 2688.4147358256073,
+      "width": 805.6536766679859,
+      "height": 732.7194710186113
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": -35,
+    "area": {
+      "x": 3607.0292629365526,
+      "y": 2688.421793924711,
+      "width": 805.6536790966261,
+      "height": 732.7124133669463
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 120,
+    "lat": -35,
+    "area": {
+      "x": 6273.695932033413,
+      "y": 2688.4147372276575,
+      "width": 805.6536713788555,
+      "height": 732.7194703000696
+    },
+    "count": 1089,
+    "maxOutside": 9.094947017729282e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": -60,
+    "lat": 70,
+    "area": {
+      "x": 1752.1777451113037,
+      "y": 132.35505681695767,
+      "width": 1700.9359954719723,
+      "height": 724.6111780276896
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 60,
+    "lat": 70,
+    "area": {
+      "x": 4418.844419266881,
+      "y": 132.355056705735,
+      "width": 1700.9359904239282,
+      "height": 724.6111772338776
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": -60,
+    "lat": -70,
+    "area": {
+      "x": 1880.219590347812,
+      "y": 3543.0336778332166,
+      "width": 1700.9360014584001,
+      "height": 724.6112573189748
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 60,
+    "lat": -70,
+    "area": {
+      "x": 4546.88625098513,
+      "y": 3543.0336794787904,
+      "width": 1700.9360035041536,
+      "height": 724.6112555275308
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": 88,
+    "area": {
+      "x": 0,
+      "y": 0,
+      "width": 8000,
+      "height": 418.65296301615035
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": -88,
+    "area": {
+      "x": 0,
+      "y": 3981.34701263561,
+      "width": 8000,
+      "height": 418.6529873643899
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": 90,
+    "area": {
+      "x": 0,
+      "y": 0,
+      "width": 8000,
+      "height": 370.17476292455893
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": -90,
+    "area": {
+      "x": 0,
+      "y": 4029.825412924773,
+      "width": 8000,
+      "height": 370.174587075227
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": -180,
+    "lat": 0,
+    "area": {
+      "x": 0,
+      "y": 2034.6755353408435,
+      "width": 8000,
+      "height": 330.64908284983676
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": -135,
+    "lat": 0,
+    "area": {
+      "x": 848.5930705350767,
+      "y": 2034.6755353358128,
+      "width": 302.81385978203855,
+      "height": 330.6490828598978
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": -90,
+    "lat": 0,
+    "area": {
+      "x": 1848.5930698623588,
+      "y": 2034.675535355935,
+      "width": 302.7562969338087,
+      "height": 330.6490828598983
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": -45,
+    "lat": 0,
+    "area": {
+      "x": 2848.5930712077916,
+      "y": 2034.6755353156902,
+      "width": 302.8138577638915,
+      "height": 330.64908290014296
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": 0,
+    "area": {
+      "x": 3852.712856623047,
+      "y": 2039.4586173841594,
+      "width": 295.11376787437484,
+      "height": 321.5868252434757
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 45,
+    "lat": 0,
+    "area": {
+      "x": 4848.593068516917,
+      "y": 2034.6755353961803,
+      "width": 302.81386314564133,
+      "height": 330.64908273916217
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 90,
+    "lat": 0,
+    "area": {
+      "x": 5848.593068516916,
+      "y": 2034.6755353961803,
+      "width": 302.81386314564224,
+      "height": 330.64908273916217
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 135,
+    "lat": 0,
+    "area": {
+      "x": 6848.593068516916,
+      "y": 2034.6755353961803,
+      "width": 302.81386314564224,
+      "height": 330.64908273916217
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 179,
+    "lat": 0,
+    "area": {
+      "x": 0,
+      "y": 2034.6775734674727,
+      "width": 8000,
+      "height": 330.6450065852489
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": -120,
+    "lat": 35,
+    "area": {
+      "x": 1132.5556581799524,
+      "y": 1179.411955796575,
+      "width": 401.68696517913054,
+      "height": 336.7470897151268
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": 35,
+    "area": {
+      "x": 3799.222323480365,
+      "y": 1179.4119557965748,
+      "width": 401.68696430696946,
+      "height": 336.7470913329364
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 120,
+    "lat": 35,
+    "area": {
+      "x": 6465.888988606654,
+      "y": 1179.4119557965796,
+      "width": 401.6869667640285,
+      "height": 336.74708961217516
+    },
+    "count": 1089,
+    "maxOutside": 1.8189894035458565e-12,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": -120,
+    "lat": -35,
+    "area": {
+      "x": 1132.4240431101366,
+      "y": 2883.8409343029753,
+      "width": 401.6869638785115,
+      "height": 336.7472280061047
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": -35,
+    "area": {
+      "x": 3799.090708772175,
+      "y": 2883.8409326851574,
+      "width": 401.686961554587,
+      "height": 336.747229623923
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 120,
+    "lat": -35,
+    "area": {
+      "x": 6465.757373887934,
+      "y": 2883.8409344059223,
+      "width": 401.6869654897482,
+      "height": 336.7472279031531
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": -60,
+    "lat": 70,
+    "area": {
+      "x": 2056.8063939948815,
+      "y": 323.8723433746469,
+      "width": 1220.2745661774147,
+      "height": 350.5653646487673
+    },
+    "count": 1089,
+    "maxOutside": 2.2737367544323206e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 60,
+    "lat": 70,
+    "area": {
+      "x": 4723.472982239069,
+      "y": 323.8723433746488,
+      "width": 1220.2746458359397,
+      "height": 350.56536389797117
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": -60,
+    "lat": -70,
+    "area": {
+      "x": 2056.2524466292607,
+      "y": 3725.562328104322,
+      "width": 1220.2745622071175,
+      "height": 350.56516401052704
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 60,
+    "lat": -70,
+    "area": {
+      "x": 4722.91903482361,
+      "y": 3725.5623288551187,
+      "width": 1220.2746387994448,
+      "height": 350.56516325972916
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": 88,
+    "area": {
+      "x": 0,
+      "y": 0,
+      "width": 8000,
+      "height": 271.1001515710416
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": -88,
+    "area": {
+      "x": 0,
+      "y": 4128.899841076442,
+      "width": 8000,
+      "height": 271.1001589235584
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": 90,
+    "area": {
+      "x": 0,
+      "y": 0,
+      "width": 8000,
+      "height": 234.32577192949665
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 1,
+    "lon": 0,
+    "lat": -90,
+    "area": {
+      "x": 0,
+      "y": 4165.674151315782,
+      "width": 8000,
+      "height": 234.32584868421782
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": -180,
+    "lat": 0,
+    "area": {
+      "x": 0,
+      "y": 1890.994459202406,
+      "width": 8000,
+      "height": 618.0112688916458
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": -135,
+    "lat": 0,
+    "area": {
+      "x": 718.9418286459664,
+      "y": 1890.9944592413294,
+      "width": 562.116343569708,
+      "height": 618.0112690225687
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": -90,
+    "lat": 0,
+    "area": {
+      "x": 1718.9418277843254,
+      "y": 1890.9944845718078,
+      "width": 552.3371624317713,
+      "height": 618.0112436354748
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": -45,
+    "lat": 0,
+    "area": {
+      "x": 2718.941829507604,
+      "y": 1890.994459128099,
+      "width": 562.1163409847927,
+      "height": 618.0112691924148
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": 0,
+    "area": {
+      "x": 3725.21130032051,
+      "y": 1892.3705060516252,
+      "width": 544.0700813620774,
+      "height": 608.6788442647487
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 45,
+    "lat": 0,
+    "area": {
+      "x": 4718.9418260610355,
+      "y": 1890.9944593545597,
+      "width": 562.1163478779308,
+      "height": 618.0112687394922
+    },
+    "count": 1089,
+    "maxOutside": 2.2737367544323206e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 90,
+    "lat": 0,
+    "area": {
+      "x": 5718.9418260610355,
+      "y": 1890.9944593545597,
+      "width": 562.1163478779299,
+      "height": 618.0112687394922
+    },
+    "count": 1089,
+    "maxOutside": 2.2737367544323206e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 135,
+    "lat": 0,
+    "area": {
+      "x": 6718.941826061035,
+      "y": 1890.9944593545597,
+      "width": 562.1163478779308,
+      "height": 618.0112687394922
+    },
+    "count": 1089,
+    "maxOutside": 2.2737367544323206e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 179,
+    "lat": 0,
+    "area": {
+      "x": 0,
+      "y": 1890.9860363716468,
+      "width": 8000,
+      "height": 618.0283101611215
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": -120,
+    "lat": 35,
+    "area": {
+      "x": 985.6092174924909,
+      "y": 1036.0735990555518,
+      "width": 681.1307423137523,
+      "height": 617.7803863684412
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": 35,
+    "area": {
+      "x": 3652.2758827241432,
+      "y": 1036.073598619057,
+      "width": 681.1307347992706,
+      "height": 617.6531025995987
+    },
+    "count": 1089,
+    "maxOutside": 2.2737367544323206e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 120,
+    "lat": 35,
+    "area": {
+      "x": 6318.942549187131,
+      "y": 1036.0735985047793,
+      "width": 681.13074216919,
+      "height": 617.780387319551
+    },
+    "count": 1089,
+    "maxOutside": 4.547473508864641e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": -120,
+    "lat": -35,
+    "area": {
+      "x": 999.9267091139988,
+      "y": 2746.1459929142065,
+      "width": 681.1307402871738,
+      "height": 617.7804721248367
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": -35,
+    "area": {
+      "x": 3666.5933721996303,
+      "y": 2746.145993778621,
+      "width": 681.1307408963362,
+      "height": 617.7804716397759
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 120,
+    "lat": -35,
+    "area": {
+      "x": 6333.260035291509,
+      "y": 2746.1459946217933,
+      "width": 681.1307481620515,
+      "height": 617.7804706823295
+    },
+    "count": 1089,
+    "maxOutside": 1.8189894035458565e-12,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": -60,
+    "lat": 70,
+    "area": {
+      "x": 1873.5780758830458,
+      "y": 184.84659088844893,
+      "width": 1485.3668144654391,
+      "height": 614.3185359628851
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 60,
+    "lat": 70,
+    "area": {
+      "x": 4540.244743296202,
+      "y": 184.8465906664624,
+      "width": 1485.3668129703701,
+      "height": 614.3185351943018
+    },
+    "count": 1089,
+    "maxOutside": 5.684341886080802e-14,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": -60,
+    "lat": -70,
+    "area": {
+      "x": 1974.3884423980558,
+      "y": 3600.8349450462074,
+      "width": 1485.366815153231,
+      "height": 614.3185436990725
+    },
+    "count": 1089,
+    "maxOutside": 9.094947017729282e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 60,
+    "lat": -70,
+    "area": {
+      "x": 4641.055115408349,
+      "y": 3600.834946416373,
+      "width": 1485.366808570977,
+      "height": 614.3185426580285
+    },
+    "count": 1089,
+    "maxOutside": 9.094947017729282e-13,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": 88,
+    "area": {
+      "x": 0,
+      "y": 0,
+      "width": 8000,
+      "height": 360.593672951116
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": -88,
+    "area": {
+      "x": 0,
+      "y": 4039.4064670248868,
+      "width": 8000,
+      "height": 360.59353297511325
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": 90,
+    "area": {
+      "x": 0,
+      "y": 0,
+      "width": 8000,
+      "height": 312.11760713434194
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  },
+  {
+    "entry": "public/index.html",
+    "dpr": 2,
+    "lon": 0,
+    "lat": -90,
+    "area": {
+      "x": 0,
+      "y": 4087.8822394140107,
+      "width": 8000,
+      "height": 312.11776058598934
+    },
+    "count": 1089,
+    "maxOutside": 0,
+    "missed": []
+  }
+]

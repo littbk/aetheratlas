@@ -2,6 +2,25 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.join(__dirname,'../..');
+
+test('region bounds clip triangle edges and retain all geographic extrema inside the selection',()=>{
+ const c=context(),scene=Object.create(c.AtlasScene.prototype);
+ scene.spherical=true;scene.pickCamera={};scene.pickWidth=200;scene.pickHeight=200;
+ scene.vertices=new Float32Array([-10,-10,0,0,0,1,110,-10,0,1,0,1,-10,110,0,0,1,1]);
+ scene.project=(x,y)=>({x,y,w:.8,visible:true});
+ const bounds=scene.regionBounds(0,0,60,60);
+ assert(Math.abs(bounds.x0-8000/12)<.001);assert(Math.abs(bounds.x1-8000*7/12)<.001);
+ assert(Math.abs(bounds.y0-4400/12)<.001);assert(Math.abs(bounds.y1-4400*7/12)<.001);
+ assert.equal(scene.regionBounds(150,150,180,180),null);
+});
+
+test('region bounds include the exact longitude seam between screen samples',()=>{
+ const c=context(),scene=Object.create(c.AtlasScene.prototype);
+ scene.spherical=true;scene.pickCamera={};scene.pickWidth=200;scene.pickHeight=200;
+ scene.vertices=new Float32Array([0,0,0,.99,.4,1,50,0,0,1,.4,1,50,100,0,1,.6,1,50,0,0,0,.4,1,100,0,0,.01,.4,1,50,100,0,0,.6,1]);
+ scene.project=(x,y)=>({x,y,w:.8,visible:true});
+ const bounds=scene.regionBounds(40,20,60,80);assert.equal(bounds.x0,0);assert.equal(bounds.x1,8000);
+});
 function context(){
   const c=vm.createContext({document:{createElement(){return{getContext(){return{};}};}}});
   for(const [file,name] of [['terrain.js','Terrain'],['world-surface.js','WorldSurface'],['scene.js','AtlasScene']])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8')+`\nglobalThis.${name}=${name};`,c);

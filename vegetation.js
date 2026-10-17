@@ -18,14 +18,14 @@ const Vegetation=(()=>{
       const n=random(gx,gy);if(n<.22||candidates.length>=2200)continue;
       const x=gx+(random(gx+8,gy)-.5)*14,y=gy+(random(gx,gy+9)-.5)*14,i=Terrain.index(x,y);
       if(include&&!include({x,y,size:40},'vegetation'))continue;
-      let type=0,layer=-1;
-      layers.forEach((l,j)=>{if(l.visible&&l.terrain.coverage[i]/255*l.opacity>.35){type=l.terrain.biomes[i];layer=j;}});
+      let type=0,layer=-1,overlay=null;
+      layers.forEach((l,j)=>{if(!l.visible)return;if(l.terrain.coverage[i]/255*l.opacity>.35){type=l.terrain.biomes[i];layer=j;overlay=null;}if(l.opacity>.35&&l.terrain.treeOverlay?.[i]){overlay=l.terrain.treeOverlay[i];type=overlay.type;layer=j;}});
       if(!Terrain.isTreeBiome(type)){
         const cover=groundCover[type];if(cover&&n>.56){const object={kind:'decor',decor:cover[0],color:cover[1],seed:n,size:12,rotation:n*360,elevation:0};candidates.push({x,y,n,type,layer,index:i,object,size:object.size});}
         continue;
       }
       const t=layers[layer].terrain;if(t.treeExclusions.has(i))continue;
-      const style=t.treeStyles[t.treeStyleIds[i]-1];
+      const style=t.treeStyles[(overlay?.style||t.treeStyleIds[i])-1];
       candidates.push({x,y,n,type,layer,index:i,foliage:style.foliage,trunk:style.trunk,size:40});
     }
     layers.forEach((l,layer)=>{if(l.visible&&l.opacity>.05)for(const object of l.objects||[])if(object.kind==='tree')candidates.push({x:object.x,y:object.y,n:object.seed??random(object.x,object.y),type:Terrain.biomes.indexOf(object.species),layer,object,foliage:object.color,trunk:object.trunkColor,size:object.size});});
@@ -58,7 +58,7 @@ const Vegetation=(()=>{
         count++;counts.decor=(counts.decor||0)+1;continue;
       }
       const {x,y,n,type}=entry,base=surface(x,y)+(entry.object?.elevation||0),scale=planet?.37:1,key=type===2?'trees':Terrain.biomes[type],leaf=color(entry.foliage),trunk=color(entry.trunk),factor=entry.size/40;
-      const h=(type===8?31:type===24?36:type===9||type===13||type===26?28:20)*(0.8+n*.45)*factor,r=(type===12||type===27?10:7)*(0.85+n*.3)*factor;
+      const h=(type===29?8:type===28?23:type===8?31:type===24?36:type===9||type===13||type===26?28:20)*(0.8+n*.45)*factor,r=(type===29?6:type===28?13:type===12||type===27?10:7)*(0.85+n*.3)*factor;
       entry.base=base;entry.height=h*1.2*scale;entry.radius=r*(type===8?1.8:1.1);entries.push(entry);
       const turn=(entry.object?.rotation||0)*Math.PI/180,cs=Math.cos(turn),sn=Math.sin(turn);
       const vertex=(p,tint,shade)=>{
@@ -75,8 +75,25 @@ const Vegetation=(()=>{
           triangle(p,q,s,tint,shade);triangle(q,t,s,tint,shade);
         }
       };
-      rings([[0,1.2],[h*(type===8?.95:.68),1,type===8?3:0]],5,trunk);
-      if(type===8){
+      if(type!==29)rings([[0,1.2],[h*(type===28?.64:type===8?.95:.68),1,type===8?3:0]],5,trunk);
+      if(type===29){
+        // Small dry grass clumps and a low shrub, with no tree-sized trunk.
+        for(let k=0;k<11;k++){
+          const a=k*2.399+n*6,reach=(k%3)*r*.24,px=Math.cos(a)*reach,py=Math.sin(a)*reach,tip=h*(.58+(k%4)*.14),lean=r*(.25+(k%3)*.13),w=.65*factor;
+          const end=[px+Math.cos(a)*lean,py+Math.sin(a)*lean,tip];
+          triangle([px-Math.sin(a)*w,py+Math.cos(a)*w,0],[px+Math.sin(a)*w,py-Math.cos(a)*w,0],end,leaf,.8+(k%4)*.12);
+          triangle([px,py-w,0],[px,py+w,0],end,leaf,1.05);
+        }
+        rings([[h*.12,0,r*.35],[h*.3,r*.44,r*.35],[h*.55,r*.35,r*.35],[h*.65,0,r*.35]],5,leaf.map(v=>v*.7));
+      }else if(type===28){
+        // Forked branches hold a wide, shallow umbrella canopy.
+        for(let k=0;k<3;k++){
+          const a=k*Math.PI*2/3+n,tip=[Math.cos(a)*r*.62,Math.sin(a)*r*.62,h*.86],w=.65*factor;
+          triangle([-w,0,h*.48],[w,0,h*.48],tip,trunk,.86);
+          triangle([0,-w,h*.48],[0,w,h*.48],tip,trunk,1.06);
+        }
+        rings([[h*.78,0],[h*.84,r*.82],[h*.94,r],[h*1.01,r*.58],[h*1.04,0]],8,leaf);
+      }else if(type===8){
         const top=[3,0,h*.95];
         for(let k=0;k<7;k++){
           const a=k/7*Math.PI*2+n,b=[top[0]+Math.cos(a)*r*.65,Math.sin(a)*r*.65,h*1.06],end=[top[0]+Math.cos(a)*r*1.75,Math.sin(a)*r*1.75,h*.72];

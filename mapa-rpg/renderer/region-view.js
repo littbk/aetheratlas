@@ -20,13 +20,17 @@ class AtlasRegionView {
     stage.append(this.controls);
     this.controls.querySelector('.region-view-cancel').onclick=()=>this.cancel();
     this.controls.querySelector('.region-view-confirm').onclick=()=>{if(!this.preview)return;const region=this.preview;this.selecting=false;this.preview=null;this.enter(region);this.sync();};
-    for(const button of this.controls.querySelectorAll('[data-size]'))button.onclick=()=>{this.size=Number(button.dataset.size);if(this.preview)this.preview=this.centered(this.preview.x+this.preview.width/2,this.preview.y+this.preview.height/2);this.sync();};
+    for(const button of this.controls.querySelectorAll('[data-size]'))button.onclick=()=>{
+      this.size=Number(button.dataset.size);
+      if(this.preview){const r=this.preview,polar=r.width===8000,y=polar&&r.y===0?0:polar&&Math.abs(r.y+r.height-4400)<.001?4400:r.y+r.height/2;this.preview=this.centered(r.x+r.width/2,y);}
+      this.sync();
+    };
     this.button.onclick=()=>{if(this.active()){this.exit();this.sync();return;}if(this.selecting){this.cancel();return;}if(!this.world())return;this.selecting=true;this.sync();};
     canvas.addEventListener('pointerdown',e=>{
       if(!this.selecting||e.button!==0||this.start)return;
-      this.stop(e);const p=this.pick(e);if(!this.valid(p))return;
-      this.start={...p,sx:e.clientX,sy:e.clientY,id:e.pointerId,touch:e.pointerType==='touch'};canvas.setPointerCapture(e.pointerId);
-      this.preview=this.centered(p.worldX,p.worldY);this.sync();
+      this.stop(e);const p=this.pick(e);
+      this.start={...(this.valid(p)?p:{}),sx:e.clientX,sy:e.clientY,id:e.pointerId,touch:e.pointerType==='touch'};canvas.setPointerCapture(e.pointerId);
+      if(this.valid(p))this.preview=this.centered(p.worldX,p.worldY);this.sync();
     },true);
     canvas.addEventListener('pointermove',e=>{
       if(!this.selecting)return;
@@ -41,11 +45,10 @@ class AtlasRegionView {
       if(!this.selecting||!this.start||e.pointerId!==this.start.id)return;
       this.stop(e);const end=this.pick(e),start=this.start;
       if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);
-      this.start=null;this.box.hidden=true;if(!this.valid(end)){this.sync();return;}
+      this.start=null;this.box.hidden=true;
       const drag=Math.hypot(e.clientX-start.sx,e.clientY-start.sy)>12;
-      if(!start.touch&&drag){const width=Math.abs(end.worldX-start.worldX),height=Math.abs(end.worldY-start.worldY);
-        this.preview=this.clamp({x:Math.min(end.worldX,start.worldX),y:Math.min(end.worldY,start.worldY),width,height});}
-      else this.preview=this.centered(end.worldX,end.worldY);
+      if(!start.touch&&drag)this.preview=this.dragRegion(start,e)||this.preview;
+      else if(this.valid(end))this.preview=this.centered(end.worldX,end.worldY);
       this.sync();
     },true);
     canvas.addEventListener('pointercancel',e=>{if(this.start?.id===e.pointerId)this.cancel();},true);
@@ -55,8 +58,28 @@ class AtlasRegionView {
   pick(e){const r=this.canvas.getBoundingClientRect();return this.scene.pick(e.clientX-r.left,e.clientY-r.top);}
   valid(p){return p&&Number.isFinite(p.worldX)&&Number.isFinite(p.worldY)&&p.worldX>=0&&p.worldX<=8000&&p.worldY>=0&&p.worldY<=4400;}
   clamp({x,y,width,height}){width=Math.max(64,Math.min(8000,width));height=Math.max(64,Math.min(4400,height));return{x:Math.max(0,Math.min(8000-width,x)),y:Math.max(0,Math.min(4400-height,y)),width,height};}
-  centered(x,y){return this.clamp({x:x-this.size/2,y:y-this.size*1100/3200,width:this.size,height:this.size*1100/1600});}
-  cancel(){this.selecting=false;this.start=null;this.preview=null;this.box.hidden=true;this.sync();}
+  centered(x,y){const height=this.size*1100/1600,pole=this.read().planet&&(y<=height/2||y>=4400-height/2);return this.clamp({x:pole?0:x-this.size/2,y:y-height/2,width:pole?8000:this.size,height});}
+  dragRegion(start,end){
+    const rect=this.canvas.getBoundingClientRect(),left=Math.min(start.sx,end.clientX)-rect.left,right=Math.max(start.sx,end.clientX)-rect.left,top=Math.min(start.sy,end.clientY)-rect.top,bottom=Math.max(start.sy,end.clientY)-rect.top;
+    const points=[];
+    const bounds=this.scene.regionBounds?.(left,top,right,bottom);
+    if(bounds)points.push({worldX:Math.max(0,bounds.x0),worldY:Math.max(0,bounds.y0)},{worldX:Math.min(8000,bounds.x1),worldY:Math.min(4400,bounds.y1)});
+    // Fallback for renderers without indexed terrain; exact clipping covers the main renderer.
+    if(!bounds)for(let j=0;j<=8;j++)for(let i=0;i<=8;i++){
+      const p=this.scene.pick(left+(right-left)*i/8,top+(bottom-top)*j/8);if(this.valid(p))points.push(p);
+    }
+    if(this.valid(start))points.push(start);
+    const last=this.pick(end);if(this.valid(last))points.push(last);
+    if(!points.length)return null;
+    let x0=Math.min(...points.map(p=>p.worldX)),x1=Math.max(...points.map(p=>p.worldX)),y0=Math.min(...points.map(p=>p.worldY)),y1=Math.max(...points.map(p=>p.worldY));
+    const camera=this.read();
+    if(camera.planet)for(const y of [0,4400]){
+      const pole=this.scene.project(4000,y,0,camera,true);
+      if(pole.visible!==false&&pole.x>=left&&pole.x<=right&&pole.y>=top&&pole.y<=bottom){x0=0;x1=8000;y0=Math.min(y0,y);y1=Math.max(y1,y);}
+    }
+    return this.clamp({x:x0,y:y0,width:x1-x0,height:y1-y0});
+  }
+  cancel(){const id=this.start?.id;this.selecting=false;this.start=null;if(id!==undefined&&this.canvas.hasPointerCapture(id))this.canvas.releasePointerCapture(id);this.preview=null;this.box.hidden=true;this.sync();}
   renderPreview(){
     const r=this.preview,camera=this.read();this.outline.toggleAttribute('hidden',!this.selecting||!r);
     if(!r)return;
@@ -82,7 +105,8 @@ class AtlasRegionView {
     this.button.setAttribute('aria-label',this.button.title);this.button.dataset.tooltip=this.button.title;
     this.button.setAttribute('aria-pressed',String(active||this.selecting));this.controls.hidden=!this.selecting;
     this.controls.querySelector('.region-view-confirm').disabled=!this.preview;
-    this.controls.querySelector('span').textContent=this.preview?'Toque ou arraste para ajustar':'Toque no planeta para posicionar';
+    const polar=this.preview?.width===8000&&(this.preview.y===0||this.preview.y+this.preview.height===4400);
+    this.controls.querySelector('span').textContent=polar?'Região polar · todas as longitudes':this.preview?'Toque ou arraste para ajustar':'Toque no planeta para posicionar';
     for(const button of this.controls.querySelectorAll('[data-size]'))button.setAttribute('aria-pressed',String(Number(button.dataset.size)===this.size));
     this.hint.hidden=true;this.renderPreview();
   }

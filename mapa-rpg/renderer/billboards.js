@@ -7,7 +7,7 @@ const Billboards=(()=>{
     return objects.map(o=>{
       if(!o||!['building','marker','text','tree','decor'].includes(o.kind)||![o.x,o.y,o.size,o.rotation].every(Number.isFinite)||o.x<0||o.y<0||o.x>=1600||o.y>=1100||o.size<8||o.size>160||Math.abs(o.rotation)>360||typeof o.text!=='string'||o.text.length>240||!/^#[0-9a-f]{6}$/i.test(o.color))throw Error('Marcador inválido.');
       if(o.elevation!==undefined&&(!Number.isFinite(o.elevation)||o.elevation< -100||o.elevation>500))throw Error('Altura do objeto inválida.');
-      if(o.kind==='tree'&&(!['forest','palms','pines','magic','autumn','jungle','snowForest'].includes(o.species)||!/^#[0-9a-f]{6}$/i.test(o.trunkColor)||!Number.isFinite(o.seed)||o.seed<0||o.seed>1))throw Error('Árvore inválida.');
+      if(o.kind==='tree'&&(!['forest','palms','pines','magic','autumn','jungle','snowForest','redwood','birch','taiga','mangrove','acacia','savannaScrub'].includes(o.species)||!/^#[0-9a-f]{6}$/i.test(o.trunkColor)||!Number.isFinite(o.seed)||o.seed<0||o.seed>1))throw Error('Árvore inválida.');
       if(o.kind==='decor'&&(!['grass','flower','rock','bush','mushroom'].includes(o.decor)||!Number.isFinite(o.seed)||o.seed<0||o.seed>1))throw Error('Decoração inválida.');
       if(o.kind==='building'&&(!Object.hasOwn(Buildings.names,o.building)||(o.buildingStyle!==undefined&&(!Number.isInteger(o.buildingStyle)||o.buildingStyle<0||o.buildingStyle>2))||(o.buildingPalette!==undefined&&(!Number.isInteger(o.buildingPalette)||o.buildingPalette<0||o.buildingPalette>2))))throw Error('Construção inválida.');
       if(o.kind==='marker'&&!['◇','♜','▲','✦','♣'].includes(o.symbol))throw Error('Símbolo inválido.');

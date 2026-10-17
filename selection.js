@@ -17,7 +17,7 @@ const Selector=(()=>{
   const valid=()=>{
     if(!selected)return false;const l=layers[selected.layer];
     if(!l||!l.visible||(selected.region?WorldSurface.child(l,selected.region.gx,selected.region.gy):l)!==selected.source)return false;const storage=selected.source;
-    if(selected.generated)return !storage.terrain.treeExclusions.has(selected.entry.index)&&(storage.terrain.biomes[selected.entry.index]===2||storage.terrain.biomes[selected.entry.index]>=8);
+    if(selected.generated)return !storage.terrain.treeExclusions.has(selected.entry.index)&&(!!storage.terrain.treeOverlay?.[selected.entry.index]||Terrain.isTreeBiome(storage.terrain.biomes[selected.entry.index]));
     return storage[selected.collection].includes(selected.object);
   };
   function clear(){commitColor();selected=null;drag=null;gizmo=null;attachEnd=null;panel.hidden=true;draw();}
@@ -30,7 +30,7 @@ const Selector=(()=>{
     if(!valid()){selected=null;panel.hidden=true;return;}
     panel.hidden=tool!=='select';
     const o=selected.object||selected.entry,c=center(),tree=selected.generated||o.kind==='tree';
-    const species={forest:'Floresta de copas',palms:'Coqueiro',pines:'Pinheiro',magic:'Árvore mágica',autumn:'Árvore outonal',jungle:'Árvore de selva',snowForest:'Pinheiro nevado'};
+    const species={forest:'Floresta de copas',palms:'Coqueiro',pines:'Pinheiro',magic:'Árvore mágica',autumn:'Árvore outonal',jungle:'Árvore de selva',snowForest:'Pinheiro nevado',acacia:'Acácia de savana',savannaScrub:'Mato de savana'};
     islandPanel.hidden=o.building!=='floatingIsland';
     if(!islandPanel.hidden){$('selectionIslandSize').value=o.size;$('selectionIslandHeight').value=o.elevation||0;$('selectionIslandRotation').value=o.rotation||0;}
     $('selectionName').textContent=tree?(species[o.species||Terrain.biomes[o.type]]||'Árvore'):o.text||({building:Buildings.names[o.building],marker:'Marcador',text:'Texto',river:'Rio',path:'Caminho'}[o.kind])||(selected.collection==='tunnels'?'Túnel':'Objeto');

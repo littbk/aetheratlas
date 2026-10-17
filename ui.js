@@ -96,6 +96,10 @@
   const propertyTitle=propertyPanel.querySelector('h3'),propertyHint=document.createElement('p');propertyHint.className='ui-tool-hint';propertyPanel.append(propertyHint);
   const soft=$('soft').closest('label'),integrate=$('integrate').closest('label'),strength=setting('strength'),amount=setting('amount'),targetSetting=setting('target');
   const treeColors=forest.querySelector('.world-colors'),treeColorsPanel=section('Cores das árvores',treeColors);treeColorsPanel.classList.add('ui-tree-colors');
+  const treesOnly=document.createElement('button');treesOnly.id='forestTreesOnly';treesOnly.type='button';treesOnly.setAttribute('aria-pressed','false');treesOnly.textContent='Somente árvores · manter terreno';
+  treesOnly.title='Adiciona árvores sem alterar a textura ou a altura do terreno.';
+  treesOnly.onclick=()=>{const enabled=treesOnly.getAttribute('aria-pressed')!=='true';treesOnly.setAttribute('aria-pressed',String(enabled));treesOnly.classList.toggle('active',enabled);};
+  treeColorsPanel.append(treesOnly);
   const controls={palette,size,color,soft,integrate,strength,amount,target:targetSetting,decoration,water:waterSection,fog:fogSection,treeColors:treeColorsPanel,waterfall:waterfallSettings};
   propertyPanel.append(size,strength,soft,integrate,amount,targetSetting,color,treeColorsPanel,palette,decoration,waterSection,fogSection,waterfallSettings);
   smart.remove();sculpt.remove();forest.hidden=true;propertyPanel.append(forest);
@@ -105,7 +109,7 @@
     const selected=document.querySelector('[data-tool].active')?.dataset.tool,keys=new Set(propertyMap[selected]||[]),name=toolList.find(item=>item[0]===selected)?.[2];
     propertyTitle.textContent=name?`Ajustes · ${name}`:'Escolha uma ferramenta';
     propertyHint.textContent=propertyHints[selected]||'Escolha uma ferramenta de terreno para ver seus ajustes.';
-    if(selected==='brush'&&['forest','palms','pines','magic','autumn','jungle','snowForest'].includes(selectedBiome))keys.add('treeColors');
+    if(selected==='brush'&&Terrain.isTreeBiome(Terrain.biomes.indexOf(selectedBiome)))keys.add('treeColors');
     for(const [key,node] of Object.entries(controls))node.hidden=!keys.has(key);
     const level=$('waterLevel'),levelLabel=waterSettings.querySelector('label[for="waterLevel"]');level.hidden=levelLabel.hidden=$('waterAuto').checked;
     size.querySelector('label').firstChild.textContent=selected==='river'?'Largura do rio ':selected==='path'?'Largura do caminho ':'Tamanho do pincel ';
